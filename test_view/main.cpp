@@ -18,10 +18,6 @@
 
 #include "resource.h"
 
-#include <atlbase.h>
-
-CComModule _Module;
-
 #define BUTTON_ID_ANIMATE   1
 
 class MainView : public view::View

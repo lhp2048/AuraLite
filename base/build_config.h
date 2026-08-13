@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "auralite_export.h"
+
 #define OS_WIN              1
 
 #define COMPILER_MSVC       1

@@ -2,6 +2,7 @@
 #include "string_piece.h"
 
 #include <algorithm>
+#include <ostream>
 
 namespace base
 {

@@ -1,134 +1,84 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
     <ProjectGuid>{B762AF39-B217-41F2-9D7B-E55EDB99F9CC}</ProjectGuid>
-    <RootNamespace>base</RootNamespace>
     <Keyword>Win32Proj</Keyword>
+    <RootNamespace>base</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings">
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <PropertyGroup Label="UserMacros" />
+  <Import Project="$(ProjectDir)..\AuraLite.Common.props" />
   <PropertyGroup>
-    <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(Configuration)\</IntDir>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(Configuration)\</IntDir>
-    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
-    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
-    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
-    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
-    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
-    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
+    <OutDir>$(AuraLiteRoot)lib\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(AuraLiteRoot)obj\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <TargetName>$(ProjectName)</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_RAND_S;WINVER=0x0501;_WIN32_WINNT=0x0501;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <MinimalRebuild>true</MinimalRebuild>
-      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <PreprocessorDefinitions>_DEBUG;WIN32;_LIB;AURALITE_IMPLEMENTATION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <Lib>
-      <OutputFile>../lib/lib_base-vc80-mt-sd.lib</OutputFile>
-    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PreprocessorDefinitions>_DEBUG;WIN32;_LIB;AURALITE_IMPLEMENTATION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_RAND_S;WINVER=0x0501;_WIN32_WINNT=0x0501;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <PreprocessorDefinitions>NDEBUG;WIN32;_LIB;AURALITE_IMPLEMENTATION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <Lib>
-      <OutputFile>../lib/lib_base-vc80-mt-s.lib</OutputFile>
-    </Lib>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="..\third_party\icu\icu_utf.cc" />
-    <ClCompile Include="..\third_party\nspr\prtime.cc" />
-    <ClCompile Include="at_exit.cpp" />
-    <ClCompile Include="base_switches.cpp" />
-    <ClCompile Include="command_line.cpp" />
-    <ClCompile Include="cpu.cpp" />
-    <ClCompile Include="data_pack.cpp" />
-    <ClCompile Include="debug_util.cpp" />
-    <ClCompile Include="environment.cpp" />
-    <ClCompile Include="file_path.cpp" />
-    <ClCompile Include="file_util.cpp" />
-    <ClCompile Include="file_version_info.cpp" />
-    <ClCompile Include="lazy_instance.cpp" />
-    <ClCompile Include="lock.cpp" />
-    <ClCompile Include="lock_impl.cpp" />
-    <ClCompile Include="logging.cpp" />
-    <ClCompile Include="native_library.cpp" />
-    <ClCompile Include="non_thread_safe.cpp" />
-    <ClCompile Include="path_service.cpp" />
-    <ClCompile Include="pickle.cpp" />
-    <ClCompile Include="platform_file.cpp" />
-    <ClCompile Include="rand_util.cpp" />
-    <ClCompile Include="ref_counted.cpp" />
-    <ClCompile Include="ref_counted_memory.cpp" />
-    <ClCompile Include="registry.cpp" />
-    <ClCompile Include="resource_util.cpp" />
-    <ClCompile Include="rtl.cpp" />
-    <ClCompile Include="scoped_variant.cpp" />
-    <ClCompile Include="string_number_conversions.cpp" />
-    <ClCompile Include="string_piece.cpp" />
-    <ClCompile Include="string_split.cpp" />
-    <ClCompile Include="string_util.cpp" />
-    <ClCompile Include="stringprintf.cpp" />
-    <ClCompile Include="sys_info.cpp" />
-    <ClCompile Include="sys_string_conversions.cpp" />
-    <ClCompile Include="thread_checker.cpp" />
-    <ClCompile Include="thread_local.cpp" />
-    <ClCompile Include="thread_local_storage.cpp" />
-    <ClCompile Include="time.cpp" />
-    <ClCompile Include="utf_string_conversion_utils.cpp" />
-    <ClCompile Include="utf_string_conversions.cpp" />
-    <ClCompile Include="values.cpp" />
-    <ClCompile Include="version.cpp" />
-    <ClCompile Include="vlog.cpp" />
-    <ClCompile Include="waitable_event.cpp" />
-    <ClCompile Include="weak_ptr.cpp" />
-    <ClCompile Include="win_util.cpp" />
-    <ClCompile Include="windows_version.cpp" />
-  </ItemGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <PreprocessorDefinitions>NDEBUG;WIN32;_LIB;AURALITE_IMPLEMENTATION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\third_party\icu\icu_utf.h" />
     <ClInclude Include="..\third_party\nspr\prtime.h" />
@@ -196,7 +146,55 @@
     <ClInclude Include="win_util.h" />
     <ClInclude Include="windows_version.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\third_party\icu\icu_utf.cc" />
+    <ClCompile Include="..\third_party\nspr\prtime.cc" />
+    <ClCompile Include="at_exit.cpp" />
+    <ClCompile Include="base_switches.cpp" />
+    <ClCompile Include="command_line.cpp" />
+    <ClCompile Include="cpu.cpp" />
+    <ClCompile Include="data_pack.cpp" />
+    <ClCompile Include="debug_util.cpp" />
+    <ClCompile Include="environment.cpp" />
+    <ClCompile Include="file_path.cpp" />
+    <ClCompile Include="file_util.cpp" />
+    <ClCompile Include="file_version_info.cpp" />
+    <ClCompile Include="lazy_instance.cpp" />
+    <ClCompile Include="lock.cpp" />
+    <ClCompile Include="lock_impl.cpp" />
+    <ClCompile Include="logging.cpp" />
+    <ClCompile Include="native_library.cpp" />
+    <ClCompile Include="non_thread_safe.cpp" />
+    <ClCompile Include="path_service.cpp" />
+    <ClCompile Include="pickle.cpp" />
+    <ClCompile Include="platform_file.cpp" />
+    <ClCompile Include="rand_util.cpp" />
+    <ClCompile Include="ref_counted.cpp" />
+    <ClCompile Include="ref_counted_memory.cpp" />
+    <ClCompile Include="registry.cpp" />
+    <ClCompile Include="resource_util.cpp" />
+    <ClCompile Include="rtl.cpp" />
+    <ClCompile Include="scoped_variant.cpp" />
+    <ClCompile Include="string_number_conversions.cpp" />
+    <ClCompile Include="string_piece.cpp" />
+    <ClCompile Include="string_split.cpp" />
+    <ClCompile Include="string_util.cpp" />
+    <ClCompile Include="stringprintf.cpp" />
+    <ClCompile Include="sys_info.cpp" />
+    <ClCompile Include="sys_string_conversions.cpp" />
+    <ClCompile Include="thread_checker.cpp" />
+    <ClCompile Include="thread_local.cpp" />
+    <ClCompile Include="thread_local_storage.cpp" />
+    <ClCompile Include="time.cpp" />
+    <ClCompile Include="utf_string_conversion_utils.cpp" />
+    <ClCompile Include="utf_string_conversions.cpp" />
+    <ClCompile Include="values.cpp" />
+    <ClCompile Include="version.cpp" />
+    <ClCompile Include="vlog.cpp" />
+    <ClCompile Include="waitable_event.cpp" />
+    <ClCompile Include="weak_ptr.cpp" />
+    <ClCompile Include="win_util.cpp" />
+    <ClCompile Include="windows_version.cpp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-  </ImportGroup>
 </Project>

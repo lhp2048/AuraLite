@@ -6,18 +6,16 @@
 
 #include <oleacc.h>
 
-#include "base/scoped_comptr.h"
+#include "base/basic_types.h"
 
 namespace view
 {
-    class View;
+class View;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 //
 // ViewAccessibilityWrapper
-//
-// 封装视图可访问接口平台相关的指针封装.
 //
 ////////////////////////////////////////////////////////////////////////////////
 class ViewAccessibilityWrapper
@@ -26,23 +24,30 @@ public:
     explicit ViewAccessibilityWrapper(view::View* view);
     ~ViewAccessibilityWrapper() {}
 
+#if defined(AURALITE_HAS_ATL)
     STDMETHODIMP CreateDefaultInstance(REFIID iid);
-
     HRESULT Uninitialize();
-
-    // 返回对象的指定接口. 如果已经存在会复用, 否则会创建一个新的指针.
     STDMETHODIMP GetInstance(REFIID iid, void** interface_ptr);
-
-    // 设置用户指定的可访问接口实现.
     STDMETHODIMP SetInstance(IAccessible* interface_ptr);
+#else
+    // Stub without ATL: no MSAA instance is created.
+    HRESULT Uninitialize() { return S_OK; }
+    HRESULT GetInstance(REFIID iid, void** interface_ptr)
+    {
+        (void)iid;
+        if(interface_ptr)
+        {
+            *interface_ptr = NULL;
+        }
+        return E_NOINTERFACE;
+    }
+#endif
 
 private:
-    // 可访问信息实例, 存储在View中.
-    base::ScopedComPtr<IAccessible> accessibility_info_;
-
-    // 初始化IAccessible需要的视图.
     view::View* view_;
-
+#if defined(AURALITE_HAS_ATL)
+    IAccessible* accessibility_iaccessible_;
+#endif
     DISALLOW_COPY_AND_ASSIGN(ViewAccessibilityWrapper);
 };
 

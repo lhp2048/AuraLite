@@ -769,6 +769,7 @@ namespace view
         // Accessibility readers will send an OBJID_CLIENT message
         if(OBJID_CLIENT == l_param)
         {
+#if defined(AURALITE_HAS_ATL)
             // If our MSAA root is already created, reuse that pointer. Otherwise,
             // create a new one.
             if(!accessibility_root_)
@@ -806,6 +807,10 @@ namespace view
             // to the client.
             reference_result = LresultFromObject(IID_IAccessible, w_param,
                 static_cast<IAccessible*>(accessibility_root_));
+#else
+            (void)uMsg;
+            (void)w_param;
+#endif
         }
 
         if(OBJID_CUSTOM == l_param)
