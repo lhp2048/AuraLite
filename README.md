@@ -15,6 +15,26 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 | `test_base` | Base 冒烟（控制台） | `test_base.exe` |
 | `test_view` | UI 示例（窗口） | `test_view.exe` |
 
+### 基础控件（`view_framework/controls/`）
+
+| 控件 | 说明 |
+|------|------|
+| `Button` / `TextButton` / `ImageButton` | 按钮（原有） |
+| **`Label`** | 文本标签 |
+| **`Textfield`** | 单行输入；`STYLE_PASSWORD` 密码模式 |
+| **`Checkbox`** | 勾选框 + 文案 |
+| **`RadioButton`** | 单选；同 `group_id` 互斥 |
+| **`Switch`** | 开/关滑块 |
+| **`ImageView`** | 图片展示（不可点） |
+| **`ScrollView`** | 纵向滚动（滚轮 + 细滚动条） |
+| **`MenuModel` / `MenuRunner`** | 弹出菜单（Win32 TrackPopupMenu） |
+| **`SimpleMenuModelController`** | 挂到任意 View 的右键菜单 |
+| `NativeViewHost` / `NativeControlWin` | 嵌原生 HWND |
+
+`Textfield` 默认自带编辑右键菜单（剪切 / 复制 / 粘贴 / 全选）。
+
+布局：`BoxLayout` / `GridLayout` / `FillLayout`、`SingleSplitView`。
+
 解决方案：`library.sln`
 
 ```

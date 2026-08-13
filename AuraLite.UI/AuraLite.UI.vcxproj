@@ -120,6 +120,16 @@
     <ClCompile Include="..\view_framework\controls\button\native_button.cpp" />
     <ClCompile Include="..\view_framework\controls\button\native_button_win.cpp" />
     <ClCompile Include="..\view_framework\controls\button\text_button.cpp" />
+    <ClCompile Include="..\view_framework\controls\checkbox.cpp" />
+    <ClCompile Include="..\view_framework\controls\image_view.cpp" />
+    <ClCompile Include="..\view_framework\controls\label.cpp" />
+    <ClCompile Include="..\view_framework\controls\menu\menu_model.cpp" />
+    <ClCompile Include="..\view_framework\controls\menu\menu_runner.cpp" />
+    <ClCompile Include="..\view_framework\controls\menu\simple_menu_model_controller.cpp" />
+    <ClCompile Include="..\view_framework\controls\radio_button.cpp" />
+    <ClCompile Include="..\view_framework\controls\scroll_view.cpp" />
+    <ClCompile Include="..\view_framework\controls\switch.cpp" />
+    <ClCompile Include="..\view_framework\controls\textfield.cpp" />
     <ClCompile Include="..\view_framework\controls\native_control_win.cpp" />
     <ClCompile Include="..\view_framework\controls\native_view_host.cpp" />
     <ClCompile Include="..\view_framework\controls\native_view_host_win.cpp" />

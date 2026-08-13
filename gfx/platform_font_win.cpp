@@ -176,7 +176,11 @@ namespace gfx
         HDC hdc = GetDC(NULL);
         long lf_height = -MulDiv(font_size, GetDeviceCaps(hdc, LOGPIXELSY), 72);
         ReleaseDC(NULL, hdc);
-        HFONT hf = ::CreateFont(lf_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        // DEFAULT_CHARSET is required for CJK face selection; CLEARTYPE_QUALITY
+        // matches system title-bar text on ClearType-enabled desktops.
+        HFONT hf = ::CreateFont(lf_height, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
             font_name.c_str());
         font_ref_ = CreateHFontRef(hf);
     }

@@ -1,13 +1,21 @@
-
-#include <tchar.h>
+﻿#include <tchar.h>
 #include <windows.h>
 #include <initguid.h>
 #include <oleacc.h>
+#include <stdio.h>
 
 #include "gfx/gdiplus_initializer.h"
 #include "view_framework/animation/bounds_animator.h"
 #include "view_framework/app/resource_bundle.h"
 #include "view_framework/controls/button/text_button.h"
+#include "view_framework/controls/checkbox.h"
+#include "view_framework/controls/image_view.h"
+#include "view_framework/controls/label.h"
+#include "view_framework/controls/menu/simple_menu_model_controller.h"
+#include "view_framework/controls/radio_button.h"
+#include "view_framework/controls/scroll_view.h"
+#include "view_framework/controls/switch.h"
+#include "view_framework/controls/textfield.h"
 #include "view_framework/controls/single_split_view.h"
 #include "view_framework/focus/accelerator_handler.h"
 #include "view_framework/window/dialog_delegate.h"
@@ -27,10 +35,12 @@ public:
 };
 
 class MainWindowDelegate : public view::WindowDelegate,
-    public view::ButtonListener
+    public view::ButtonListener,
+    public view::SimpleMenuModelController::Delegate
 {
     MainView* content_view_;
     scoped_ptr<view::BoundsAnimator> animator_;
+    scoped_ptr<view::SimpleMenuModelController> demo_menu_;
 
 public:
     MainWindowDelegate()
@@ -39,28 +49,117 @@ public:
         view::GridLayout* layout = new view::GridLayout(content_view_);
         content_view_->set_background(
             view::Background::CreateSolidBackground(gfx::Color(214, 229, 247)));
-        content_view_->SetAccessibleName(L"������ͼ");
+        content_view_->SetAccessibleName(L"内容视图");
         content_view_->SetLayoutManager(layout);
 
         view::ColumnSet* column_set = layout->AddColumnSet(0);
         column_set->AddColumn(view::GridLayout::FILL, view::GridLayout::FILL,
             1, view::GridLayout::USE_PREF, 0, 0);
+
+        const gfx::Font ui_font(L"Microsoft YaHei UI", 16);
+
         layout->StartRow(0, 0);
-        view::TextButton* button = new view::TextButton(NULL, L"��ͼ�갴ť");
+        view::Label* title = new view::Label(
+            L"基础控件：Label / Textfield / Menu / Radio / Switch / Image / Scroll");
+        title->SetFont(ui_font);
+        title->SetColor(gfx::Color(30, 60, 120));
+        layout->AddView(title);
+
+        layout->StartRow(0, 0);
+        view::Textfield* field = new view::Textfield();
+        field->SetFont(ui_font);
+        field->SetText(L"可编辑文本");
+        layout->AddView(field);
+
+        layout->StartRow(0, 0);
+        view::Textfield* pwd = new view::Textfield(view::Textfield::STYLE_PASSWORD);
+        pwd->SetFont(ui_font);
+        pwd->SetText(L"密文密码");
+        layout->AddView(pwd);
+
+        layout->StartRow(0, 0);
+        view::Checkbox* check = new view::Checkbox(L"启用示例选项");
+        check->SetFont(ui_font);
+        layout->AddView(check);
+
+        layout->StartRow(0, 0);
+        view::Label* menu_tip = new view::Label(L"右键此处测试通用菜单");
+        menu_tip->SetFont(ui_font);
+        demo_menu_.reset(new view::SimpleMenuModelController(this));
+        demo_menu_->model()->AddCommand(1001, L"示例项一");
+        demo_menu_->model()->AddCommand(1002, L"示例项二");
+        demo_menu_->model()->AddSeparator();
+        demo_menu_->model()->AddCommand(1003, L"关闭菜单测试");
+        menu_tip->SetContextMenuController(demo_menu_.get());
+        layout->AddView(menu_tip);
+
+        layout->StartRow(0, 0);
+        view::View* radio_row = new view::View();
+        radio_row->SetLayoutManager(new view::BoxLayout(
+            view::BoxLayout::kHorizontal, 0, 0, 16));
+        view::RadioButton* radio1 = new view::RadioButton(L"选项 A", 1);
+        radio1->SetFont(ui_font);
+        radio1->SetChecked(true);
+        radio_row->AddChildView(radio1);
+        view::RadioButton* radio2 = new view::RadioButton(L"选项 B", 1);
+        radio2->SetFont(ui_font);
+        radio_row->AddChildView(radio2);
+        layout->AddView(radio_row);
+
+        layout->StartRow(0, 0);
+        view::Switch* sw = new view::Switch(L"示例开关");
+        sw->SetFont(ui_font);
+        layout->AddView(sw);
+
+        layout->StartRow(0, 0);
+        view::View* image_row = new view::View();
+        image_row->SetLayoutManager(new view::BoxLayout(
+            view::BoxLayout::kHorizontal, 0, 0, 8));
+        view::ImageView* image = new view::ImageView();
+        image->SetImage(ResourceBundle::GetSharedInstance().GetBitmapNamed(
+            IDR_DEFAULT_FAVICON));
+        image_row->AddChildView(image);
+        view::Label* image_label = new view::Label(L"ImageView");
+        image_label->SetFont(ui_font);
+        image_row->AddChildView(image_label);
+        layout->AddView(image_row);
+
+        layout->StartRow(0, 0);
+        view::ScrollView* scroll = new view::ScrollView();
+        view::View* scroll_content = new view::View();
+        scroll_content->SetLayoutManager(new view::BoxLayout(
+            view::BoxLayout::kVertical, 4, 4, 4));
+        for(int i = 1; i <= 12; ++i)
+        {
+            wchar_t buf[64] = {0};
+            _snwprintf_s(buf, _TRUNCATE, L"滚动列表项 %d", i);
+            view::Label* item = new view::Label(buf);
+            item->SetFont(ui_font);
+            scroll_content->AddChildView(item);
+        }
+        scroll->SetContents(scroll_content);
+        layout->AddView(scroll, 1, 1,
+            view::GridLayout::FILL, view::GridLayout::FILL, 280, 120);
+
+        layout->StartRow(0, 0);
+        view::TextButton* button = new view::TextButton(NULL, L"带图标按钮");
         button->SetFocusable(true);
+        button->SetFont(ui_font);
         button->SetIcon(ResourceBundle::GetSharedInstance().GetBitmapNamed(
             IDR_DEFAULT_FAVICON));
         layout->AddView(button);
-        
+
         layout->StartRow(0, 0);
-        button = new view::TextButton(NULL, L"�ı����ж��밴ť");
+        button = new view::TextButton(NULL, L"文本居中对齐按钮");
         button->SetFocusable(true);
+        button->SetFont(ui_font);
         button->set_alignment(view::TextButton::ALIGN_CENTER);
         layout->AddView(button);
 
         layout->StartRow(0, 0);
-        button = new view::TextButton(NULL, L"�ı��Ҷ��밴ť");
+        button = new view::TextButton(NULL, L"文本右对齐按钮");
         button->SetFocusable(true);
+        button->SetFont(ui_font);
         button->set_alignment(view::TextButton::ALIGN_RIGHT);
         layout->AddView(button);
 
@@ -69,14 +168,17 @@ public:
         layout->AddView(v);
         v->SetLayoutManager(new view::BoxLayout(
             view::BoxLayout::kHorizontal, 0, 0, 0));
-        button = new view::TextButton(NULL, L"��ťһ");
+        button = new view::TextButton(NULL, L"按钮一");
         button->SetFocusable(true);
+        button->SetFont(ui_font);
         v->AddChildView(button);
-        button = new view::TextButton(NULL, L"��ť��");
+        button = new view::TextButton(NULL, L"按钮二");
         button->SetFocusable(true);
+        button->SetFont(ui_font);
         v->AddChildView(button);
-        button = new view::TextButton(NULL, L"��ť��");
+        button = new view::TextButton(NULL, L"按钮三");
         button->SetFocusable(true);
+        button->SetFont(ui_font);
         v->AddChildView(button);
 
         layout->StartRow(1, 0);
@@ -92,9 +194,10 @@ public:
         layout->StartRow(1, 0);
         v = new view::View();
         layout->AddView(v);
-        button = new view::TextButton(this, L"������ť");
+        button = new view::TextButton(this, L"动画按钮");
         button->SetID(BUTTON_ID_ANIMATE);
         button->SetFocusable(true);
+        button->SetFont(ui_font);
         button->SetIcon(ResourceBundle::GetSharedInstance().GetBitmapNamed(
             IDR_DEFAULT_FAVICON));
         button->set_alignment(view::TextButton::ALIGN_CENTER);
@@ -116,7 +219,7 @@ public:
 
     virtual std::wstring GetWindowTitle() const
     {
-        return L"������ͼ";
+        return L"测试视图";
     }
 
     virtual void WindowClosing()
@@ -127,6 +230,16 @@ public:
     virtual view::View* GetContentsView()
     {
         return content_view_;
+    }
+
+    virtual void ExecuteCommand(int command_id)
+    {
+        if(content_view_)
+        {
+            wchar_t buf[64] = {0};
+            _snwprintf_s(buf, _TRUNCATE, L"菜单命令 %d", command_id);
+            content_view_->SetAccessibleName(buf);
+        }
     }
 
     virtual void ButtonPressed(view::Button* sender, const view::Event& event)

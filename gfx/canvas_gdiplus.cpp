@@ -2,6 +2,7 @@
 #include "canvas_gdiplus.h"
 
 #include <limits>
+#include <gdiplus.h>
 
 #include "base/rtl.h"
 #include "base/logging.h"
@@ -176,7 +177,11 @@ namespace gfx
             height = 1;
         }
 
-        Gdiplus::Bitmap* bitmap = new Gdiplus::Bitmap(width, height);
+        // Opaque canvases must not use an alpha channel: GDI ClearType text drawn
+        // via GetHDC() leaves incorrect alpha, and GDI+ DrawImage then fringes.
+        Gdiplus::Bitmap* bitmap = is_opaque
+            ? new Gdiplus::Bitmap(width, height, PixelFormat32bppRGB)
+            : new Gdiplus::Bitmap(width, height, PixelFormat32bppARGB);
         if(!bitmap)
         {
             return false;
@@ -184,10 +189,14 @@ namespace gfx
 
         mem_bitmap_ = Bitmap(bitmap);
         mem_graphics_.reset(new Gdiplus::Graphics(bitmap));
+        // Avoid extra filtering when blitting the back-buffer.
+        mem_graphics_->SetPixelOffsetMode(Gdiplus::PixelOffsetModeNone);
+        mem_graphics_->SetInterpolationMode(Gdiplus::InterpolationModeNearestNeighbor);
+        mem_graphics_->SetTextRenderingHint(Gdiplus::TextRenderingHintClearTypeGridFit);
 
         if(is_opaque)
         {
-            // 为了辅助查找bugs, 设置背景色为某种很容易被发现的颜色.
+            // ??????????bugs, ??????????????????????????.
             Clear(Color(255, 0, 255, 128));
         }
 
@@ -345,7 +354,7 @@ namespace gfx
     {
         DCHECK(!mem_bitmap_.IsNull());
 
-        // 生成一个位图, 绘制画布内容到其中并返回.
+        // ??????????, ??????????????????????.
         Gdiplus::Bitmap* bitmap = mem_bitmap_.GetNativeBitmap();
         Gdiplus::Rect rc_bitmap(0, 0, bitmap->GetWidth(), bitmap->GetHeight());
         return Bitmap(bitmap->Clone(rc_bitmap, bitmap->GetPixelFormat()));
@@ -355,21 +364,48 @@ namespace gfx
     {
         DCHECK(!mem_bitmap_.IsNull());
 
-        RECT temp_rect;
-        if(!src_rect)
+        int src_x = 0;
+        int src_y = 0;
+        int width = mem_bitmap_.Width();
+        int height = mem_bitmap_.Height();
+        if(src_rect)
         {
-            temp_rect.left = 0;
-            temp_rect.right = mem_bitmap_.Width();
-            temp_rect.top = 0;
-            temp_rect.bottom = mem_bitmap_.Height();
-            src_rect = &temp_rect;
+            src_x = src_rect->left;
+            src_y = src_rect->top;
+            width = src_rect->right - src_rect->left;
+            height = src_rect->bottom - src_rect->top;
         }
-        Gdiplus::Graphics g(hdc);
-        g.DrawImage(mem_bitmap_.GetNativeBitmap(), x, y,
-            temp_rect.left, temp_rect.top,
-            temp_rect.right-temp_rect.left,
-            temp_rect.bottom-temp_rect.top,
-            Gdiplus::UnitPixel);
+        if(width<=0 || height<=0)
+        {
+            return;
+        }
+
+        // BitBlt preserves ClearType RGB exactly. GDI+ DrawImage alpha-composites
+        // and can make text look smeared / ghosted.
+        HBITMAP hbitmap = NULL;
+        const Gdiplus::Status st = mem_bitmap_.GetNativeBitmap()->GetHBITMAP(
+            Gdiplus::Color(255, 255, 255), &hbitmap);
+        if(st!=Gdiplus::Ok || !hbitmap)
+        {
+            Gdiplus::Graphics g(hdc);
+            g.SetInterpolationMode(Gdiplus::InterpolationModeNearestNeighbor);
+            g.SetPixelOffsetMode(Gdiplus::PixelOffsetModeNone);
+            g.DrawImage(mem_bitmap_.GetNativeBitmap(), x, y,
+                src_x, src_y, width, height, Gdiplus::UnitPixel);
+            return;
+        }
+
+        HDC mem_dc = CreateCompatibleDC(hdc);
+        if(!mem_dc)
+        {
+            DeleteObject(hbitmap);
+            return;
+        }
+        HGDIOBJ old = SelectObject(mem_dc, hbitmap);
+        BitBlt(hdc, x, y, width, height, mem_dc, src_x, src_y, SRCCOPY);
+        SelectObject(mem_dc, old);
+        DeleteDC(mem_dc);
+        DeleteObject(hbitmap);
     }
 
     void CanvasGdiplus::Save()
