@@ -4,6 +4,15 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 
 上游仓库：https://github.com/lhp2048/AuraLite
 
+## 分支策略
+
+| 分支 | 用途 |
+|------|------|
+| **`1.x`** | 当前方案维护线：Chromium Views + GDI+、VS2022 静态库、C++14 / Win7+。Family Shell 等业务优先跟此分支。 |
+| **`master`** | 下一代迭代线：按《AuraLite 项目开发计划书》推进（Direct2D、CMake、声明式 UI 等）。 |
+
+`1.x` 从提交 `534701a`（基础控件与菜单就绪）切出；其后 bugfix / 小功能合入 `1.x`，架构级改造在 `master`。
+
 ## 工程结构
 
 源码目录仍按模块划分；**对外只编两个静态库**：
