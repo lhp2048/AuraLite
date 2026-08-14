@@ -7,6 +7,7 @@
 
 #include "base/logging.h"
 
+#include "bitmap.h"
 #include "brush.h"
 #include "color.h"
 #include "dwrite_text.h"
@@ -67,7 +68,8 @@ namespace gfx
           height_(0),
           is_opaque_(false),
           drawing_(false),
-          clip_depth_(0) {}
+          clip_depth_(0),
+          layer_depth_(0) {}
 
     CanvasD2D::CanvasD2D(int width, int height, bool is_opaque)
         : d2d_factory_(NULL),
@@ -81,7 +83,8 @@ namespace gfx
           height_(0),
           is_opaque_(false),
           drawing_(false),
-          clip_depth_(0)
+          clip_depth_(0),
+          layer_depth_(0)
     {
         const bool initialized = initialize(width, height, is_opaque);
         DCHECK(initialized);
@@ -215,6 +218,13 @@ namespace gfx
         {
             return;
         }
+        // SaveLayer is a depth stub until a real PushLayer path exists. TextButton
+        // hover calls Clear on the layer bitmap; a clip-blind RT Clear would wipe
+        // the whole dirty buffer.
+        if(layer_depth_>0)
+        {
+            return;
+        }
         EnsureDrawing();
         rt_->Clear(ToD2DColor(color));
     }
@@ -262,17 +272,21 @@ namespace gfx
 
     void CanvasD2D::SaveLayer(uint8 /*alpha*/)
     {
-        NOTREACHED();
+        ++layer_depth_;
     }
 
     void CanvasD2D::SaveLayer(uint8 /*alpha*/, const Rect& /*layer_bounds*/)
     {
-        NOTREACHED();
+        ++layer_depth_;
     }
 
     void CanvasD2D::RestoreLayer()
     {
-        NOTREACHED();
+        if(layer_depth_==0)
+        {
+            return;
+        }
+        --layer_depth_;
     }
 
     bool CanvasD2D::ClipRectInt(int x, int y, int w, int h)
@@ -332,10 +346,68 @@ namespace gfx
         rt_->FillRectangle(ToD2DRect(x, y, w, h), brush);
     }
 
-    void CanvasD2D::FillRectInt(const Brush& /*brush*/,
-        int /*x*/, int /*y*/, int /*w*/, int /*h*/)
+    void CanvasD2D::FillRectInt(const Brush& brush,
+        int x, int y, int w, int h)
     {
-        NOTREACHED();
+        if(!rt_ || w<=0 || h<=0)
+        {
+            return;
+        }
+        Gdiplus::Brush* native = brush.GetNativeBrush();
+        if(!native)
+        {
+            return;
+        }
+        EnsureDrawing();
+
+        const Gdiplus::BrushType type = native->GetType();
+        if(type==Gdiplus::BrushTypeSolidColor)
+        {
+            Gdiplus::Color c;
+            static_cast<Gdiplus::SolidBrush*>(native)->GetColor(&c);
+            Color color;
+            color.SetValue(c.GetValue());
+            FillRectInt(color, x, y, w, h);
+            return;
+        }
+        if(type==Gdiplus::BrushTypeLinearGradient)
+        {
+            Gdiplus::LinearGradientBrush* lg =
+                static_cast<Gdiplus::LinearGradientBrush*>(native);
+            Gdiplus::Color colors[2];
+            lg->GetLinearColors(colors);
+            Color c0;
+            Color c1;
+            c0.SetValue(colors[0].GetValue());
+            c1.SetValue(colors[1].GetValue());
+
+            D2D1_GRADIENT_STOP stops[2];
+            stops[0].position = 0.0f;
+            stops[0].color = ToD2DColor(c0);
+            stops[1].position = 1.0f;
+            stops[1].color = ToD2DColor(c1);
+            ID2D1GradientStopCollection* collection = NULL;
+            HRESULT hr = rt_->CreateGradientStopCollection(stops, 2, &collection);
+            if(FAILED(hr) || !collection)
+            {
+                return;
+            }
+            // Vertical matches CreateVerticalGradientBackground (test_view panels).
+            const D2D1_LINEAR_GRADIENT_BRUSH_PROPERTIES props =
+                D2D1::LinearGradientBrushProperties(
+                    D2D1::Point2F(static_cast<FLOAT>(x), static_cast<FLOAT>(y)),
+                    D2D1::Point2F(static_cast<FLOAT>(x),
+                        static_cast<FLOAT>(y+h)));
+            ID2D1LinearGradientBrush* lg_brush = NULL;
+            hr = rt_->CreateLinearGradientBrush(props, collection, &lg_brush);
+            collection->Release();
+            if(FAILED(hr) || !lg_brush)
+            {
+                return;
+            }
+            rt_->FillRectangle(ToD2DRect(x, y, w, h), lg_brush);
+            lg_brush->Release();
+        }
     }
 
     void CanvasD2D::DrawRectInt(const Color& color, int x, int y, int w, int h)
@@ -353,22 +425,91 @@ namespace gfx
         rt_->DrawRectangle(ToD2DRect(x, y, w, h), brush, 1.0f);
     }
 
-    void CanvasD2D::DrawLineInt(const Color& /*color*/,
-        int /*x1*/, int /*y1*/, int /*x2*/, int /*y2*/)
+    void CanvasD2D::DrawLineInt(const Color& color,
+        int x1, int y1, int x2, int y2)
     {
-        NOTREACHED();
+        if(!rt_)
+        {
+            return;
+        }
+        EnsureDrawing();
+        ID2D1SolidColorBrush* brush = BrushFor(color);
+        if(!brush)
+        {
+            return;
+        }
+        rt_->DrawLine(
+            D2D1::Point2F(static_cast<FLOAT>(x1), static_cast<FLOAT>(y1)),
+            D2D1::Point2F(static_cast<FLOAT>(x2), static_cast<FLOAT>(y2)),
+            brush, 1.0f);
     }
 
-    void CanvasD2D::DrawBitmapInt(const Bitmap& /*bitmap*/, int /*x*/, int /*y*/)
+    void CanvasD2D::DrawBitmapInt(const Bitmap& bitmap, int x, int y)
     {
-        NOTREACHED();
+        if(bitmap.IsNull())
+        {
+            return;
+        }
+        DrawBitmapInt(bitmap, 0, 0, bitmap.Width(), bitmap.Height(),
+            x, y, bitmap.Width(), bitmap.Height());
     }
 
-    void CanvasD2D::DrawBitmapInt(const Bitmap& /*bitmap*/,
-        int /*src_x*/, int /*src_y*/, int /*src_w*/, int /*src_h*/,
-        int /*dest_x*/, int /*dest_y*/, int /*dest_w*/, int /*dest_h*/)
+    void CanvasD2D::DrawBitmapInt(const Bitmap& bitmap,
+        int src_x, int src_y, int src_w, int src_h,
+        int dest_x, int dest_y, int dest_w, int dest_h)
     {
-        NOTREACHED();
+        if(!rt_ || bitmap.IsNull() || src_w<=0 || src_h<=0 ||
+            dest_w<=0 || dest_h<=0)
+        {
+            return;
+        }
+        Gdiplus::Bitmap* native = bitmap.GetNativeBitmap();
+        if(!native)
+        {
+            return;
+        }
+
+        const int bw = bitmap.Width();
+        const int bh = bitmap.Height();
+        if(bw<=0 || bh<=0)
+        {
+            return;
+        }
+
+        Gdiplus::Rect lock_rect(0, 0, bw, bh);
+        Gdiplus::BitmapData data;
+        memset(&data, 0, sizeof(data));
+        Gdiplus::Status st = native->LockBits(&lock_rect,
+            Gdiplus::ImageLockModeRead, PixelFormat32bppPARGB, &data);
+        if(st!=Gdiplus::Ok || !data.Scan0 || data.Stride<=0)
+        {
+            return;
+        }
+
+        EnsureDrawing();
+        const D2D1_BITMAP_PROPERTIES props = D2D1::BitmapProperties(
+            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,
+                D2D1_ALPHA_MODE_PREMULTIPLIED));
+        ID2D1Bitmap* d2d_bitmap = NULL;
+        const HRESULT hr = rt_->CreateBitmap(
+            D2D1::SizeU(static_cast<UINT>(data.Width),
+                static_cast<UINT>(data.Height)),
+            data.Scan0,
+            static_cast<UINT>(data.Stride),
+            props,
+            &d2d_bitmap);
+        native->UnlockBits(&data);
+        if(FAILED(hr) || !d2d_bitmap)
+        {
+            return;
+        }
+
+        rt_->DrawBitmap(d2d_bitmap,
+            ToD2DRect(dest_x, dest_y, dest_w, dest_h),
+            1.0f,
+            D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
+            ToD2DRect(src_x, src_y, src_w, src_h));
+        d2d_bitmap->Release();
     }
 
     void CanvasD2D::DrawStringInt(const std::wstring& text,
@@ -420,23 +561,41 @@ namespace gfx
         layout->Release();
     }
 
-    void CanvasD2D::DrawFocusRect(int /*x*/, int /*y*/,
-        int /*width*/, int /*height*/)
+    void CanvasD2D::DrawFocusRect(int x, int y, int width, int height)
     {
-        NOTREACHED();
+        DrawRectInt(Color(128, 128, 128), x, y, width, height);
     }
 
-    void CanvasD2D::TileImageInt(const Bitmap& /*bitmap*/,
-        int /*x*/, int /*y*/, int /*w*/, int /*h*/)
+    void CanvasD2D::TileImageInt(const Bitmap& bitmap,
+        int x, int y, int w, int h)
     {
-        NOTREACHED();
+        TileImageInt(bitmap, 0, 0, x, y, w, h);
     }
 
-    void CanvasD2D::TileImageInt(const Bitmap& /*bitmap*/,
-        int /*src_x*/, int /*src_y*/,
-        int /*dest_x*/, int /*dest_y*/, int /*w*/, int /*h*/)
+    void CanvasD2D::TileImageInt(const Bitmap& bitmap,
+        int src_x, int src_y,
+        int dest_x, int dest_y, int w, int h)
     {
-        NOTREACHED();
+        if(bitmap.IsNull() || w<=0 || h<=0)
+        {
+            return;
+        }
+        const int tile_w = bitmap.Width() - src_x;
+        const int tile_h = bitmap.Height() - src_y;
+        if(tile_w<=0 || tile_h<=0)
+        {
+            return;
+        }
+        for(int ty=0; ty<h; ty+=tile_h)
+        {
+            const int dh = (ty+tile_h>h) ? (h-ty) : tile_h;
+            for(int tx=0; tx<w; tx+=tile_w)
+            {
+                const int dw = (tx+tile_w>w) ? (w-tx) : tile_w;
+                DrawBitmapInt(bitmap, src_x, src_y, dw, dh,
+                    dest_x+tx, dest_y+ty, dw, dh);
+            }
+        }
     }
 
     void CanvasD2D::DrawToHDC(HDC hdc, int x, int y, const RECT* src_rect)
@@ -507,6 +666,7 @@ namespace gfx
             }
         }
         clip_depth_ = 0;
+        layer_depth_ = 0;
     }
 
     void CanvasD2D::DiscardDeviceResources()

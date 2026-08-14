@@ -111,6 +111,7 @@ namespace gfx
         bool is_opaque_;
         bool drawing_;
         int clip_depth_;
+        int layer_depth_;
         std::stack<SavedState> states_;
 
         DISALLOW_COPY_AND_ASSIGN(CanvasD2D);

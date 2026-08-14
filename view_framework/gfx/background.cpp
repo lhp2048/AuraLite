@@ -24,9 +24,9 @@ namespace view
 
         void Paint(gfx::Canvas* canvas, View* view) const
         {
-            // Fill the background. Note that we don't constrain to the bounds as
-            // canvas is already clipped for us.
-            canvas->Clear(get_color());
+            // Clip-aware fill of this view only. Canvas::Clear ignores clip/transform
+            // on Direct2D and would wipe sibling views (e.g. SingleSplitView).
+            canvas->FillRectInt(get_color(), 0, 0, view->width(), view->height());
         }
 
     private:
