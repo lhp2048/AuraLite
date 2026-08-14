@@ -151,6 +151,10 @@ namespace view
 
     bool ScrollView::OnMouseWheel(const MouseWheelEvent& event)
     {
+        if(!NeedsScrollbar() || event.GetOffset() == 0)
+        {
+            return false;
+        }
         int line = 0;
         if(contents_)
         {
@@ -166,7 +170,7 @@ namespace view
         {
             SetScrollOffset(scroll_offset_ - line);
         }
-        else if(event.GetOffset() < 0)
+        else
         {
             SetScrollOffset(scroll_offset_ + line);
         }

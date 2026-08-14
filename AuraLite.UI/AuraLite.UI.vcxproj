@@ -125,6 +125,7 @@
     <ClCompile Include="..\view_framework\controls\checkbox.cpp" />
     <ClCompile Include="..\view_framework\controls\image_view.cpp" />
     <ClCompile Include="..\view_framework\controls\label.cpp" />
+    <ClCompile Include="..\view_framework\controls\list_view.cpp" />
     <ClCompile Include="..\view_framework\controls\menu\menu_model.cpp" />
     <ClCompile Include="..\view_framework\controls\menu\menu_runner.cpp" />
     <ClCompile Include="..\view_framework\controls\menu\simple_menu_model_controller.cpp" />

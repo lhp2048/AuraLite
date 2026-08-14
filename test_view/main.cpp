@@ -12,6 +12,7 @@
 #include "view_framework/controls/checkbox.h"
 #include "view_framework/controls/image_view.h"
 #include "view_framework/controls/label.h"
+#include "view_framework/controls/list_view.h"
 #include "view_framework/controls/menu/simple_menu_model_controller.h"
 #include "view_framework/controls/radio_button.h"
 #include "view_framework/controls/scroll_view.h"
@@ -61,10 +62,17 @@ public:
 
         layout->StartRow(0, 0);
         view::Label* title = new view::Label(
-            L"基础控件：Label / Textfield / Menu / Radio / Switch / Image / Scroll");
+            L"基础控件：Label / Textfield / Menu / Radio / Switch / Image / List / Scroll");
         title->SetFont(ui_font);
         title->SetColor(gfx::Color(30, 60, 120));
         layout->AddView(title);
+
+        layout->StartRow(0, 0);
+        view::Label* backend = new view::Label(
+            L"渲染后端：Direct2D + DirectWrite（文字清晰度应对齐 d2d_demo）");
+        backend->SetFont(ui_font);
+        backend->SetColor(gfx::Color(80, 80, 80));
+        layout->AddView(backend);
 
         layout->StartRow(0, 0);
         view::Textfield* field = new view::Textfield();
@@ -132,18 +140,16 @@ public:
 
         layout->StartRow(0, 0);
         view::ScrollView* scroll = new view::ScrollView();
-        view::View* scroll_content = new view::View();
-        scroll_content->SetLayoutManager(new view::BoxLayout(
-            view::BoxLayout::kVertical, 4, 4, 4));
+        view::ListView* list = new view::ListView();
+        list->SetFont(ui_font);
         for(int i = 1; i <= 12; ++i)
         {
             wchar_t buf[64] = {0};
-            _snwprintf_s(buf, _TRUNCATE, L"滚动列表项 %d", i);
-            view::Label* item = new view::Label(buf);
-            item->SetFont(ui_font);
-            scroll_content->AddChildView(item);
+            _snwprintf_s(buf, _TRUNCATE, L"列表项 %d", i);
+            list->AddItem(buf);
         }
-        scroll->SetContents(scroll_content);
+        list->SetSelectedIndex(2);
+        scroll->SetContents(list);
         layout->AddView(scroll, 1, 1,
             view::GridLayout::FILL, view::GridLayout::FILL, 280, 120);
 
@@ -476,7 +482,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 
     MainWindowDelegate delegate;
     view::Window::CreateWanWindow(NULL, gfx::Rect(), &delegate);
-    delegate.window()->SetWindowBounds(gfx::Rect(0, 0, 500, 500), NULL);
+    delegate.window()->SetWindowBounds(gfx::Rect(40, 40, 560, 780), NULL);
     delegate.window()->Show();
 
     MessageLoopForUI::current()->Run(&handler);

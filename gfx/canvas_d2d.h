@@ -93,6 +93,8 @@ namespace gfx
         void DiscardDeviceResources();
         void DiscardResources();
         void ReleasePlatformDc();
+        void PushOpacityLayer(uint8 alpha, const D2D1_RECT_F* content_bounds);
+        void PopRemainingLayers();
         bool CopyToHdc(HDC hdc, int dest_x, int dest_y,
             int src_x, int src_y, int width, int height);
         ID2D1SolidColorBrush* BrushFor(const Color& color);
@@ -113,6 +115,7 @@ namespace gfx
         int clip_depth_;
         int layer_depth_;
         std::stack<SavedState> states_;
+        std::stack<ID2D1Layer*> layers_;
 
         DISALLOW_COPY_AND_ASSIGN(CanvasD2D);
     };

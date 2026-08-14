@@ -198,6 +198,7 @@ namespace gfx
         {
             return false;
         }
+        PopRemainingLayers();
         const HRESULT hr = rt_->EndDraw();
         drawing_ = false;
         if(hr==D2DERR_RECREATE_TARGET)
@@ -218,9 +219,9 @@ namespace gfx
         {
             return;
         }
-        // SaveLayer is a depth stub until a real PushLayer path exists. TextButton
-        // hover calls Clear on the layer bitmap; a clip-blind RT Clear would wipe
-        // the whole dirty buffer.
+        // ID2D1RenderTarget::Clear ignores clip and layers. TextButton hover
+        // Clear'd the GDI+ offscreen layer; skipping here leaves the destination
+        // intact while PushLayer still applies hover opacity to subsequent draws.
         if(layer_depth_>0)
         {
             return;
@@ -270,14 +271,16 @@ namespace gfx
         }
     }
 
-    void CanvasD2D::SaveLayer(uint8 /*alpha*/)
+    void CanvasD2D::SaveLayer(uint8 alpha)
     {
-        ++layer_depth_;
+        PushOpacityLayer(alpha, NULL);
     }
 
-    void CanvasD2D::SaveLayer(uint8 /*alpha*/, const Rect& /*layer_bounds*/)
+    void CanvasD2D::SaveLayer(uint8 alpha, const Rect& layer_bounds)
     {
-        ++layer_depth_;
+        const D2D1_RECT_F bounds = ToD2DRect(layer_bounds.x(), layer_bounds.y(),
+            layer_bounds.width(), layer_bounds.height());
+        PushOpacityLayer(alpha, &bounds);
     }
 
     void CanvasD2D::RestoreLayer()
@@ -287,6 +290,17 @@ namespace gfx
             return;
         }
         --layer_depth_;
+        if(layers_.empty())
+        {
+            return;
+        }
+        ID2D1Layer* layer = layers_.top();
+        layers_.pop();
+        if(rt_ && drawing_ && layer)
+        {
+            rt_->PopLayer();
+        }
+        SafeRelease(layer);
     }
 
     bool CanvasD2D::ClipRectInt(int x, int y, int w, int h)
@@ -637,6 +651,7 @@ namespace gfx
     {
         if(rt_ && drawing_)
         {
+            PopRemainingLayers();
             while(clip_depth_>0)
             {
                 rt_->PopAxisAlignedClip();
@@ -655,6 +670,49 @@ namespace gfx
             }
         }
         clip_depth_ = 0;
+        layer_depth_ = 0;
+    }
+
+    void CanvasD2D::PushOpacityLayer(uint8 alpha, const D2D1_RECT_F* content_bounds)
+    {
+        ID2D1Layer* layer = NULL;
+        if(rt_)
+        {
+            EnsureDrawing();
+            const HRESULT hr = rt_->CreateLayer(&layer);
+            if(SUCCEEDED(hr) && layer)
+            {
+                const D2D1_LAYER_PARAMETERS params = D2D1::LayerParameters(
+                    content_bounds ? *content_bounds : D2D1::InfiniteRect(),
+                    NULL,
+                    D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
+                    D2D1::IdentityMatrix(),
+                    static_cast<FLOAT>(alpha) / 255.0f,
+                    NULL,
+                    D2D1_LAYER_OPTIONS_NONE);
+                rt_->PushLayer(params, layer);
+            }
+            else
+            {
+                layer = NULL;
+            }
+        }
+        layers_.push(layer);
+        ++layer_depth_;
+    }
+
+    void CanvasD2D::PopRemainingLayers()
+    {
+        while(!layers_.empty())
+        {
+            ID2D1Layer* layer = layers_.top();
+            layers_.pop();
+            if(rt_ && drawing_ && layer)
+            {
+                rt_->PopLayer();
+            }
+            SafeRelease(layer);
+        }
         layer_depth_ = 0;
     }
 

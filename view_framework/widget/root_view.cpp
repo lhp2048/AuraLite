@@ -711,11 +711,19 @@ namespace view
 
     bool RootView::ProcessMouseWheelEvent(const MouseWheelEvent& e)
     {
-        View* v;
         bool consumed = false;
-        if(GetFocusedView())
+
+        // Prefer the view under the cursor (modern hover-to-scroll), then focus path.
+        View* under = GetViewForPoint(e.location());
+        for(View* v = under; v && v != this && !consumed; v = v->GetParent())
         {
-            for(v=GetFocusedView(); v&&v!=this&&!consumed; v=v->GetParent())
+            consumed = v->OnMouseWheel(e);
+        }
+
+        if(!consumed && GetFocusedView())
+        {
+            for(View* v = GetFocusedView(); v && v != this && !consumed;
+                v = v->GetParent())
             {
                 consumed = v->OnMouseWheel(e);
             }

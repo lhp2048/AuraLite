@@ -125,7 +125,7 @@ namespace view
 
         // Process a mousewheel event. Return true if the event was processed
         // and false otherwise.
-        // MouseWheel events are sent on the focus path.
+        // Prefer the view under the cursor, then the focus path.
         virtual bool ProcessMouseWheelEvent(const MouseWheelEvent& e);
 
         // Overridden to handle special root view case.
