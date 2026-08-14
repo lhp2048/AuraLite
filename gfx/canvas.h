@@ -13,6 +13,7 @@ namespace gfx
 
     class Bitmap;
     class Brush;
+    class CanvasD2D;
     class CanvasGdiplus;
     class Color;
     class Font;
@@ -155,6 +156,10 @@ namespace gfx
         virtual void EndPlatformPaint(HDC dc) = 0;
 
         // 获取底层CanvasGdiplus的方法.
+        virtual CanvasD2D* AsCanvasD2D() { return NULL; }
+        virtual const CanvasD2D* AsCanvasD2D() const { return NULL; }
+
+        // Transitional: Widget / Background still downcast to the GDI+ backend.
         virtual CanvasGdiplus* AsCanvasGdiplus() { return NULL; }
         virtual const CanvasGdiplus* AsCanvasGdiplus() const { return NULL; }
     };

@@ -89,6 +89,7 @@
     <ClCompile Include="..\animation\tween.cpp" />
     <ClCompile Include="..\gfx\bitmap.cpp" />
     <ClCompile Include="..\gfx\bitmap_operations.cpp" />
+    <ClCompile Include="..\gfx\canvas_d2d.cpp" />
     <ClCompile Include="..\gfx\canvas_gdiplus.cpp" />
     <ClCompile Include="..\gfx\color_utils.cpp" />
     <ClCompile Include="..\gfx\font.cpp" />

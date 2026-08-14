@@ -765,17 +765,6 @@ namespace gfx
     }
 
 
-    Canvas* Canvas::CreateCanvas()
-    {
-        return new CanvasGdiplus;
-    }
-
-    Canvas* Canvas::CreateCanvas(int width, int height, bool is_opaque)
-    {
-        return new CanvasGdiplus(width, height, is_opaque);
-    }
-
-
     class CanvasPaintWin : public CanvasGdiplusPaint, public CanvasPaint
     {
     public:
