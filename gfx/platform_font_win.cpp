@@ -6,9 +6,11 @@
 
 #include <algorithm>
 
+#include "base/basic_types.h"
 #include "base/win_util.h"
 
-#include "canvas_gdiplus.h"
+#include "canvas.h"
+#include "dwrite_text.h"
 #include "font.h"
 
 namespace
@@ -117,8 +119,8 @@ namespace gfx
     int PlatformFontWin::GetStringWidth(const std::wstring& text) const
     {
         int width = 0, height = 0;
-        CanvasGdiplus::SizeStringInt(text, Font(const_cast<PlatformFontWin*>(this)),
-            &width, &height, gfx::Canvas::NO_ELLIPSIS);
+        dwrite_text::MeasureString(text, Font(const_cast<PlatformFontWin*>(this)),
+            Canvas::NO_ELLIPSIS, &width, &height);
         return width;
     }
 

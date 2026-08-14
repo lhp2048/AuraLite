@@ -91,6 +91,7 @@
     <ClCompile Include="..\gfx\bitmap_operations.cpp" />
     <ClCompile Include="..\gfx\canvas_d2d.cpp" />
     <ClCompile Include="..\gfx\canvas_gdiplus.cpp" />
+    <ClCompile Include="..\gfx\dwrite_text.cpp" />
     <ClCompile Include="..\gfx\color_utils.cpp" />
     <ClCompile Include="..\gfx\font.cpp" />
     <ClCompile Include="..\gfx\gdi_util.cpp" />

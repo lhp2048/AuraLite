@@ -7,10 +7,12 @@
 
 #include "brush.h"
 #include "color.h"
+#include "dwrite_text.h"
 #include "font.h"
 #include "rect.h"
 
 #pragma comment(lib, "d2d1.lib")
+#pragma comment(lib, "dwrite.lib")
 #pragma comment(lib, "windowscodecs.lib")
 #pragma comment(lib, "ole32.lib")
 
@@ -24,6 +26,25 @@ namespace
         {
             ptr->Release();
             ptr = NULL;
+        }
+    }
+
+    void SetTextAntialiasForTarget(ID2D1RenderTarget* rt)
+    {
+        if(!rt)
+        {
+            return;
+        }
+        const D2D1_PIXEL_FORMAT pf = rt->GetPixelFormat();
+        if(pf.alphaMode==D2D1_ALPHA_MODE_IGNORE ||
+            pf.alphaMode==D2D1_ALPHA_MODE_UNKNOWN)
+        {
+            rt->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
+        }
+        else
+        {
+            // Premultiplied offscreen targets cannot use ClearType.
+            rt->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
         }
     }
 
@@ -149,6 +170,7 @@ namespace gfx
             return false;
         }
 
+        SetTextAntialiasForTarget(bitmap_rt_);
         return true;
     }
 
@@ -349,29 +371,53 @@ namespace gfx
         NOTREACHED();
     }
 
-    void CanvasD2D::DrawStringInt(const std::wstring& /*text*/,
-        const Font& /*font*/,
-        const Color& /*color*/,
-        int /*x*/, int /*y*/, int /*w*/, int /*h*/)
+    void CanvasD2D::DrawStringInt(const std::wstring& text,
+        const Font& font,
+        const Color& color,
+        int x, int y, int w, int h)
     {
-        NOTREACHED();
+        DrawStringInt(text, font, color, x, y, w, h, 0);
     }
 
-    void CanvasD2D::DrawStringInt(const std::wstring& /*text*/,
-        const Font& /*font*/,
-        const Color& /*color*/,
-        const Rect& /*display_rect*/)
+    void CanvasD2D::DrawStringInt(const std::wstring& text,
+        const Font& font,
+        const Color& color,
+        const Rect& display_rect)
     {
-        NOTREACHED();
+        DrawStringInt(text, font, color, display_rect.x(), display_rect.y(),
+            display_rect.width(), display_rect.height());
     }
 
-    void CanvasD2D::DrawStringInt(const std::wstring& /*text*/,
-        const Font& /*font*/,
-        const Color& /*color*/,
-        int /*x*/, int /*y*/, int /*w*/, int /*h*/,
-        int /*flags*/)
+    void CanvasD2D::DrawStringInt(const std::wstring& text,
+        const Font& font,
+        const Color& color,
+        int x, int y, int w, int h,
+        int flags)
     {
-        NOTREACHED();
+        if(!bitmap_rt_ || text.empty() || w<=0 || h<=0)
+        {
+            return;
+        }
+        EnsureDrawing();
+        SetTextAntialiasForTarget(bitmap_rt_);
+
+        IDWriteTextLayout* layout = dwrite_text::CreateLayout(text, font, flags,
+            static_cast<float>(w), static_cast<float>(h));
+        if(!layout)
+        {
+            return;
+        }
+
+        ID2D1SolidColorBrush* brush = BrushFor(color);
+        if(brush)
+        {
+            bitmap_rt_->DrawTextLayout(
+                D2D1::Point2F(static_cast<FLOAT>(x), static_cast<FLOAT>(y)),
+                layout,
+                brush,
+                D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        }
+        layout->Release();
     }
 
     void CanvasD2D::DrawFocusRect(int /*x*/, int /*y*/,
