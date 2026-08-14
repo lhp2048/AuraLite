@@ -148,7 +148,7 @@ namespace gfx
             return false;
         }
 
-        // 96 DPI so 1 DIP == 1 bitmap pixel (matches GDI+ canvas units).
+        // 96 DPI so 1 DIP == 1 bitmap pixel.
         const D2D1_PIXEL_FORMAT pixel_format = D2D1::PixelFormat(
             DXGI_FORMAT_B8G8R8A8_UNORM,
             is_opaque ? D2D1_ALPHA_MODE_IGNORE : D2D1_ALPHA_MODE_PREMULTIPLIED);
@@ -219,9 +219,9 @@ namespace gfx
         {
             return;
         }
-        // ID2D1RenderTarget::Clear ignores clip and layers. TextButton hover
-        // Clear'd the GDI+ offscreen layer; skipping here leaves the destination
-        // intact while PushLayer still applies hover opacity to subsequent draws.
+        // ID2D1RenderTarget::Clear ignores clip and layers. Skipping Clear inside
+        // a layer leaves the destination intact while PushLayer still applies
+        // hover opacity to subsequent draws.
         if(layer_depth_>0)
         {
             return;
@@ -367,61 +367,45 @@ namespace gfx
         {
             return;
         }
-        Gdiplus::Brush* native = brush.GetNativeBrush();
-        if(!native)
+        if(brush.type()==Brush::SOLID)
+        {
+            FillRectInt(brush.color(), x, y, w, h);
+            return;
+        }
+        if(brush.type()!=Brush::LINEAR_GRADIENT)
         {
             return;
         }
+
         EnsureDrawing();
-
-        const Gdiplus::BrushType type = native->GetType();
-        if(type==Gdiplus::BrushTypeSolidColor)
+        D2D1_GRADIENT_STOP stops[2];
+        stops[0].position = 0.0f;
+        stops[0].color = ToD2DColor(brush.color1());
+        stops[1].position = 1.0f;
+        stops[1].color = ToD2DColor(brush.color2());
+        ID2D1GradientStopCollection* collection = NULL;
+        HRESULT hr = rt_->CreateGradientStopCollection(stops, 2, &collection);
+        if(FAILED(hr) || !collection)
         {
-            Gdiplus::Color c;
-            static_cast<Gdiplus::SolidBrush*>(native)->GetColor(&c);
-            Color color;
-            color.SetValue(c.GetValue());
-            FillRectInt(color, x, y, w, h);
             return;
         }
-        if(type==Gdiplus::BrushTypeLinearGradient)
+        const D2D1_LINEAR_GRADIENT_BRUSH_PROPERTIES props = brush.horizontal()
+            ? D2D1::LinearGradientBrushProperties(
+                D2D1::Point2F(static_cast<FLOAT>(x), static_cast<FLOAT>(y)),
+                D2D1::Point2F(static_cast<FLOAT>(x+w), static_cast<FLOAT>(y)))
+            : D2D1::LinearGradientBrushProperties(
+                D2D1::Point2F(static_cast<FLOAT>(x), static_cast<FLOAT>(y)),
+                D2D1::Point2F(static_cast<FLOAT>(x),
+                    static_cast<FLOAT>(y+h)));
+        ID2D1LinearGradientBrush* lg_brush = NULL;
+        hr = rt_->CreateLinearGradientBrush(props, collection, &lg_brush);
+        collection->Release();
+        if(FAILED(hr) || !lg_brush)
         {
-            Gdiplus::LinearGradientBrush* lg =
-                static_cast<Gdiplus::LinearGradientBrush*>(native);
-            Gdiplus::Color colors[2];
-            lg->GetLinearColors(colors);
-            Color c0;
-            Color c1;
-            c0.SetValue(colors[0].GetValue());
-            c1.SetValue(colors[1].GetValue());
-
-            D2D1_GRADIENT_STOP stops[2];
-            stops[0].position = 0.0f;
-            stops[0].color = ToD2DColor(c0);
-            stops[1].position = 1.0f;
-            stops[1].color = ToD2DColor(c1);
-            ID2D1GradientStopCollection* collection = NULL;
-            HRESULT hr = rt_->CreateGradientStopCollection(stops, 2, &collection);
-            if(FAILED(hr) || !collection)
-            {
-                return;
-            }
-            // Vertical matches CreateVerticalGradientBackground (test_view panels).
-            const D2D1_LINEAR_GRADIENT_BRUSH_PROPERTIES props =
-                D2D1::LinearGradientBrushProperties(
-                    D2D1::Point2F(static_cast<FLOAT>(x), static_cast<FLOAT>(y)),
-                    D2D1::Point2F(static_cast<FLOAT>(x),
-                        static_cast<FLOAT>(y+h)));
-            ID2D1LinearGradientBrush* lg_brush = NULL;
-            hr = rt_->CreateLinearGradientBrush(props, collection, &lg_brush);
-            collection->Release();
-            if(FAILED(hr) || !lg_brush)
-            {
-                return;
-            }
-            rt_->FillRectangle(ToD2DRect(x, y, w, h), lg_brush);
-            lg_brush->Release();
+            return;
         }
+        rt_->FillRectangle(ToD2DRect(x, y, w, h), lg_brush);
+        lg_brush->Release();
     }
 
     void CanvasD2D::DrawRectInt(const Color& color, int x, int y, int w, int h)

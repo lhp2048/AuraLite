@@ -1,18 +1,11 @@
 
 #include "platform_bitmap_win.h"
 
-#include <algorithm>
-using std::min;
-using std::max;
-
 #include <windows.h>
-#include <gdiplus.h>
 #include <objbase.h>
 #include <wincodec.h>
 
 #include <cstring>
-
-#include "base/logging.h"
 
 namespace
 {
@@ -163,17 +156,9 @@ namespace
 namespace gfx
 {
 
-    PlatformBitmapWin::PlatformBitmapWin(Gdiplus::Bitmap* native_bitmap)
-        : bitmap_ref_(new BitmapRef(native_bitmap)) {}
-
     PlatformBitmapWin::PlatformBitmapWin(int width, int height, int stride,
         const std::vector<uint8>& pixels)
         : bitmap_ref_(new BitmapRef(width, height, stride, pixels)) {}
-
-    Gdiplus::Bitmap* PlatformBitmapWin::GetNativeBitmap() const
-    {
-        return bitmap_ref_->bitmap();
-    }
 
     int PlatformBitmapWin::Width() const
     {
@@ -195,16 +180,6 @@ namespace gfx
         return bitmap_ref_->stride();
     }
 
-    PlatformBitmapWin::BitmapRef::BitmapRef(Gdiplus::Bitmap* native_bitmap)
-        : width_(0),
-          height_(0),
-          stride_(0),
-          bitmap_(native_bitmap)
-    {
-        DLOG_ASSERT(native_bitmap);
-        CopyPixelsFromGdiplus(native_bitmap);
-    }
-
     PlatformBitmapWin::BitmapRef::BitmapRef(int width, int height, int stride,
         const std::vector<uint8>& pixels)
         : width_(width),
@@ -212,61 +187,21 @@ namespace gfx
           stride_(stride),
           pixels_(pixels) {}
 
-    Gdiplus::Bitmap* PlatformBitmapWin::BitmapRef::bitmap() const
-    {
-        if(!bitmap_.get() && !pixels_.empty() && width_>0 && height_>0 &&
-            stride_>0)
-        {
-            bitmap_.reset(new Gdiplus::Bitmap(width_, height_, stride_,
-                PixelFormat32bppPARGB,
-                const_cast<BYTE*>(&pixels_[0])));
-        }
-        return bitmap_.get();
-    }
-
-    void PlatformBitmapWin::BitmapRef::CopyPixelsFromGdiplus(
-        Gdiplus::Bitmap* native_bitmap)
-    {
-        if(!native_bitmap)
-        {
-            return;
-        }
-
-        width_ = static_cast<int>(native_bitmap->GetWidth());
-        height_ = static_cast<int>(native_bitmap->GetHeight());
-        if(width_<=0 || height_<=0)
-        {
-            return;
-        }
-
-        Gdiplus::Rect lock_rect(0, 0, width_, height_);
-        Gdiplus::BitmapData data;
-        memset(&data, 0, sizeof(data));
-        const Gdiplus::Status st = native_bitmap->LockBits(&lock_rect,
-            Gdiplus::ImageLockModeRead, PixelFormat32bppPARGB, &data);
-        if(st!=Gdiplus::Ok || !data.Scan0)
-        {
-            return;
-        }
-
-        stride_ = width_ * 4;
-        pixels_.resize(static_cast<size_t>(stride_) * height_);
-        for(int y=0; y<height_; ++y)
-        {
-            const BYTE* src = static_cast<const BYTE*>(data.Scan0) +
-                y * data.Stride;
-            memcpy(&pixels_[static_cast<size_t>(y)*stride_], src,
-                static_cast<size_t>(stride_));
-        }
-        native_bitmap->UnlockBits(&data);
-    }
-
-
     // static
-    PlatformBitmap* PlatformBitmap::CreateFromNativeBitmap(
-        Gdiplus::Bitmap* native_bitmap)
+    PlatformBitmap* PlatformBitmap::CreateFromPixels(int width, int height,
+        int stride, const std::vector<uint8>& pixels)
     {
-        return new PlatformBitmapWin(native_bitmap);
+        if(width<=0 || height<=0 || stride<width*4)
+        {
+            return NULL;
+        }
+        const size_t needed = static_cast<size_t>(stride) *
+            static_cast<size_t>(height);
+        if(pixels.size()<needed)
+        {
+            return NULL;
+        }
+        return new PlatformBitmapWin(width, height, stride, pixels);
     }
 
     // static
@@ -281,7 +216,7 @@ namespace gfx
         {
             return NULL;
         }
-        return new PlatformBitmapWin(width, height, stride, pixels);
+        return CreateFromPixels(width, height, stride, pixels);
     }
 
 } //namespace gfx

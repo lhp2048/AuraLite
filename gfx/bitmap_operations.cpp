@@ -1,24 +1,67 @@
 
 #include "bitmap_operations.h"
 
+#include <vector>
+
 #include "base/logging.h"
 
 namespace gfx
 {
 
-    Bitmap BitmapOperations::CreateDebugBitmap()
+    namespace
     {
-        Gdiplus::Bitmap* debug_bitmap = new Gdiplus::Bitmap(32, 32);
-        const Gdiplus::Color bright_red(255, 255, 0, 0);
-        for(int y=0; y<32; ++y)
+
+        int ClampByte(int v)
         {
-            for(int x=0; x<32; ++x)
+            if(v<0)
             {
-                debug_bitmap->SetPixel(x, y, bright_red);
+                return 0;
             }
+            if(v>255)
+            {
+                return 255;
+            }
+            return v;
         }
 
-        return Bitmap(debug_bitmap);
+        uint32 PackPixel(int a, int r, int g, int b)
+        {
+            return Color::MakeARGB(
+                static_cast<uint8>(ClampByte(a)),
+                static_cast<uint8>(ClampByte(r)),
+                static_cast<uint8>(ClampByte(g)),
+                static_cast<uint8>(ClampByte(b)));
+        }
+
+        const uint32* RowAt(const uint8* pixels, int stride, int y)
+        {
+            return reinterpret_cast<const uint32*>(pixels +
+                static_cast<size_t>(y)*stride);
+        }
+
+        uint32* MutableRowAt(uint8* pixels, int stride, int y)
+        {
+            return reinterpret_cast<uint32*>(pixels +
+                static_cast<size_t>(y)*stride);
+        }
+
+    }
+
+    Bitmap BitmapOperations::CreateDebugBitmap()
+    {
+        const int kSize = 32;
+        const int stride = kSize * 4;
+        std::vector<uint8> pixels(static_cast<size_t>(stride)*kSize, 0);
+        const uint32 red = Color::MakeARGB(255, 255, 0, 0);
+        for(int y=0; y<kSize; ++y)
+        {
+            uint32* row = MutableRowAt(&pixels[0], stride, y);
+            for(int x=0; x<kSize; ++x)
+            {
+                row[x] = red;
+            }
+        }
+        return Bitmap::CreateFromPixels(kSize, kSize, stride, pixels);
     }
 
     // static
@@ -29,14 +72,9 @@ namespace gfx
     {
         DCHECK(!first_bitmap.IsNull() && !second_bitmap.IsNull());
         DCHECK((alpha>=0) && (alpha<=1));
-        Gdiplus::Bitmap* first = first_bitmap.GetNativeBitmap();
-        Gdiplus::Bitmap* second = second_bitmap.GetNativeBitmap();
-        DCHECK(first->GetWidth() == second->GetWidth());
-        DCHECK(first->GetHeight() == second->GetHeight());
-        DCHECK(first->GetPixelFormat() == second->GetPixelFormat());
-        DCHECK(first->GetPixelFormat() == PixelFormat32bppARGB);
+        DCHECK(first_bitmap.Width()==second_bitmap.Width());
+        DCHECK(first_bitmap.Height()==second_bitmap.Height());
 
-        // 在不需要融合的时候进行优化.
         static const double alpha_min = 1.0 / 255;
         static const double alpha_max = 254.0 / 255;
         if(alpha < alpha_min)
@@ -48,54 +86,46 @@ namespace gfx
             return second_bitmap;
         }
 
-        Gdiplus::Bitmap* blended = new Gdiplus::Bitmap(
-            first->GetWidth(), first->GetHeight());
-
-        Gdiplus::BitmapData lock_first;
-        Gdiplus::BitmapData lock_second;
-        Gdiplus::BitmapData lock_blended;
-        Gdiplus::Rect rc_lock(0, 0, first->GetWidth(), first->GetHeight());
-        first->LockBits(&rc_lock, Gdiplus::ImageLockModeRead,
-            PixelFormat32bppARGB, &lock_first);
-        second->LockBits(&rc_lock, Gdiplus::ImageLockModeRead,
-            PixelFormat32bppARGB, &lock_second);
-        blended->LockBits(&rc_lock, Gdiplus::ImageLockModeWrite,
-            PixelFormat32bppARGB, &lock_blended);
-
-        double first_alpha = 1 - alpha;
-
-        for(UINT y=0; y<lock_first.Height; ++y)
+        const int width = first_bitmap.Width();
+        const int height = first_bitmap.Height();
+        const uint8* first_px = first_bitmap.GetPixels();
+        const uint8* second_px = second_bitmap.GetPixels();
+        const int first_stride = first_bitmap.Stride();
+        const int second_stride = second_bitmap.Stride();
+        if(!first_px || !second_px || first_stride<width*4 ||
+            second_stride<width*4)
         {
-            uint32* first_row = static_cast<uint32*>(lock_first.Scan0) +
-                y*lock_first.Width;
-            uint32* second_row = static_cast<uint32*>(lock_second.Scan0) +
-                y*lock_second.Width;
-            uint32* dst_row = static_cast<uint32*>(lock_blended.Scan0) +
-                y*lock_blended.Width;
+            return first_bitmap;
+        }
 
-            for(UINT x=0; x<lock_first.Width; ++x)
+        const int dest_stride = width * 4;
+        std::vector<uint8> dest(static_cast<size_t>(dest_stride)*height, 0);
+        const double first_alpha = 1 - alpha;
+
+        for(int y=0; y<height; ++y)
+        {
+            const uint32* first_row = RowAt(first_px, first_stride, y);
+            const uint32* second_row = RowAt(second_px, second_stride, y);
+            uint32* dst_row = MutableRowAt(&dest[0], dest_stride, y);
+            for(int x=0; x<width; ++x)
             {
-                Gdiplus::Color first_pixel(first_row[x]);
-                Gdiplus::Color second_pixel(second_row[x]);
-
-                int a = static_cast<int>((first_pixel.GetA()*first_alpha) +
-                    (second_pixel.GetA()*alpha));
-                int r = static_cast<int>((first_pixel.GetR()*first_alpha) +
-                    (second_pixel.GetR()*alpha));
-                int g = static_cast<int>((first_pixel.GetG()*first_alpha) +
-                    (second_pixel.GetG()*alpha));
-                int b = static_cast<int>((first_pixel.GetB()*first_alpha) +
-                    (second_pixel.GetB()*alpha));
-
-                dst_row[x] = Gdiplus::Color::MakeARGB(a, r, g, b);
+                Color first_pixel;
+                Color second_pixel;
+                first_pixel.SetValue(first_row[x]);
+                second_pixel.SetValue(second_row[x]);
+                dst_row[x] = PackPixel(
+                    static_cast<int>((first_pixel.GetA()*first_alpha) +
+                        (second_pixel.GetA()*alpha)),
+                    static_cast<int>((first_pixel.GetR()*first_alpha) +
+                        (second_pixel.GetR()*alpha)),
+                    static_cast<int>((first_pixel.GetG()*first_alpha) +
+                        (second_pixel.GetG()*alpha)),
+                    static_cast<int>((first_pixel.GetB()*first_alpha) +
+                        (second_pixel.GetB()*alpha)));
             }
         }
 
-        blended->UnlockBits(&lock_blended);
-        second->UnlockBits(&lock_second);
-        first->UnlockBits(&lock_first);
-
-        return Bitmap(blended);
+        return Bitmap::CreateFromPixels(width, height, dest_stride, dest);
     }
 
     // static
@@ -104,72 +134,63 @@ namespace gfx
         const Bitmap& mask_bitmap)
     {
         DCHECK(!image_bitmap.IsNull() && !mask_bitmap.IsNull());
-        Gdiplus::Bitmap* image = image_bitmap.GetNativeBitmap();
-        Gdiplus::Bitmap* mask = mask_bitmap.GetNativeBitmap();
-        DCHECK(image->GetPixelFormat() == PixelFormat32bppARGB);
-        DCHECK(mask->GetPixelFormat() == PixelFormat32bppARGB);
-
-        Gdiplus::Bitmap* background = new Gdiplus::Bitmap(
-            mask->GetWidth(), mask->GetHeight());
-        double bg_a = color.GetA();
-        double bg_r = color.GetR();
-        double bg_g = color.GetG();
-        double bg_b = color.GetB();
-
-        Gdiplus::BitmapData lock_mask;
-        Gdiplus::BitmapData lock_background;
-        Gdiplus::BitmapData lock_image;
+        const uint8* image_px = image_bitmap.GetPixels();
+        const uint8* mask_px = mask_bitmap.GetPixels();
+        const int image_w = image_bitmap.Width();
+        const int image_h = image_bitmap.Height();
+        const int mask_w = mask_bitmap.Width();
+        const int mask_h = mask_bitmap.Height();
+        const int image_stride = image_bitmap.Stride();
+        const int mask_stride = mask_bitmap.Stride();
+        if(!image_px || !mask_px || image_w<=0 || image_h<=0 ||
+            mask_w<=0 || mask_h<=0 || image_stride<image_w*4 ||
+            mask_stride<mask_w*4)
         {
-            Gdiplus::Rect rc_lock(0, 0, mask->GetWidth(), mask->GetHeight());
-            mask->LockBits(&rc_lock, Gdiplus::ImageLockModeRead,
-                PixelFormat32bppARGB, &lock_mask);
-            background->LockBits(&rc_lock, Gdiplus::ImageLockModeWrite,
-                PixelFormat32bppARGB, &lock_background);
-        }
-        {
-            Gdiplus::Rect rc_lock(0, 0, image->GetWidth(), image->GetHeight());
-            image->LockBits(&rc_lock, Gdiplus::ImageLockModeRead,
-                PixelFormat32bppARGB, &lock_image);
+            return Bitmap();
         }
 
-        for(UINT y=0; y<lock_mask.Height; ++y)
-        {
-            uint32* dst_row = static_cast<uint32*>(lock_background.Scan0) +
-                y*lock_background.Width;
-            uint32* image_row = static_cast<uint32*>(lock_image.Scan0) +
-                (y%lock_image.Height)*lock_image.Width;
-            uint32* mask_row = static_cast<uint32*>(lock_mask.Scan0) +
-                y*lock_mask.Width;
+        const int dest_stride = mask_w * 4;
+        std::vector<uint8> dest(static_cast<size_t>(dest_stride)*mask_h, 0);
+        const double bg_a = color.GetA();
+        const double bg_r = color.GetR();
+        const double bg_g = color.GetG();
+        const double bg_b = color.GetB();
 
-            for(UINT x=0; x<lock_mask.Width; ++x)
+        for(int y=0; y<mask_h; ++y)
+        {
+            uint32* dst_row = MutableRowAt(&dest[0], dest_stride, y);
+            const uint32* image_row = RowAt(image_px, image_stride, y%image_h);
+            const uint32* mask_row = RowAt(mask_px, mask_stride, y);
+            for(int x=0; x<mask_w; ++x)
             {
-                uint32 image_pixel = image_row[x%lock_image.Width];
-                Gdiplus::Color clr_image_pixel(image_pixel);
-                Gdiplus::Color clr_mask_pixel(mask_row[x]);
+                Color clr_image_pixel;
+                Color clr_mask_pixel;
+                clr_image_pixel.SetValue(image_row[x%image_w]);
+                clr_mask_pixel.SetValue(mask_row[x]);
 
-                double img_a = clr_image_pixel.GetA();
-                double img_r = clr_image_pixel.GetR();
-                double img_g = clr_image_pixel.GetG();
-                double img_b = clr_image_pixel.GetB();
+                const double img_a = clr_image_pixel.GetA();
+                const double img_r = clr_image_pixel.GetR();
+                const double img_g = clr_image_pixel.GetG();
+                const double img_b = clr_image_pixel.GetB();
+                const double img_alpha = img_a / 255.0;
+                const double img_inv = 1 - img_alpha;
+                const double mask_a = static_cast<double>(
+                    clr_mask_pixel.GetA()) / 255.0;
 
-                double img_alpha = static_cast<double>(img_a) / 255.0;
-                double img_inv = 1 - img_alpha;
-
-                double mask_a = static_cast<double>(clr_mask_pixel.GetA()) / 255.0;
-
-                dst_row[x] = Gdiplus::Color::MakeARGB(
-                    static_cast<int>(std::min(255.0, bg_a+img_a)*mask_a),
+                double out_a = (bg_a+img_a)*mask_a;
+                if(out_a>255.0)
+                {
+                    out_a = 255.0;
+                }
+                dst_row[x] = PackPixel(
+                    static_cast<int>(out_a),
                     static_cast<int>(((bg_r*img_inv)+(img_r*img_alpha))*mask_a),
                     static_cast<int>(((bg_g*img_inv)+(img_g*img_alpha))*mask_a),
                     static_cast<int>(((bg_b*img_inv)+(img_b*img_alpha))*mask_a));
             }
         }
 
-        image->UnlockBits(&lock_image);
-        background->UnlockBits(&lock_background);
-        mask->UnlockBits(&lock_mask);
-
-        return Bitmap(background);
+        return Bitmap::CreateFromPixels(mask_w, mask_h, dest_stride, dest);
     }
 
 } //namespace gfx

@@ -194,7 +194,7 @@ function Write-AppProject {
   [void]$sb.AppendLine('    <OutDir>$(AuraLiteRoot)bin\$(Platform)\$(Configuration)\</OutDir>')
   [void]$sb.AppendLine('    <IntDir>$(AuraLiteRoot)obj\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>')
   [void]$sb.AppendLine('  </PropertyGroup>')
-  $linkLibs = (($LibNames | ForEach-Object { "$_.lib" }) -join ";") + ";gdiplus.lib;msimg32.lib;comctl32.lib;ole32.lib;oleaut32.lib;uuid.lib;shell32.lib;shlwapi.lib;imm32.lib;dwmapi.lib;uxtheme.lib;oleacc.lib;%(AdditionalDependencies)"
+  $linkLibs = (($LibNames | ForEach-Object { "$_.lib" }) -join ";") + ";msimg32.lib;comctl32.lib;ole32.lib;oleaut32.lib;uuid.lib;shell32.lib;shlwapi.lib;imm32.lib;dwmapi.lib;uxtheme.lib;oleacc.lib;%(AdditionalDependencies)"
   foreach ($cfg in @("Debug","Release")) {
     foreach ($plat in @("Win32","x64")) {
       $defs = "WIN32;AURALITE_STATIC"

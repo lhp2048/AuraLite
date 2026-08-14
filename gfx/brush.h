@@ -4,9 +4,6 @@
 
 #pragma once
 
-#include "base/logging.h"
-#include "base/scoped_ptr.h"
-
 #include "color.h"
 #include "point.h"
 
@@ -16,48 +13,43 @@ namespace gfx
     class Brush
     {
     public:
-        // 创建透明的填充画刷.
-        Brush() : brush_(
-            new Gdiplus::SolidBrush(Gdiplus::Color::Transparent)) {}
-
-        // 创建颜色填充画刷.
-        explicit Brush(const Color& color) : brush_(
-            new Gdiplus::SolidBrush(color.GetNativeColor())) {}
-        
-        // 根据本地画刷创建Brush对象.
-        explicit Brush(Gdiplus::Brush* native_brush)
-            : brush_(native_brush)
+        enum Type
         {
-            DCHECK(native_brush);
-        }
-        
-        // 创建渐变画刷.
-        explicit Brush(const Point& point1, const Point& point2,
+            SOLID,
+            LINEAR_GRADIENT,
+        };
+
+        Brush() : type_(SOLID), horizontal_(true) {}
+
+        explicit Brush(const Color& color)
+            : type_(SOLID),
+              color1_(color),
+              horizontal_(true) {}
+
+        Brush(const Point& point1, const Point& point2,
             const Color& color1, const Color& color2, bool horizontal)
-        {
-            Gdiplus::Rect rect(point1.x(), point1.y(),
-                point2.x()-point1.x(), point2.y()-point1.y());
+            : type_(LINEAR_GRADIENT),
+              point1_(point1),
+              point2_(point2),
+              color1_(color1),
+              color2_(color2),
+              horizontal_(horizontal) {}
 
-            brush_.reset(new Gdiplus::LinearGradientBrush(rect,
-                color1.GetNativeColor(), color2.GetNativeColor(),
-                horizontal?Gdiplus::LinearGradientModeHorizontal:
-                Gdiplus::LinearGradientModeVertical));
-        }
-
-        Brush(const Brush& other)
-        {
-            brush_.reset(other.brush_->Clone());
-        }
-
-        Brush& operator=(const Brush& other)
-        {
-            brush_.reset(other.brush_->Clone());
-        }
-
-        Gdiplus::Brush* GetNativeBrush() const { return brush_.get(); }
+        Type type() const { return type_; }
+        Color color() const { return color1_; }
+        Color color1() const { return color1_; }
+        Color color2() const { return color2_; }
+        Point point1() const { return point1_; }
+        Point point2() const { return point2_; }
+        bool horizontal() const { return horizontal_; }
 
     private:
-        scoped_ptr<Gdiplus::Brush> brush_;
+        Type type_;
+        Point point1_;
+        Point point2_;
+        Color color1_;
+        Color color2_;
+        bool horizontal_;
     };
 
 } //namespace gfx

@@ -4,7 +4,6 @@
 #include <oleacc.h>
 #include <stdio.h>
 
-#include "gfx/gdiplus_initializer.h"
 #include "view_framework/animation/bounds_animator.h"
 #include "view_framework/app/resource_bundle.h"
 #include "view_framework/controls/button/image_button.h"
@@ -472,8 +471,6 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 
     base::AtExitManager exit_manager;
 
-    gfx::GdiplusInitializer gdiplus_initializer;
-    gdiplus_initializer.Init();
     ResourceBundle::InitSharedInstance(base::FilePath());
     ResourceBundle::GetSharedInstance().SetIdConveter(
         new AppIdConveter());
@@ -488,8 +485,6 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
     MessageLoopForUI::current()->Run(&handler);
 
     ResourceBundle::CleanupSharedInstance();
-
-    gdiplus_initializer.UnInit();
 
     OleUninitialize();
 }

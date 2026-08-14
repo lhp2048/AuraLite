@@ -45,7 +45,7 @@ namespace gfx
             return std::max(std::min(luma, 255), 0);
         }
 
-        // 下面两个函数的公式来自于:
+        // ??????????????????????:
         // http://www.w3.org/TR/WCAG20/#relativeluminancedef
         // http://www.w3.org/TR/WCAG20/#contrast-ratiodef
 
@@ -66,8 +66,8 @@ namespace gfx
 
         double ContrastRatio(double foreground_luminance, double background_luminance)
         {
-            // 注意: 传递的值必须来自RelativeLuminance(), 因为那样可以保证值>0, 不会
-            // 发生除0的错误.
+            // ???: ??????????????RelativeLuminance(), ??????????????>0, ????
+            // ??????0?????.
             return (foreground_luminance>background_luminance) ?
                 (foreground_luminance/background_luminance) :
             (background_luminance / foreground_luminance);
@@ -239,41 +239,38 @@ namespace gfx
         DCHECK(!favicon_bitmap.IsNull());
 
         int r=0, g=0, b=0;
+        const int width = favicon_bitmap.Width();
+        const int height = favicon_bitmap.Height();
+        const uint8* pixels = favicon_bitmap.GetPixels();
+        const int stride = favicon_bitmap.Stride();
+        DCHECK(pixels && stride>=width*4);
+        DCHECK(width<=16 && height<=16);
 
-        Gdiplus::Bitmap* favicon = favicon_bitmap.GetNativeBitmap();
-        Gdiplus::BitmapData favicon_lock;
-        Gdiplus::Rect rc_lock(0, 0, favicon->GetWidth(), favicon->GetHeight());
-        favicon->LockBits(&rc_lock, Gdiplus::ImageLockModeRead,
-            PixelFormat32bppARGB, &favicon_lock);
-        uint32* pixels = static_cast<uint32*>(favicon_lock.Scan0);
-        // 假定为ARGB_8888格式.
-        DCHECK(favicon->GetPixelFormat() == PixelFormat32bppARGB);
-        uint32* current = pixels;
-
-        DCHECK(favicon_lock.Width<=16 && favicon_lock.Height<=16);
-
-        int pixel_count = favicon_lock.Width * favicon_lock.Height;
         int color_count = 0;
-        for(int i=0; i<pixel_count; ++i,++current)
+        for(int y=0; y<height; ++y)
         {
-            // 丢弃接近黑色、白色或者透明色的颜色, 因为这些像素对平均值影响不大.
-            Color current_color(*current);
-            int cr = current_color.GetR();
-            int cg = current_color.GetG();
-            int cb = current_color.GetB();
-
-            if(IsColorCloseToTransparent(current_color.GetA()) ||
-                IsColorCloseToGrey(cr, cg, cb))
+            const uint32* row = reinterpret_cast<const uint32*>(
+                pixels + static_cast<size_t>(y)*stride);
+            for(int x=0; x<width; ++x)
             {
-                continue;
-            }
+                Color current_color;
+                current_color.SetValue(row[x]);
+                int cr = current_color.GetR();
+                int cg = current_color.GetG();
+                int cb = current_color.GetB();
 
-            r += cr;
-            g += cg;
-            b += cb;
-            ++color_count;
+                if(IsColorCloseToTransparent(current_color.GetA()) ||
+                    IsColorCloseToGrey(cr, cg, cb))
+                {
+                    continue;
+                }
+
+                r += cr;
+                g += cg;
+                b += cb;
+                ++color_count;
+            }
         }
-        favicon->UnlockBits(&favicon_lock);
 
         return color_count ?
             Color(alpha, r/color_count, g/color_count, b/color_count) :
@@ -284,28 +281,23 @@ namespace gfx
     {
         DCHECK(!bitmap.IsNull());
 
-        Gdiplus::Bitmap* native_bitmap = bitmap.GetNativeBitmap();
-        Gdiplus::BitmapData bitmap_lock;
-        Gdiplus::Rect rc_lock(0, 0, native_bitmap->GetWidth(),
-            native_bitmap->GetHeight());
-        native_bitmap->LockBits(&rc_lock, Gdiplus::ImageLockModeRead,
-            PixelFormat32bppARGB, &bitmap_lock);
-        uint32* pixels = static_cast<uint32*>(bitmap_lock.Scan0);
-        // 假定为ARGB_8888格式.
-        DCHECK(native_bitmap->GetPixelFormat() == PixelFormat32bppARGB);
+        const int pixel_width = bitmap.Width();
+        const int pixel_height = bitmap.Height();
+        const uint8* pixels = bitmap.GetPixels();
+        const int stride = bitmap.Stride();
+        DCHECK(pixels && stride>=pixel_width*4);
 
-        int pixel_width = static_cast<int>(bitmap_lock.Width);
-        int pixel_height = static_cast<int>(bitmap_lock.Height);
         for(int y=0; y<pixel_height; ++y)
         {
-            uint32* current = pixels + y*pixel_width;
+            const uint32* current = reinterpret_cast<const uint32*>(
+                pixels + static_cast<size_t>(y)*stride);
             for(int x=0; x<pixel_width; ++x,++current)
             {
-                histogram[GetLumaForColor(Color(*current))]++;
+                Color pixel;
+                pixel.SetValue(*current);
+                histogram[GetLumaForColor(pixel)]++;
             }
         }
-
-        native_bitmap->UnlockBits(&bitmap_lock);
     }
 
     Color AlphaBlend(const Color& foreground, const Color& background,

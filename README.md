@@ -24,7 +24,7 @@ CMake 同时构建：
 | 目标 | 说明 |
 |------|------|
 | `auralite_d2d` | 下一代 `auralite::Canvas` / `Image`（D2D + DirectWrite + WIC） |
-| `AuraLite.Base` / `AuraLite.UI` | 现有 GDI+/Views 静态库（源列表由 `cmake/LegacySources.cmake` 生成） |
+| `AuraLite.Base` / `AuraLite.UI` | Views 静态库（源列表由 `cmake/LegacySources.cmake` 生成；自绘走 Direct2D） |
 | `d2d_demo` | HWND 冒烟：圆角/矩形/文字/位图 |
 | `test_base` / `test_view` | 与 `library.sln` 相同冒烟程序 |
 
@@ -74,9 +74,15 @@ cmake --build build --config Debug
 
 布局：`BoxLayout` / `GridLayout` / `FillLayout`、`SingleSplitView`。
 
-### D2D 自绘控件验收（Task 5）
+### master 渲染后端
 
-`test_view` 与 `d2d_demo` 同为 Direct2D + DirectWrite。控件 `Paint()` 只走 `gfx::Canvas` / `Font::GetStringWidth`，无 `AsCanvasGdiplus`。`canvas_gdiplus.*` 仍在树中（Task 6 删除）。
+**仅 Direct2D + DirectWrite + WIC**。GDI+ 已从 master 自绘路径移除（无 `gdiplus.lib`、无 `canvas_gdiplus`、Paint 路径无 `#include <gdiplus.h>`）。
+
+允许例外（非 AuraLite 画布）：原生 HWND 控件（`NativeButton` / `NativeControlWin` / `NativeViewHost`）与系统 `TrackPopupMenu`。
+
+### D2D 自绘控件验收
+
+`test_view` 与 `d2d_demo` 同为 Direct2D + DirectWrite。控件 `Paint()` 只走 `gfx::Canvas` / `Font::GetStringWidth`。
 
 | 控件 | 状态 | 说明 |
 |------|------|------|
@@ -88,7 +94,7 @@ cmake --build build --config Debug
 | SingleSplitView 分隔与背景 | pass | 标准面板渐变 + 实线边框 |
 | 面板 `Background` / `Border` | pass | `FillRectInt` / 垂直渐变画刷 |
 
-例外（非 AuraLite 画布）：`NativeButton` / `NativeControlWin`、系统 `TrackPopupMenu`。ImageButton 的 `BitmapOperations` 混合仍用 GDI+ 像素（Task 6）。
+例外（非 AuraLite 画布）：`NativeButton` / `NativeControlWin`、系统 `TrackPopupMenu`。
 
 解决方案：`library.sln`
 
@@ -150,11 +156,11 @@ msbuild AuraLite.UI\AuraLite.UI.vcxproj /p:Configuration=Debug /p:Platform=x64
 ## 接入 FamilyShell
 
 1. 头文件搜索路径加：`3rd-party\AuraLite`
-2. 链接：`AuraLite.UI.lib` + `AuraLite.Base.lib`（及系统库：`gdiplus`、`ole32`、`oleacc`、`dwmapi`、`uxtheme` 等，参见 `test_view`）
+2. 链接：`AuraLite.UI.lib` + `AuraLite.Base.lib`（及系统库：`d2d1`、`dwrite`、`windowscodecs`、`ole32`、`oleacc`、`dwmapi`、`uxtheme` 等，参见 `test_view`）
 3. 预处理器建议定义：`AURALITE_STATIC`、`NOMINMAX`、`_WIN32_WINNT=0x0601`
 
 ## 依赖说明
 
 - **默认不依赖 ATL / MFC**。无障碍相关使用 MSAA stub（`view_accessibility_msaa.cpp`）。
 - 若本机安装了 VC ATL/MFC，可定义 `AURALITE_HAS_ATL` 并恢复完整 ATL 无障碍实现（可选）。
-- UI 绘制基于 **GDI+**（见 `gfx/`）。
+- UI 绘制基于 **Direct2D / DirectWrite / WIC**（见 `gfx/`）。master 已移除 GDI+ 自绘后端。

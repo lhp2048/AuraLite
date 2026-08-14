@@ -203,7 +203,7 @@ foreach ($cfg in @("Debug","Release")) {
 [void]$sb.AppendLine('  </PropertyGroup>')
 
 $whole = ($libNames | ForEach-Object { "/WHOLEARCHIVE:`$(AuraLiteRoot)lib\`$(Platform)\`$(Configuration)\$_.lib" }) -join " "
-$deps = "gdiplus.lib;msimg32.lib;comctl32.lib;ole32.lib;oleaut32.lib;uuid.lib;shell32.lib;shlwapi.lib;imm32.lib;dwmapi.lib;uxtheme.lib;%(AdditionalDependencies)"
+$deps = "msimg32.lib;comctl32.lib;ole32.lib;oleaut32.lib;uuid.lib;shell32.lib;shlwapi.lib;imm32.lib;dwmapi.lib;uxtheme.lib;%(AdditionalDependencies)"
 
 foreach ($cfg in @("Debug","Release")) {
   foreach ($plat in @("Win32","x64")) {
@@ -304,7 +304,7 @@ function Write-AppProject {
       [void]$sb.AppendLine("    </ClCompile>")
       [void]$sb.AppendLine("    <Link>")
       [void]$sb.AppendLine("      <SubSystem>$SubSystem</SubSystem>")
-      [void]$sb.AppendLine("      <AdditionalDependencies>AuraLite.lib;gdiplus.lib;%(AdditionalDependencies)</AdditionalDependencies>")
+      [void]$sb.AppendLine("      <AdditionalDependencies>AuraLite.lib;%(AdditionalDependencies)</AdditionalDependencies>")
       [void]$sb.AppendLine("      <AdditionalLibraryDirectories>`$(AuraLiteRoot)bin\`$(Platform)\`$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>")
       [void]$sb.AppendLine("    </Link>")
       [void]$sb.AppendLine("  </ItemDefinitionGroup>")

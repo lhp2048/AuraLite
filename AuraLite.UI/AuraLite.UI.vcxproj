@@ -90,12 +90,10 @@
     <ClCompile Include="..\gfx\bitmap.cpp" />
     <ClCompile Include="..\gfx\bitmap_operations.cpp" />
     <ClCompile Include="..\gfx\canvas_d2d.cpp" />
-    <ClCompile Include="..\gfx\canvas_gdiplus.cpp" />
     <ClCompile Include="..\gfx\dwrite_text.cpp" />
     <ClCompile Include="..\gfx\color_utils.cpp" />
     <ClCompile Include="..\gfx\font.cpp" />
     <ClCompile Include="..\gfx\gdi_util.cpp" />
-    <ClCompile Include="..\gfx\gdiplus_initializer.cpp" />
     <ClCompile Include="..\gfx\insets.cpp" />
     <ClCompile Include="..\gfx\native_theme_win.cpp" />
     <ClCompile Include="..\gfx\path.cpp" />

@@ -170,14 +170,6 @@
 			>
 		</File>
 		<File
-			RelativePath=".\canvas_gdiplus.cpp"
-			>
-		</File>
-		<File
-			RelativePath=".\canvas_gdiplus.h"
-			>
-		</File>
-		<File
 			RelativePath=".\canvas_paint_win.h"
 			>
 		</File>
@@ -207,14 +199,6 @@
 		</File>
 		<File
 			RelativePath=".\gdi_util.h"
-			>
-		</File>
-		<File
-			RelativePath=".\gdiplus_initializer.cpp"
-			>
-		</File>
-		<File
-			RelativePath=".\gdiplus_initializer.h"
 			>
 		</File>
 		<File

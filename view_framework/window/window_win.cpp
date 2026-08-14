@@ -510,8 +510,7 @@ namespace view
         gfx::Bitmap icon = window_delegate_->GetWindowIcon();
         if(!icon.IsNull())
         {
-            HICON windows_icon = NULL;
-            icon.GetNativeBitmap()->GetHICON(&windows_icon);
+            HICON windows_icon = icon.CreateHICON();
             // We need to make sure to destroy the previous icon, otherwise we'll leak
             // these GDI objects until we crash!
             HICON old_icon = reinterpret_cast<HICON>(
@@ -526,8 +525,7 @@ namespace view
         icon = window_delegate_->GetWindowAppIcon();
         if(!icon.IsNull())
         {
-            HICON windows_icon = NULL;
-            icon.GetNativeBitmap()->GetHICON(&windows_icon);
+            HICON windows_icon = icon.CreateHICON();
             HICON old_icon = reinterpret_cast<HICON>(
                 SendMessage(GetNativeView(), WM_SETICON, ICON_BIG,
                 reinterpret_cast<LPARAM>(windows_icon)));

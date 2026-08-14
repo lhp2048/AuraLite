@@ -104,7 +104,7 @@ namespace view
 
         const int cy = height() / 2;
         const int r = kDotSize / 2;
-        // Approximate circle with concentric rects (GDI+ path not exposed here).
+        // Approximate circle with concentric rects (no ellipse API on Canvas).
         canvas->DrawRectInt(dot_color_, 0, cy - r, kDotSize, kDotSize);
         canvas->DrawRectInt(dot_color_, 1, cy - r + 1, kDotSize - 2, kDotSize - 2);
         if(checked_)
