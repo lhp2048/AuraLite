@@ -235,9 +235,8 @@ private:
         DataHandle module, int resource_id);
 
     // Creates and returns a new Bitmap given the data file to look in and the
-    // resource id.  It's up to the caller to free the returned bitmap when
-    // done.
-    static Gdiplus::Bitmap* LoadBitmap(DataHandle dll_inst, int resource_id);
+    // resource id.
+    static gfx::Bitmap LoadBitmap(DataHandle dll_inst, int resource_id);
 
     // Class level lock.  Used to protect internal data structures that may be
     // accessed from other threads (e.g., images_).

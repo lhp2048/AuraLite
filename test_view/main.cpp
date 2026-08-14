@@ -7,6 +7,7 @@
 #include "gfx/gdiplus_initializer.h"
 #include "view_framework/animation/bounds_animator.h"
 #include "view_framework/app/resource_bundle.h"
+#include "view_framework/controls/button/image_button.h"
 #include "view_framework/controls/button/text_button.h"
 #include "view_framework/controls/checkbox.h"
 #include "view_framework/controls/image_view.h"
@@ -119,6 +120,11 @@ public:
         image->SetImage(ResourceBundle::GetSharedInstance().GetBitmapNamed(
             IDR_DEFAULT_FAVICON));
         image_row->AddChildView(image);
+        view::ImageButton* image_button = new view::ImageButton(NULL);
+        image_button->SetImage(view::CustomButton::BS_NORMAL,
+            ResourceBundle::GetSharedInstance().GetBitmapNamed(
+            IDR_DEFAULT_FAVICON));
+        image_row->AddChildView(image_button);
         view::Label* image_label = new view::Label(L"ImageView");
         image_label->SetFont(ui_font);
         image_row->AddChildView(image_label);

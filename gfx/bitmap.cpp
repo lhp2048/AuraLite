@@ -62,16 +62,63 @@ namespace gfx
 
     Color Bitmap::GetPixel(int x, int y) const
     {
-        Gdiplus::Color native_color;
-        if(!IsNull())
+        Color color;
+        if(IsNull() || x<0 || y<0 || x>=Width() || y>=Height())
         {
-            platform_bitmap_->GetNativeBitmap()->GetPixel(x, y,
-                &native_color);
+            return color;
         }
 
-        Color color;
+        const uint8* pixels = GetPixels();
+        const int stride = Stride();
+        if(pixels && stride>=4)
+        {
+            const uint8* px = pixels + y*stride + x*4;
+            const uint32 value = (static_cast<uint32>(px[3])<<24) |
+                (static_cast<uint32>(px[2])<<16) |
+                (static_cast<uint32>(px[1])<<8) |
+                static_cast<uint32>(px[0]);
+            color.SetValue(value);
+            return color;
+        }
+
+        Gdiplus::Bitmap* native = platform_bitmap_->GetNativeBitmap();
+        if(!native)
+        {
+            return color;
+        }
+        Gdiplus::Color native_color;
+        native->GetPixel(x, y, &native_color);
         color.SetValue(native_color.GetValue());
         return color;
+    }
+
+    Bitmap Bitmap::DecodeFromMemory(const void* data, size_t size)
+    {
+        PlatformBitmap* platform =
+            PlatformBitmap::CreateFromEncodedMemory(data, size);
+        if(!platform)
+        {
+            return Bitmap();
+        }
+        return Bitmap(platform);
+    }
+
+    const uint8* Bitmap::GetPixels() const
+    {
+        if(IsNull())
+        {
+            return NULL;
+        }
+        return platform_bitmap_->GetPixels();
+    }
+
+    int Bitmap::Stride() const
+    {
+        if(IsNull())
+        {
+            return 0;
+        }
+        return platform_bitmap_->Stride();
     }
 
 } //namespace gfx

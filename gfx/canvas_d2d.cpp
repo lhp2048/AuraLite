@@ -463,8 +463,9 @@ namespace gfx
         {
             return;
         }
-        Gdiplus::Bitmap* native = bitmap.GetNativeBitmap();
-        if(!native)
+        const uint8* pixels = bitmap.GetPixels();
+        const int stride = bitmap.Stride();
+        if(!pixels || stride<=0)
         {
             return;
         }
@@ -476,29 +477,17 @@ namespace gfx
             return;
         }
 
-        Gdiplus::Rect lock_rect(0, 0, bw, bh);
-        Gdiplus::BitmapData data;
-        memset(&data, 0, sizeof(data));
-        Gdiplus::Status st = native->LockBits(&lock_rect,
-            Gdiplus::ImageLockModeRead, PixelFormat32bppPARGB, &data);
-        if(st!=Gdiplus::Ok || !data.Scan0 || data.Stride<=0)
-        {
-            return;
-        }
-
         EnsureDrawing();
         const D2D1_BITMAP_PROPERTIES props = D2D1::BitmapProperties(
             D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,
                 D2D1_ALPHA_MODE_PREMULTIPLIED));
         ID2D1Bitmap* d2d_bitmap = NULL;
         const HRESULT hr = rt_->CreateBitmap(
-            D2D1::SizeU(static_cast<UINT>(data.Width),
-                static_cast<UINT>(data.Height)),
-            data.Scan0,
-            static_cast<UINT>(data.Stride),
+            D2D1::SizeU(static_cast<UINT>(bw), static_cast<UINT>(bh)),
+            pixels,
+            static_cast<UINT>(stride),
             props,
             &d2d_bitmap);
-        native->UnlockBits(&data);
         if(FAILED(hr) || !d2d_bitmap)
         {
             return;

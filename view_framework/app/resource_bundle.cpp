@@ -65,7 +65,7 @@ void ResourceBundle::CleanupSharedInstance()
 /* static */
 ResourceBundle& ResourceBundle::GetSharedInstance()
 {
-    // 之前必须调用过InitSharedInstance函数.
+    // ???????????InitSharedInstance????.
     CHECK(g_shared_instance_ != NULL);
     return *g_shared_instance_;
 }
@@ -81,49 +81,28 @@ void ResourceBundle::FreeImages()
 namespace
 {
 
-    Gdiplus::Bitmap* BitmapFromMemory(const void* buffer, size_t size)
+    gfx::Bitmap BitmapFromMemory(const void* buffer, size_t size)
     {
-        Gdiplus::Bitmap* bitmap = NULL;
-
-        HGLOBAL global = ::GlobalAlloc(GMEM_MOVEABLE, size);
-        if(global)
-        {
-            void* copy_buffer = ::GlobalLock(global);
-            if(copy_buffer)
-            {
-                CopyMemory(copy_buffer, buffer, size);
-                IStream* stream = NULL;
-                if(::CreateStreamOnHGlobal(copy_buffer, FALSE, &stream) == S_OK)
-                {
-                    bitmap = Gdiplus::Bitmap::FromStream(stream);
-                    stream->Release();
-                    DCHECK(bitmap->GetLastStatus() == Gdiplus::Ok);
-                }
-                ::GlobalUnlock(global);
-            }
-            ::GlobalFree(global);
-        }
-
-        return bitmap;
+        return gfx::Bitmap::DecodeFromMemory(buffer, size);
     }
 
 }
 
 /* static */
-Gdiplus::Bitmap* ResourceBundle::LoadBitmap(DataHandle data_handle, int resource_id)
+gfx::Bitmap ResourceBundle::LoadBitmap(DataHandle data_handle, int resource_id)
 {
     scoped_refptr<base::RefCountedMemory> memory(
         LoadResourceBytes(data_handle, resource_id));
     if(!memory)
     {
-        return NULL;
+        return gfx::Bitmap();
     }
 
-    Gdiplus::Bitmap* bitmap = BitmapFromMemory(memory->front(), memory->size());
-    if(!bitmap)
+    gfx::Bitmap bitmap = BitmapFromMemory(memory->front(), memory->size());
+    if(bitmap.IsNull())
     {
         NOTREACHED() << "Unable to decode theme image resource " << resource_id;
-        return NULL;
+        return gfx::Bitmap();
     }
 
     return bitmap;
@@ -140,7 +119,7 @@ base::RefCountedStaticMemory* ResourceBundle::LoadDataResourceBytes(
         bytes = LoadResourceBytes(locale_resources_data_, resource_id);
     }
 
-    // 如果主资源以及本地资源中没加载成功, 检查所有的附加数据包.
+    // ???????????????????????????, ?????????????????.
     for(std::vector<LoadedDataPack*>::const_iterator it=data_packs_.begin();
         !bytes&&it!=data_packs_.end(); ++it)
     {
@@ -162,16 +141,14 @@ const gfx::Bitmap& ResourceBundle::GetBitmapNamed(int resource_id)
         }
     }
 
-    Gdiplus::Bitmap* native_bitmap = LoadBitmap(resources_data_, resource_id);
-    if(native_bitmap == NULL)
+    gfx::Bitmap bitmap = LoadBitmap(resources_data_, resource_id);
+    if(bitmap.IsNull())
     {
-        native_bitmap = LoadBitmap(locale_resources_data_, resource_id);
+        bitmap = LoadBitmap(locale_resources_data_, resource_id);
     }
 
-    if(native_bitmap)
+    if(!bitmap.IsNull())
     {
-        gfx::Bitmap bitmap(native_bitmap);
-
         // We loaded successfully.  Cache the gfx version of the bitmap.
         base::AutoLock lock_scope(*lock_);
 
@@ -337,7 +314,7 @@ bool ResourceBundle::LoadLocaleResources(
 {
     DCHECK(NULL == locale_resources_data_) << "locale dll already loaded";
 
-    // 纯资源DLL, 没有可执行代码.
+    // ?????DLL, ????????????.
     locale_resources_data_ = LoadLibraryExW(locale_resource_path.value(),
         NULL, GetDataDllLoadFlags());
 
@@ -503,7 +480,7 @@ namespace
 
 string16 ResourceBundle::GetLocalizedString(int message_id)
 {
-    // 如果没有本地纯资源DLL, 返回一个空字符串(比崩溃好).
+    // ??????????????DLL, ??????????????(???????).
     if(!locale_resources_data_)
     {
         base::StackTrace().PrintBacktrace(); // See http://crbug.com/21925.

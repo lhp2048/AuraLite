@@ -54,6 +54,13 @@ namespace gfx
         // 获取指定位置像素颜色值.
         Color GetPixel(int x, int y) const;
 
+        // Decode PNG/JPEG/BMP/etc via WIC into a 32bpp premultiplied BGRA buffer.
+        static Bitmap DecodeFromMemory(const void* data, size_t size);
+
+        // 32bpp premultiplied BGRA pixels, or NULL if the bitmap has no CPU buffer.
+        const uint8* GetPixels() const;
+        int Stride() const;
+
     private:
         // 平台位图封装实现.
         scoped_refptr<PlatformBitmap> platform_bitmap_;
