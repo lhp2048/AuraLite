@@ -103,6 +103,8 @@ namespace gfx
             int src_x, int src_y, int width, int height);
         bool CopyPlatformDcToBitmap();
         bool RecreateRenderTargetFromBitmap();
+        void InvalidateBitmapCache();
+        ID2D1Bitmap* GetOrCreateD2DBitmap(const Bitmap& bitmap);
         ID2D1SolidColorBrush* BrushFor(const Color& color);
         static D2D1_COLOR_F ToD2DColor(const Color& color);
         static D2D1_RECT_F ToD2DRect(int x, int y, int w, int h);
@@ -111,6 +113,12 @@ namespace gfx
         ID2D1RenderTarget* rt_;
         IWICBitmap* wic_bitmap_;
         ID2D1SolidColorBrush* brush_;
+        ID2D1Bitmap* cached_bitmap_;
+        const uint8* cached_pixels_;
+        int cached_bw_;
+        int cached_bh_;
+        int cached_stride_;
+        ID2D1Layer* recycled_layer_;
         HDC platform_dc_;
         HBITMAP platform_dib_;
         HGDIOBJ platform_old_;

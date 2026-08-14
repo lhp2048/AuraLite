@@ -100,13 +100,17 @@ namespace view
 
         if(checked_)
         {
-            // Simple check mark via two lines.
+            // Two-stroke checkmark (thickened with a parallel offset).
             const gfx::Color mark(20, 120, 60);
-            canvas->FillRectInt(mark, 3, box_y + 7, 3, 2);
-            canvas->FillRectInt(mark, 5, box_y + 9, 2, 2);
-            canvas->FillRectInt(mark, 6, box_y + 7, 2, 2);
-            canvas->FillRectInt(mark, 7, box_y + 5, 2, 2);
-            canvas->FillRectInt(mark, 8, box_y + 3, 2, 2);
+            for(int t = 0; t < 2; ++t)
+            {
+                canvas->DrawLineInt(mark,
+                    3, box_y + 8 + t,
+                    7, box_y + 12 + t);
+                canvas->DrawLineInt(mark,
+                    6, box_y + 12 + t,
+                    13, box_y + 4 + t);
+            }
         }
 
         if(!label_.empty())

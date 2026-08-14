@@ -101,7 +101,7 @@ cmake --build build --config Debug
 |------|------|------|
 | Label / 标题色 | pass | DirectWrite；顶部含后端对照说明（窄宽时标题尾部裁剪，无省略号） |
 | Textfield 文本、选区、插入符、密码圆点 | pass | 测宽 `Font::GetStringWidth`；密码为圆点 |
-| Checkbox / RadioButton / Switch | pass | Checkbox 方框；Radio 椭圆；Switch 圆角轨道 + 圆形滑块 |
+| Checkbox / RadioButton / Switch | pass | Checkbox 勾线；Radio 椭圆；Switch 圆角轨道 + 圆形滑块 |
 | ListView 选中高亮 + ScrollView 滚动条与裁剪 | pass | ListView 放入 ScrollView；第 3 项预选蓝底；列表项被视口裁剪 |
 | TextButton / ImageButton（含对齐） | pass | 左/中/右对齐；hover 经 D2D `PushLayer` 透明度 |
 | SingleSplitView 分隔与背景 | pass | 标准面板渐变 + 实线边框 |

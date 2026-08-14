@@ -62,6 +62,12 @@ namespace gfx
           rt_(NULL),
           wic_bitmap_(NULL),
           brush_(NULL),
+          cached_bitmap_(NULL),
+          cached_pixels_(NULL),
+          cached_bw_(0),
+          cached_bh_(0),
+          cached_stride_(0),
+          recycled_layer_(NULL),
           platform_dc_(NULL),
           platform_dib_(NULL),
           platform_old_(NULL),
@@ -78,6 +84,12 @@ namespace gfx
           rt_(NULL),
           wic_bitmap_(NULL),
           brush_(NULL),
+          cached_bitmap_(NULL),
+          cached_pixels_(NULL),
+          cached_bw_(0),
+          cached_bh_(0),
+          cached_stride_(0),
+          recycled_layer_(NULL),
           platform_dc_(NULL),
           platform_dib_(NULL),
           platform_old_(NULL),
@@ -539,17 +551,8 @@ namespace gfx
         }
 
         EnsureDrawing();
-        const D2D1_BITMAP_PROPERTIES props = D2D1::BitmapProperties(
-            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,
-                D2D1_ALPHA_MODE_PREMULTIPLIED));
-        ID2D1Bitmap* d2d_bitmap = NULL;
-        const HRESULT hr = rt_->CreateBitmap(
-            D2D1::SizeU(static_cast<UINT>(bw), static_cast<UINT>(bh)),
-            pixels,
-            static_cast<UINT>(stride),
-            props,
-            &d2d_bitmap);
-        if(FAILED(hr) || !d2d_bitmap)
+        ID2D1Bitmap* d2d_bitmap = GetOrCreateD2DBitmap(bitmap);
+        if(!d2d_bitmap)
         {
             return;
         }
@@ -559,7 +562,6 @@ namespace gfx
             1.0f,
             D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
             ToD2DRect(src_x, src_y, src_w, src_h));
-        d2d_bitmap->Release();
     }
 
     void CanvasD2D::DrawStringInt(const std::wstring& text,
@@ -733,8 +735,20 @@ namespace gfx
         if(rt_)
         {
             EnsureDrawing();
-            const HRESULT hr = rt_->CreateLayer(&layer);
-            if(SUCCEEDED(hr) && layer)
+            if(recycled_layer_)
+            {
+                layer = recycled_layer_;
+                recycled_layer_ = NULL;
+            }
+            else
+            {
+                const HRESULT hr = rt_->CreateLayer(&layer);
+                if(FAILED(hr) || !layer)
+                {
+                    layer = NULL;
+                }
+            }
+            if(layer)
             {
                 const D2D1_LAYER_PARAMETERS params = D2D1::LayerParameters(
                     content_bounds ? *content_bounds : D2D1::InfiniteRect(),
@@ -745,10 +759,6 @@ namespace gfx
                     NULL,
                     D2D1_LAYER_OPTIONS_NONE);
                 rt_->PushLayer(params, layer);
-            }
-            else
-            {
-                layer = NULL;
             }
         }
         layers_.push(layer);
@@ -765,7 +775,17 @@ namespace gfx
             {
                 rt_->PopLayer();
             }
-            SafeRelease(layer);
+            if(layer)
+            {
+                if(!recycled_layer_)
+                {
+                    recycled_layer_ = layer;
+                }
+                else
+                {
+                    layer->Release();
+                }
+            }
         }
         layer_depth_ = 0;
     }
@@ -773,6 +793,8 @@ namespace gfx
     void CanvasD2D::DiscardDeviceResources()
     {
         ReleasePlatformDc();
+        InvalidateBitmapCache();
+        SafeRelease(recycled_layer_);
         SafeRelease(brush_);
         SafeRelease(rt_);
         SafeRelease(wic_bitmap_);
@@ -855,6 +877,8 @@ namespace gfx
         {
             return false;
         }
+        InvalidateBitmapCache();
+        SafeRelease(recycled_layer_);
         SafeRelease(brush_);
         SafeRelease(rt_);
 
@@ -879,6 +903,59 @@ namespace gfx
         }
         SetTextAntialiasForTarget(rt_);
         return true;
+    }
+
+    void CanvasD2D::InvalidateBitmapCache()
+    {
+        SafeRelease(cached_bitmap_);
+        cached_pixels_ = NULL;
+        cached_bw_ = 0;
+        cached_bh_ = 0;
+        cached_stride_ = 0;
+    }
+
+    ID2D1Bitmap* CanvasD2D::GetOrCreateD2DBitmap(const Bitmap& bitmap)
+    {
+        if(!rt_ || bitmap.IsNull())
+        {
+            return NULL;
+        }
+        const uint8* pixels = bitmap.GetPixels();
+        const int stride = bitmap.Stride();
+        const int bw = bitmap.Width();
+        const int bh = bitmap.Height();
+        if(!pixels || stride<=0 || bw<=0 || bh<=0)
+        {
+            return NULL;
+        }
+
+        if(cached_bitmap_ && cached_pixels_==pixels &&
+            cached_bw_==bw && cached_bh_==bh && cached_stride_==stride)
+        {
+            return cached_bitmap_;
+        }
+
+        InvalidateBitmapCache();
+        const D2D1_BITMAP_PROPERTIES props = D2D1::BitmapProperties(
+            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,
+                D2D1_ALPHA_MODE_PREMULTIPLIED));
+        ID2D1Bitmap* d2d_bitmap = NULL;
+        const HRESULT hr = rt_->CreateBitmap(
+            D2D1::SizeU(static_cast<UINT>(bw), static_cast<UINT>(bh)),
+            pixels,
+            static_cast<UINT>(stride),
+            props,
+            &d2d_bitmap);
+        if(FAILED(hr) || !d2d_bitmap)
+        {
+            return NULL;
+        }
+        cached_bitmap_ = d2d_bitmap;
+        cached_pixels_ = pixels;
+        cached_bw_ = bw;
+        cached_bh_ = bh;
+        cached_stride_ = stride;
+        return cached_bitmap_;
     }
 
     bool CanvasD2D::CopyToHdc(HDC hdc, int dest_x, int dest_y,
