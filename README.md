@@ -13,11 +13,24 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 
 `1.x` 从提交 `534701a`（基础控件与菜单就绪）切出；其后 bugfix / 小功能合入 `1.x`，架构级改造在 `master`。
 
-### master 阶段一（已收口 → **范围已修订**）
+### master 阶段一（**已完成** — D2D 唯一渲染）
 
-> 旧阶段一（仅 Canvas + Demo）已完成；**新完成定义**见：  
-> `family_win_desktop/docs/superpowers/plans/2026-08-14-auralite-d2d-only-roadmap.md`  
-> （全部自绘控件改 D2D，**移除 GDI+**；`test_view` 与 `d2d_demo` 同后端。）
+**完成定义（2026-08-14）：** Views 自绘路径仅 Direct2D + DirectWrite + WIC；`CreateCanvas` / `WidgetWin` 回屏均为 D2D；**GDI+ 已从 master 移除**（无 `gdiplus.lib`、无 `canvas_gdiplus`）；`test_view` 与 `d2d_demo` 文字观感同一档。详见修订计划：
+
+[`family_win_desktop/docs/superpowers/plans/2026-08-14-auralite-d2d-only-roadmap.md`](../../docs/superpowers/plans/2026-08-14-auralite-d2d-only-roadmap.md)
+
+**已知例外（非 AuraLite 画布，仍走系统 GDI/HWND）：**
+
+| 类型 | 说明 |
+|------|------|
+| `NativeButton` / `NativeControlWin` / `NativeViewHost` | 嵌原生 HWND，系统自绘 |
+| `TrackPopupMenu`（`MenuModel` / `MenuRunner`） | Win32 系统弹出菜单 |
+
+默认 demo 主路径不依赖上述例外完成验收。
+
+### master 阶段二（下一步 — 声明式 UI）
+
+渲染已在 D2D 上稳定，**无需再迁画布**。阶段二入口：`ViewFactory` + yaml-cpp 属性注入、`Column` / `Row` 布局，以及 YAML 与 C++ 链式双轨 Demo（如 `login_window.yaml`）。实施时另开 plan，摘要见上述路线图 §3。
 
 CMake 同时构建：
 
