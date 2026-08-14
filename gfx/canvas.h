@@ -64,6 +64,9 @@ namespace gfx
         // 创建特定大小的画布.
         static Canvas* CreateCanvas(int width, int height, bool is_opaque);
 
+        // 清空整个画布. 忽略当前裁剪/变换 (Direct2D Clear 语义).
+        virtual void Clear(const Color& color) = 0;
+
         // 在栈上保存一份绘图状态的拷贝, 在配对调用Restore()之前, 所有的操作
         // 都在这份拷贝上.
         virtual void Save() = 0;

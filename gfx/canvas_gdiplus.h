@@ -58,7 +58,7 @@ namespace gfx
             int flags);
 
         // 清理背景色.
-        void Clear(const Color& color);
+        virtual void Clear(const Color& color);
 
         // 提取画布内容成一个位图.
         Bitmap ExtractBitmap() const;

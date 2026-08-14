@@ -5,7 +5,9 @@
 
 #include "animation/throb_animation.h"
 
-#include "gfx/canvas_gdiplus.h"
+#include "base/rtl.h"
+
+#include "gfx/canvas.h"
 
 #include "../../app/event.h"
 #include "../../app/resource_bundle.h"
@@ -307,7 +309,7 @@ namespace view
                 // back into the current canvas.
                 canvas->SaveLayer(
                     static_cast<int>(hover_animation_->GetCurrentValue()*255));
-                canvas->AsCanvasGdiplus()->Clear(gfx::Color(0, 255, 255, 255));
+                canvas->Clear(gfx::Color(0, 255, 255, 255));
                 PaintBorder(canvas);
                 canvas->RestoreLayer();
             }
@@ -394,29 +396,19 @@ namespace view
             gfx::Color text_color = (show_multiple_icon_states_ &&
                 (state()==BS_HOT || state()==BS_PUSHED)) ? color_hover_ : color_;
 
-            int draw_string_flags = gfx::CanvasGdiplus::DefaultCanvasTextAlignment() |
+            int draw_string_flags =
+                (base::IsRTL() ? gfx::Canvas::TEXT_ALIGN_RIGHT
+                               : gfx::Canvas::TEXT_ALIGN_LEFT) |
                 PrefixTypeToCanvasType(prefix_type_);
 
-            if(for_drag)
-            {
-                // TODO(erg): Either port DrawStringWithHalo to linux or find an
-                // alternative here.
-                canvas->AsCanvasGdiplus()->DrawStringWithHalo(
-                    text_, font_, text_color, color_highlight_, text_bounds.x(),
-                    text_bounds.y(), text_bounds.width(), text_bounds.height(),
-                    draw_string_flags);
-            }
-            else
-            {
-                canvas->DrawStringInt(text_,
-                    font_,
-                    text_color,
-                    text_bounds.x(),
-                    text_bounds.y(),
-                    text_bounds.width(),
-                    text_bounds.height(),
-                    draw_string_flags);
-            }
+            canvas->DrawStringInt(text_,
+                font_,
+                text_color,
+                text_bounds.x(),
+                text_bounds.y(),
+                text_bounds.width(),
+                text_bounds.height(),
+                draw_string_flags);
         }
 
         if(icon.Width() > 0)
@@ -437,11 +429,7 @@ namespace view
 
     void TextButton::UpdateTextSize()
     {
-        int width = 0, height = 0;
-        gfx::CanvasGdiplus::SizeStringInt(
-            text_, font_, &width, &height,
-            gfx::Canvas::NO_ELLIPSIS|PrefixTypeToCanvasType(prefix_type_));
-        text_size_.SetSize(width, font_.GetHeight());
+        text_size_.SetSize(font_.GetStringWidth(text_), font_.GetHeight());
         max_text_size_.SetSize(std::max(max_text_size_.width(), text_size_.width()),
             std::max(max_text_size_.height(),
             text_size_.height()));

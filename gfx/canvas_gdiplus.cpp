@@ -764,31 +764,4 @@ namespace gfx
         EndPlatformPaint(dc);
     }
 
-
-    class CanvasPaintWin : public CanvasGdiplusPaint, public CanvasPaint
-    {
-    public:
-        CanvasPaintWin(HWND view) : CanvasGdiplusPaint(view) {}
-
-        virtual bool IsValid() const
-        {
-            return isEmpty();
-        }
-
-        virtual Rect GetInvalidRect() const
-        {
-            return Rect(paintStruct().rcPaint);
-        }
-
-        virtual Canvas* AsCanvas()
-        {
-            return this;
-        }
-    };
-
-    CanvasPaint* CanvasPaint::CreateCanvasPaint(HWND view)
-    {
-        return new CanvasPaintWin(view);
-    }
-
 } //namespace gfx

@@ -21,7 +21,7 @@
 
 namespace gfx
 {
-    class CanvasGdiplus;
+    class Canvas;
     class Rect;
 }
 
@@ -556,7 +556,7 @@ namespace view
 
         // A canvas that contains the window contents in the case of a layered
         // window.
-        scoped_ptr<gfx::CanvasGdiplus> contents_;
+        scoped_ptr<gfx::Canvas> contents_;
 
         // Whether or not the window should delete itself when it is destroyed.
         // Set this to false via its setter for stack allocated instances.

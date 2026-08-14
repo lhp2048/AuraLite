@@ -6,7 +6,7 @@
 #include "base/win_util.h"
 #include "base/windows_version.h"
 
-#include "gfx/canvas_gdiplus.h"
+#include "gfx/canvas_d2d.h"
 #include "gfx/font.h"
 #include "gfx/path.h"
 
@@ -1120,11 +1120,11 @@ namespace view
 
         root_view->SchedulePaint(gfx::Rect(dirty_region), false);
 
-        // gfx::CanvasGdiplusPaint's destructor does the actual painting. As such,
+        // gfx::CanvasD2DPaint's destructor does the actual painting. As such,
         // wrap the following in a block to force paint to occur so that we can
         // release the dc.
         {
-            gfx::CanvasGdiplusPaint canvas(dc, opaque(), dirty_region.left,
+            gfx::CanvasD2DPaint canvas(dc, opaque(), dirty_region.left,
                 dirty_region.top, dirty_region.right-dirty_region.left,
                 dirty_region.bottom-dirty_region.top);
             root_view->ProcessPaint(&canvas);

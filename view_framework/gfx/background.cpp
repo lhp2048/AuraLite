@@ -3,7 +3,7 @@
 
 #include "base/logging.h"
 
-#include "gfx/canvas_gdiplus.h"
+#include "gfx/canvas.h"
 #include "gfx/color_utils.h"
 
 #include "painter.h"
@@ -26,7 +26,7 @@ namespace view
         {
             // Fill the background. Note that we don't constrain to the bounds as
             // canvas is already clipped for us.
-            canvas->AsCanvasGdiplus()->Clear(get_color());
+            canvas->Clear(get_color());
         }
 
     private:

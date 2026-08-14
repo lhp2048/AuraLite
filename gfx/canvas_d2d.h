@@ -12,12 +12,15 @@
 #include "base/basic_types.h"
 
 #include "canvas.h"
+#include "canvas_paint_win.h"
 #include "rect.h"
+
+struct IWICBitmap;
 
 namespace gfx
 {
 
-    // gfx::Canvas Direct2D offscreen backend (ID2D1BitmapRenderTarget).
+    // gfx::Canvas Direct2D offscreen backend (WIC bitmap + ID2D1RenderTarget).
     class CanvasD2D : public Canvas
     {
     public:
@@ -31,9 +34,12 @@ namespace gfx
         bool BeginDraw();
         bool EndDraw();
 
-        void Clear(const Color& color);
+        virtual void Clear(const Color& color);
 
-        ID2D1BitmapRenderTarget* render_target() const { return bitmap_rt_; }
+        // Blit the offscreen bitmap to |hdc|. Ends an open BeginDraw first.
+        void DrawToHDC(HDC hdc, int x, int y, const RECT* src_rect);
+
+        ID2D1RenderTarget* render_target() const { return rt_; }
 
         virtual void Save();
         virtual void Restore();
@@ -86,13 +92,20 @@ namespace gfx
         void FlushDrawState();
         void DiscardDeviceResources();
         void DiscardResources();
+        void ReleasePlatformDc();
+        bool CopyToHdc(HDC hdc, int dest_x, int dest_y,
+            int src_x, int src_y, int width, int height);
         ID2D1SolidColorBrush* BrushFor(const Color& color);
         static D2D1_COLOR_F ToD2DColor(const Color& color);
         static D2D1_RECT_F ToD2DRect(int x, int y, int w, int h);
 
         ID2D1Factory* d2d_factory_;
-        ID2D1BitmapRenderTarget* bitmap_rt_;
+        ID2D1RenderTarget* rt_;
+        IWICBitmap* wic_bitmap_;
         ID2D1SolidColorBrush* brush_;
+        HDC platform_dc_;
+        HBITMAP platform_dib_;
+        HGDIOBJ platform_old_;
         int width_;
         int height_;
         bool is_opaque_;
@@ -102,6 +115,8 @@ namespace gfx
 
         DISALLOW_COPY_AND_ASSIGN(CanvasD2D);
     };
+
+    typedef CanvasPaintT<CanvasD2D> CanvasD2DPaint;
 
 } //namespace gfx
 

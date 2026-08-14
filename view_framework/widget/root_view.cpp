@@ -7,7 +7,8 @@
 
 #include "message_framework/message_loop.h"
 
-#include "gfx/canvas_gdiplus.h"
+#include "gfx/canvas.h"
+#include "gfx/color.h"
 
 #include "../app/keyboard_codes_win.h"
 #include "../dragdrop/drag_drop_types.h"
@@ -197,7 +198,7 @@ namespace view
         }
 
         // Clear the background.
-        canvas->AsCanvasGdiplus()->Clear(Gdiplus::Color::Black);
+        canvas->Clear(gfx::Color(0, 0, 0));
 
         // Save the current transforms.
         canvas->Save();

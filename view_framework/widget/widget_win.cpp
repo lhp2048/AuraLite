@@ -3,7 +3,7 @@
 
 #include "base/win_util.h"
 
-#include "gfx/canvas_gdiplus.h"
+#include "gfx/canvas.h"
 #include "gfx/native_theme_win.h"
 
 #include "../app/keyboard_code_conversion_win.h"
@@ -948,9 +948,10 @@ namespace view
 
         int flags = GET_KEYSTATE_WPARAM(w_param);
         short distance = GET_WHEEL_DELTA_WPARAM(w_param);
-        int x = GET_X_LPARAM(l_param);
-        int y = GET_Y_LPARAM(l_param);
-        MouseWheelEvent e(distance, x, y, Event::ConvertWindowsFlags(flags));
+        // WM_MOUSEWHEEL lParam is screen coordinates; Views expects client.
+        POINT pt = { GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param) };
+        ::ScreenToClient(hwnd(), &pt);
+        MouseWheelEvent e(distance, pt.x, pt.y, Event::ConvertWindowsFlags(flags));
         return root_view_->ProcessMouseWheelEvent(e) ? 0 : 1;
     }
 
@@ -1398,7 +1399,7 @@ namespace view
 
     void WidgetWin::SizeContents(const gfx::Size& window_size)
     {
-        contents_.reset(new gfx::CanvasGdiplus(window_size.width(),
+        contents_.reset(gfx::Canvas::CreateCanvas(window_size.width(),
             window_size.height(), false));
     }
 
@@ -1414,9 +1415,12 @@ namespace view
         root_view_->ProcessPaint(contents_.get());
         contents_->Restore();
 
-        HDC dc = contents_->AsCanvasGdiplus()->BeginPlatformPaint();
-        UpdateWindowFromContents(dc);
-        contents_->AsCanvasGdiplus()->EndPlatformPaint(dc);
+        HDC dc = contents_->BeginPlatformPaint();
+        if(dc)
+        {
+            UpdateWindowFromContents(dc);
+        }
+        contents_->EndPlatformPaint(dc);
     }
 
     void WidgetWin::UpdateWindowFromContents(HDC dib_dc)

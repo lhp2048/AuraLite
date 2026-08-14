@@ -1,6 +1,8 @@
 
 #include "canvas_d2d.h"
 
+#include <cstring>
+#include <vector>
 #include <wincodec.h>
 
 #include "base/logging.h"
@@ -55,8 +57,12 @@ namespace gfx
 
     CanvasD2D::CanvasD2D()
         : d2d_factory_(NULL),
-          bitmap_rt_(NULL),
+          rt_(NULL),
+          wic_bitmap_(NULL),
           brush_(NULL),
+          platform_dc_(NULL),
+          platform_dib_(NULL),
+          platform_old_(NULL),
           width_(0),
           height_(0),
           is_opaque_(false),
@@ -65,8 +71,12 @@ namespace gfx
 
     CanvasD2D::CanvasD2D(int width, int height, bool is_opaque)
         : d2d_factory_(NULL),
-          bitmap_rt_(NULL),
+          rt_(NULL),
+          wic_bitmap_(NULL),
           brush_(NULL),
+          platform_dc_(NULL),
+          platform_dib_(NULL),
+          platform_old_(NULL),
           width_(0),
           height_(0),
           is_opaque_(false),
@@ -123,46 +133,36 @@ namespace gfx
             return false;
         }
 
-        IWICBitmap* wic_bitmap = NULL;
+        const WICPixelFormatGUID wic_format = is_opaque ?
+            GUID_WICPixelFormat32bppBGR : GUID_WICPixelFormat32bppPBGRA;
         hr = wic->CreateBitmap(static_cast<UINT>(width),
-            static_cast<UINT>(height), GUID_WICPixelFormat32bppPBGRA,
-            WICBitmapCacheOnLoad, &wic_bitmap);
-        if(FAILED(hr) || !wic_bitmap)
+            static_cast<UINT>(height), wic_format,
+            WICBitmapCacheOnLoad, &wic_bitmap_);
+        wic->Release();
+        if(FAILED(hr) || !wic_bitmap_)
         {
-            wic->Release();
+            wic_bitmap_ = NULL;
             return false;
         }
 
+        // 96 DPI so 1 DIP == 1 bitmap pixel (matches GDI+ canvas units).
         const D2D1_PIXEL_FORMAT pixel_format = D2D1::PixelFormat(
-            DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED);
+            DXGI_FORMAT_B8G8R8A8_UNORM,
+            is_opaque ? D2D1_ALPHA_MODE_IGNORE : D2D1_ALPHA_MODE_PREMULTIPLIED);
         const D2D1_RENDER_TARGET_PROPERTIES rt_props =
             D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT,
-                pixel_format);
+                pixel_format, 96.0f, 96.0f);
 
-        ID2D1RenderTarget* parent_rt = NULL;
-        hr = d2d_factory_->CreateWicBitmapRenderTarget(wic_bitmap, rt_props,
-            &parent_rt);
-        wic_bitmap->Release();
-        wic->Release();
-        if(FAILED(hr) || !parent_rt)
+        hr = d2d_factory_->CreateWicBitmapRenderTarget(wic_bitmap_, rt_props,
+            &rt_);
+        if(FAILED(hr) || !rt_)
         {
+            SafeRelease(wic_bitmap_);
+            rt_ = NULL;
             return false;
         }
 
-        hr = parent_rt->CreateCompatibleRenderTarget(
-            D2D1::SizeF(static_cast<FLOAT>(width), static_cast<FLOAT>(height)),
-            D2D1::SizeU(static_cast<UINT32>(width), static_cast<UINT32>(height)),
-            pixel_format,
-            D2D1_COMPATIBLE_RENDER_TARGET_OPTIONS_NONE,
-            &bitmap_rt_);
-        parent_rt->Release();
-        if(FAILED(hr) || !bitmap_rt_)
-        {
-            bitmap_rt_ = NULL;
-            return false;
-        }
-
-        hr = bitmap_rt_->CreateSolidColorBrush(
+        hr = rt_->CreateSolidColorBrush(
             D2D1::ColorF(D2D1::ColorF::Black), &brush_);
         if(FAILED(hr) || !brush_)
         {
@@ -170,13 +170,13 @@ namespace gfx
             return false;
         }
 
-        SetTextAntialiasForTarget(bitmap_rt_);
+        SetTextAntialiasForTarget(rt_);
         return true;
     }
 
     bool CanvasD2D::BeginDraw()
     {
-        if(!bitmap_rt_)
+        if(!rt_)
         {
             return false;
         }
@@ -184,18 +184,18 @@ namespace gfx
         {
             return true;
         }
-        bitmap_rt_->BeginDraw();
+        rt_->BeginDraw();
         drawing_ = true;
         return true;
     }
 
     bool CanvasD2D::EndDraw()
     {
-        if(!bitmap_rt_ || !drawing_)
+        if(!rt_ || !drawing_)
         {
             return false;
         }
-        const HRESULT hr = bitmap_rt_->EndDraw();
+        const HRESULT hr = rt_->EndDraw();
         drawing_ = false;
         if(hr==D2DERR_RECREATE_TARGET)
         {
@@ -211,17 +211,17 @@ namespace gfx
 
     void CanvasD2D::Clear(const Color& color)
     {
-        if(!bitmap_rt_)
+        if(!rt_)
         {
             return;
         }
         EnsureDrawing();
-        bitmap_rt_->Clear(ToD2DColor(color));
+        rt_->Clear(ToD2DColor(color));
     }
 
     void CanvasD2D::Save()
     {
-        if(!bitmap_rt_ || !d2d_factory_)
+        if(!rt_ || !d2d_factory_)
         {
             return;
         }
@@ -233,14 +233,14 @@ namespace gfx
         d2d_factory_->CreateDrawingStateBlock(&state.block);
         if(state.block)
         {
-            bitmap_rt_->SaveDrawingState(state.block);
+            rt_->SaveDrawingState(state.block);
         }
         states_.push(state);
     }
 
     void CanvasD2D::Restore()
     {
-        if(states_.empty() || !bitmap_rt_)
+        if(states_.empty() || !rt_)
         {
             NOTREACHED();
             return;
@@ -250,12 +250,12 @@ namespace gfx
         states_.pop();
         while(clip_depth_>state.clip_depth)
         {
-            bitmap_rt_->PopAxisAlignedClip();
+            rt_->PopAxisAlignedClip();
             --clip_depth_;
         }
         if(state.block)
         {
-            bitmap_rt_->RestoreDrawingState(state.block);
+            rt_->RestoreDrawingState(state.block);
             state.block->Release();
         }
     }
@@ -277,12 +277,12 @@ namespace gfx
 
     bool CanvasD2D::ClipRectInt(int x, int y, int w, int h)
     {
-        if(!bitmap_rt_)
+        if(!rt_)
         {
             return false;
         }
         EnsureDrawing();
-        bitmap_rt_->PushAxisAlignedClip(
+        rt_->PushAxisAlignedClip(
             ToD2DRect(x, y, w, h), D2D1_ANTIALIAS_MODE_ALIASED);
         ++clip_depth_;
         // true = non-empty clip, matching View::ProcessPaint.
@@ -291,35 +291,35 @@ namespace gfx
 
     void CanvasD2D::TranslateInt(int x, int y)
     {
-        if(!bitmap_rt_)
+        if(!rt_)
         {
             return;
         }
         EnsureDrawing();
         D2D1_MATRIX_3X2_F current;
-        bitmap_rt_->GetTransform(&current);
-        bitmap_rt_->SetTransform(
+        rt_->GetTransform(&current);
+        rt_->SetTransform(
             current * D2D1::Matrix3x2F::Translation(
                 static_cast<FLOAT>(x), static_cast<FLOAT>(y)));
     }
 
     void CanvasD2D::ScaleInt(int x, int y)
     {
-        if(!bitmap_rt_)
+        if(!rt_)
         {
             return;
         }
         EnsureDrawing();
         D2D1_MATRIX_3X2_F current;
-        bitmap_rt_->GetTransform(&current);
-        bitmap_rt_->SetTransform(
+        rt_->GetTransform(&current);
+        rt_->SetTransform(
             current * D2D1::Matrix3x2F::Scale(
                 static_cast<FLOAT>(x), static_cast<FLOAT>(y)));
     }
 
     void CanvasD2D::FillRectInt(const Color& color, int x, int y, int w, int h)
     {
-        if(!bitmap_rt_ || w<=0 || h<=0)
+        if(!rt_ || w<=0 || h<=0)
         {
             return;
         }
@@ -329,7 +329,7 @@ namespace gfx
         {
             return;
         }
-        bitmap_rt_->FillRectangle(ToD2DRect(x, y, w, h), brush);
+        rt_->FillRectangle(ToD2DRect(x, y, w, h), brush);
     }
 
     void CanvasD2D::FillRectInt(const Brush& /*brush*/,
@@ -340,7 +340,7 @@ namespace gfx
 
     void CanvasD2D::DrawRectInt(const Color& color, int x, int y, int w, int h)
     {
-        if(!bitmap_rt_ || w<=0 || h<=0)
+        if(!rt_ || w<=0 || h<=0)
         {
             return;
         }
@@ -350,7 +350,7 @@ namespace gfx
         {
             return;
         }
-        bitmap_rt_->DrawRectangle(ToD2DRect(x, y, w, h), brush, 1.0f);
+        rt_->DrawRectangle(ToD2DRect(x, y, w, h), brush, 1.0f);
     }
 
     void CanvasD2D::DrawLineInt(const Color& /*color*/,
@@ -394,12 +394,12 @@ namespace gfx
         int x, int y, int w, int h,
         int flags)
     {
-        if(!bitmap_rt_ || text.empty() || w<=0 || h<=0)
+        if(!rt_ || text.empty() || w<=0 || h<=0)
         {
             return;
         }
         EnsureDrawing();
-        SetTextAntialiasForTarget(bitmap_rt_);
+        SetTextAntialiasForTarget(rt_);
 
         IDWriteTextLayout* layout = dwrite_text::CreateLayout(text, font, flags,
             static_cast<float>(w), static_cast<float>(h));
@@ -411,7 +411,7 @@ namespace gfx
         ID2D1SolidColorBrush* brush = BrushFor(color);
         if(brush)
         {
-            bitmap_rt_->DrawTextLayout(
+            rt_->DrawTextLayout(
                 D2D1::Point2F(static_cast<FLOAT>(x), static_cast<FLOAT>(y)),
                 layout,
                 brush,
@@ -439,15 +439,35 @@ namespace gfx
         NOTREACHED();
     }
 
+    void CanvasD2D::DrawToHDC(HDC hdc, int x, int y, const RECT* src_rect)
+    {
+        int src_x = 0;
+        int src_y = 0;
+        int width = width_;
+        int height = height_;
+        if(src_rect)
+        {
+            src_x = src_rect->left;
+            src_y = src_rect->top;
+            width = src_rect->right - src_rect->left;
+            height = src_rect->bottom - src_rect->top;
+        }
+        CopyToHdc(hdc, x, y, src_x, src_y, width, height);
+    }
+
     HDC CanvasD2D::BeginPlatformPaint()
     {
-        NOTREACHED();
-        return NULL;
+        ReleasePlatformDc();
+        if(!CopyToHdc(NULL, 0, 0, 0, 0, width_, height_))
+        {
+            return NULL;
+        }
+        return platform_dc_;
     }
 
     void CanvasD2D::EndPlatformPaint(HDC /*dc*/)
     {
-        NOTREACHED();
+        ReleasePlatformDc();
     }
 
     CanvasD2D* CanvasD2D::AsCanvasD2D()
@@ -467,14 +487,14 @@ namespace gfx
 
     void CanvasD2D::FlushDrawState()
     {
-        if(bitmap_rt_ && drawing_)
+        if(rt_ && drawing_)
         {
             while(clip_depth_>0)
             {
-                bitmap_rt_->PopAxisAlignedClip();
+                rt_->PopAxisAlignedClip();
                 --clip_depth_;
             }
-            bitmap_rt_->EndDraw();
+            rt_->EndDraw();
             drawing_ = false;
         }
         while(!states_.empty())
@@ -491,8 +511,10 @@ namespace gfx
 
     void CanvasD2D::DiscardDeviceResources()
     {
+        ReleasePlatformDc();
         SafeRelease(brush_);
-        SafeRelease(bitmap_rt_);
+        SafeRelease(rt_);
+        SafeRelease(wic_bitmap_);
     }
 
     void CanvasD2D::DiscardResources()
@@ -500,6 +522,124 @@ namespace gfx
         FlushDrawState();
         DiscardDeviceResources();
         SafeRelease(d2d_factory_);
+    }
+
+    void CanvasD2D::ReleasePlatformDc()
+    {
+        if(platform_dc_)
+        {
+            if(platform_old_)
+            {
+                SelectObject(platform_dc_, platform_old_);
+                platform_old_ = NULL;
+            }
+            DeleteDC(platform_dc_);
+            platform_dc_ = NULL;
+        }
+        if(platform_dib_)
+        {
+            DeleteObject(platform_dib_);
+            platform_dib_ = NULL;
+        }
+    }
+
+    bool CanvasD2D::CopyToHdc(HDC hdc, int dest_x, int dest_y,
+        int src_x, int src_y, int width, int height)
+    {
+        if(drawing_)
+        {
+            if(!EndDraw())
+            {
+                return false;
+            }
+        }
+        if(!wic_bitmap_ || width<=0 || height<=0)
+        {
+            return false;
+        }
+        if(src_x<0 || src_y<0 || src_x+width>width_ || src_y+height>height_)
+        {
+            return false;
+        }
+
+        WICRect lock_rect = { src_x, src_y, width, height };
+        IWICBitmapLock* lock = NULL;
+        HRESULT hr = wic_bitmap_->Lock(&lock_rect, WICBitmapLockRead, &lock);
+        if(FAILED(hr) || !lock)
+        {
+            return false;
+        }
+
+        UINT buf_size = 0;
+        BYTE* data = NULL;
+        hr = lock->GetDataPointer(&buf_size, &data);
+        UINT stride = 0;
+        if(SUCCEEDED(hr))
+        {
+            hr = lock->GetStride(&stride);
+        }
+        if(FAILED(hr) || !data || stride==0)
+        {
+            lock->Release();
+            return false;
+        }
+
+        BITMAPINFO bmi = {};
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth = width;
+        bmi.bmiHeader.biHeight = -height;
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = BI_RGB;
+
+        const BYTE* packed = data;
+        std::vector<BYTE> packed_storage;
+        if(stride != static_cast<UINT>(width*4))
+        {
+            packed_storage.resize(static_cast<size_t>(width*4*height));
+            for(int row=0; row<height; ++row)
+            {
+                memcpy(&packed_storage[static_cast<size_t>(row*width*4)],
+                    data + static_cast<size_t>(row)*stride,
+                    static_cast<size_t>(width*4));
+            }
+            packed = packed_storage.empty() ? NULL : &packed_storage[0];
+        }
+        if(!packed)
+        {
+            lock->Release();
+            return false;
+        }
+
+        bool ok = false;
+        if(hdc)
+        {
+            ok = SetDIBitsToDevice(hdc, dest_x, dest_y, width, height,
+                0, 0, 0, height, packed, &bmi, DIB_RGB_COLORS) != 0;
+        }
+        else
+        {
+            platform_dc_ = CreateCompatibleDC(NULL);
+            if(platform_dc_)
+            {
+                void* bits = NULL;
+                platform_dib_ = CreateDIBSection(platform_dc_, &bmi, DIB_RGB_COLORS,
+                    &bits, NULL, 0);
+                if(platform_dib_ && bits)
+                {
+                    memcpy(bits, packed, static_cast<size_t>(width*4*height));
+                    platform_old_ = SelectObject(platform_dc_, platform_dib_);
+                    ok = true;
+                }
+            }
+            if(!ok)
+            {
+                ReleasePlatformDc();
+            }
+        }
+
+        lock->Release();
+        return ok;
     }
 
     ID2D1SolidColorBrush* CanvasD2D::BrushFor(const Color& color)
@@ -538,6 +678,32 @@ namespace gfx
     Canvas* Canvas::CreateCanvas(int width, int height, bool is_opaque)
     {
         return new CanvasD2D(width, height, is_opaque);
+    }
+
+    class CanvasPaintWin : public CanvasD2DPaint, public CanvasPaint
+    {
+    public:
+        CanvasPaintWin(HWND view) : CanvasD2DPaint(view) {}
+
+        virtual bool IsValid() const
+        {
+            return isEmpty();
+        }
+
+        virtual Rect GetInvalidRect() const
+        {
+            return Rect(paintStruct().rcPaint);
+        }
+
+        virtual Canvas* AsCanvas()
+        {
+            return this;
+        }
+    };
+
+    CanvasPaint* CanvasPaint::CreateCanvasPaint(HWND view)
+    {
+        return new CanvasPaintWin(view);
     }
 
 } //namespace gfx
