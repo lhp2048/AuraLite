@@ -119,8 +119,10 @@ namespace gfx
     int PlatformFontWin::GetStringWidth(const std::wstring& text) const
     {
         int width = 0, height = 0;
+        // HIDE_PREFIX strips '&' mnemonics so layout width matches painted text
+        // (TextButton draws with SHOW_PREFIX).
         dwrite_text::MeasureString(text, Font(const_cast<PlatformFontWin*>(this)),
-            Canvas::NO_ELLIPSIS, &width, &height);
+            Canvas::NO_ELLIPSIS | Canvas::HIDE_PREFIX, &width, &height);
         return width;
     }
 

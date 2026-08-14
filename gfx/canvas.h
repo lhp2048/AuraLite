@@ -106,6 +106,16 @@ namespace gfx
         virtual void DrawRectInt(const Color& color,
             int x, int y, int w, int h) = 0;
 
+        // Axis-aligned ellipse inscribed in (x,y,w,h).
+        virtual void FillEllipseInt(const Color& color,
+            int x, int y, int w, int h) = 0;
+        virtual void DrawEllipseInt(const Color& color,
+            int x, int y, int w, int h) = 0;
+
+        // Rounded rectangle; |radius| is corner radius in pixels.
+        virtual void FillRoundedRectInt(const Color& color,
+            int x, int y, int w, int h, int radius) = 0;
+
         // ??????????????.
         virtual void DrawLineInt(const Color& color,
             int x1, int y1, int x2, int y2) = 0;

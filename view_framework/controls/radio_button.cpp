@@ -104,13 +104,14 @@ namespace view
 
         const int cy = height() / 2;
         const int r = kDotSize / 2;
-        // Approximate circle with concentric rects (no ellipse API on Canvas).
-        canvas->DrawRectInt(dot_color_, 0, cy - r, kDotSize, kDotSize);
-        canvas->DrawRectInt(dot_color_, 1, cy - r + 1, kDotSize - 2, kDotSize - 2);
+        const int top = cy - r;
+        canvas->DrawEllipseInt(dot_color_, 0, top, kDotSize, kDotSize);
         if(checked_)
         {
             const gfx::Color fill(40, 110, 200);
-            canvas->FillRectInt(fill, 4, cy - r + 4, kDotSize - 8, kDotSize - 8);
+            const int inset = 4;
+            canvas->FillEllipseInt(fill, inset, top + inset,
+                kDotSize - inset * 2, kDotSize - inset * 2);
         }
 
         if(!label_.empty())

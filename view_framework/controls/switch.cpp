@@ -90,13 +90,14 @@ namespace view
         const int track_y = (height() - kTrackHeight) / 2;
         const gfx::Color track = on_ ? gfx::Color(40, 110, 200)
                                      : gfx::Color(180, 180, 180);
-        canvas->FillRectInt(track, 0, track_y, kTrackWidth, kTrackHeight);
+        canvas->FillRoundedRectInt(track, 0, track_y, kTrackWidth, kTrackHeight,
+            kTrackHeight / 2);
 
         const int thumb_y = track_y + (kTrackHeight - kThumbSize) / 2;
         const int thumb_x = on_ ? (kTrackWidth - kThumbSize - 2) : 2;
-        canvas->FillRectInt(gfx::Color(255, 255, 255),
+        canvas->FillEllipseInt(gfx::Color(255, 255, 255),
             thumb_x, thumb_y, kThumbSize, kThumbSize);
-        canvas->DrawRectInt(gfx::Color(120, 120, 120),
+        canvas->DrawEllipseInt(gfx::Color(120, 120, 120),
             thumb_x, thumb_y, kThumbSize, kThumbSize);
 
         if(!label_.empty())

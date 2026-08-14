@@ -52,6 +52,10 @@ namespace gfx
         virtual void FillRectInt(const Color& color, int x, int y, int w, int h);
         virtual void FillRectInt(const Brush& brush, int x, int y, int w, int h);
         virtual void DrawRectInt(const Color& color, int x, int y, int w, int h);
+        virtual void FillEllipseInt(const Color& color, int x, int y, int w, int h);
+        virtual void DrawEllipseInt(const Color& color, int x, int y, int w, int h);
+        virtual void FillRoundedRectInt(const Color& color,
+            int x, int y, int w, int h, int radius);
         virtual void DrawLineInt(const Color& color, int x1, int y1, int x2, int y2);
         virtual void DrawBitmapInt(const Bitmap& bitmap, int x, int y);
         virtual void DrawBitmapInt(const Bitmap& bitmap,
@@ -97,6 +101,8 @@ namespace gfx
         void PopRemainingLayers();
         bool CopyToHdc(HDC hdc, int dest_x, int dest_y,
             int src_x, int src_y, int width, int height);
+        bool CopyPlatformDcToBitmap();
+        bool RecreateRenderTargetFromBitmap();
         ID2D1SolidColorBrush* BrushFor(const Color& color);
         static D2D1_COLOR_F ToD2DColor(const Color& color);
         static D2D1_RECT_F ToD2DRect(int x, int y, int w, int h);
@@ -108,6 +114,7 @@ namespace gfx
         HDC platform_dc_;
         HBITMAP platform_dib_;
         HGDIOBJ platform_old_;
+        void* platform_bits_;
         int width_;
         int height_;
         bool is_opaque_;

@@ -154,7 +154,15 @@ namespace
 
         if(flags&gfx::Canvas::MULTI_LINE)
         {
-            format->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
+            // CHARACTER_BREAK: allow wrapping mid-word / CJK grapheme (Win8.1+).
+            if(flags&gfx::Canvas::CHARACTER_BREAK)
+            {
+                format->SetWordWrapping(DWRITE_WORD_WRAPPING_CHARACTER);
+            }
+            else
+            {
+                format->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
+            }
         }
         else
         {

@@ -1,6 +1,7 @@
 
 #include "canvas_d2d.h"
 
+#include <algorithm>
 #include <cstring>
 #include <vector>
 #include <wincodec.h>
@@ -64,6 +65,7 @@ namespace gfx
           platform_dc_(NULL),
           platform_dib_(NULL),
           platform_old_(NULL),
+          platform_bits_(NULL),
           width_(0),
           height_(0),
           is_opaque_(false),
@@ -79,6 +81,7 @@ namespace gfx
           platform_dc_(NULL),
           platform_dib_(NULL),
           platform_old_(NULL),
+          platform_bits_(NULL),
           width_(0),
           height_(0),
           is_opaque_(false),
@@ -360,6 +363,66 @@ namespace gfx
         rt_->FillRectangle(ToD2DRect(x, y, w, h), brush);
     }
 
+    void CanvasD2D::FillEllipseInt(const Color& color, int x, int y, int w, int h)
+    {
+        if(!rt_ || w<=0 || h<=0)
+        {
+            return;
+        }
+        EnsureDrawing();
+        ID2D1SolidColorBrush* brush = BrushFor(color);
+        if(!brush)
+        {
+            return;
+        }
+        const D2D1_ELLIPSE ellipse = D2D1::Ellipse(
+            D2D1::Point2F(x + w * 0.5f, y + h * 0.5f),
+            w * 0.5f, h * 0.5f);
+        rt_->FillEllipse(ellipse, brush);
+    }
+
+    void CanvasD2D::DrawEllipseInt(const Color& color, int x, int y, int w, int h)
+    {
+        if(!rt_ || w<=0 || h<=0)
+        {
+            return;
+        }
+        EnsureDrawing();
+        ID2D1SolidColorBrush* brush = BrushFor(color);
+        if(!brush)
+        {
+            return;
+        }
+        const D2D1_ELLIPSE ellipse = D2D1::Ellipse(
+            D2D1::Point2F(x + w * 0.5f, y + h * 0.5f),
+            w * 0.5f, h * 0.5f);
+        rt_->DrawEllipse(ellipse, brush, 1.f);
+    }
+
+    void CanvasD2D::FillRoundedRectInt(const Color& color,
+        int x, int y, int w, int h, int radius)
+    {
+        if(!rt_ || w<=0 || h<=0)
+        {
+            return;
+        }
+        EnsureDrawing();
+        ID2D1SolidColorBrush* brush = BrushFor(color);
+        if(!brush)
+        {
+            return;
+        }
+        float r = static_cast<float>(std::max(0, radius));
+        const float max_r = std::min(w, h) * 0.5f;
+        if(r > max_r)
+        {
+            r = max_r;
+        }
+        const D2D1_ROUNDED_RECT rounded = D2D1::RoundedRect(
+            ToD2DRect(x, y, w, h), r, r);
+        rt_->FillRoundedRectangle(rounded, brush);
+    }
+
     void CanvasD2D::FillRectInt(const Brush& brush,
         int x, int y, int w, int h)
     {
@@ -613,6 +676,13 @@ namespace gfx
 
     void CanvasD2D::EndPlatformPaint(HDC /*dc*/)
     {
+        // GDI callers draw into the platform DIB; push those pixels back into
+        // the WIC bitmap so subsequent D2D paints see them (FamilyShell icons).
+        if(platform_bits_ && wic_bitmap_)
+        {
+            CopyPlatformDcToBitmap();
+            RecreateRenderTargetFromBitmap();
+        }
         ReleasePlatformDc();
     }
 
@@ -732,6 +802,83 @@ namespace gfx
             DeleteObject(platform_dib_);
             platform_dib_ = NULL;
         }
+        platform_bits_ = NULL;
+    }
+
+    bool CanvasD2D::CopyPlatformDcToBitmap()
+    {
+        if(!platform_bits_ || !wic_bitmap_ || width_<=0 || height_<=0)
+        {
+            return false;
+        }
+
+        // Must not hold a WIC RT while locking the bitmap for write.
+        SafeRelease(brush_);
+        SafeRelease(rt_);
+
+        WICRect lock_rect = { 0, 0, width_, height_ };
+        IWICBitmapLock* lock = NULL;
+        HRESULT hr = wic_bitmap_->Lock(&lock_rect, WICBitmapLockWrite, &lock);
+        if(FAILED(hr) || !lock)
+        {
+            return false;
+        }
+
+        UINT buf_size = 0;
+        BYTE* data = NULL;
+        hr = lock->GetDataPointer(&buf_size, &data);
+        UINT stride = 0;
+        if(SUCCEEDED(hr))
+        {
+            hr = lock->GetStride(&stride);
+        }
+        if(FAILED(hr) || !data || stride==0)
+        {
+            lock->Release();
+            return false;
+        }
+
+        const BYTE* src = static_cast<const BYTE*>(platform_bits_);
+        const size_t row_bytes = static_cast<size_t>(width_)*4;
+        for(int row=0; row<height_; ++row)
+        {
+            memcpy(data + static_cast<size_t>(row)*stride,
+                src + static_cast<size_t>(row)*row_bytes, row_bytes);
+        }
+        lock->Release();
+        return true;
+    }
+
+    bool CanvasD2D::RecreateRenderTargetFromBitmap()
+    {
+        if(!d2d_factory_ || !wic_bitmap_)
+        {
+            return false;
+        }
+        SafeRelease(brush_);
+        SafeRelease(rt_);
+
+        const D2D1_PIXEL_FORMAT pixel_format = D2D1::PixelFormat(
+            DXGI_FORMAT_B8G8R8A8_UNORM,
+            is_opaque_ ? D2D1_ALPHA_MODE_IGNORE : D2D1_ALPHA_MODE_PREMULTIPLIED);
+        const D2D1_RENDER_TARGET_PROPERTIES rt_props =
+            D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT,
+                pixel_format, 96.0f, 96.0f);
+        HRESULT hr = d2d_factory_->CreateWicBitmapRenderTarget(wic_bitmap_,
+            rt_props, &rt_);
+        if(FAILED(hr) || !rt_)
+        {
+            rt_ = NULL;
+            return false;
+        }
+        hr = rt_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black), &brush_);
+        if(FAILED(hr) || !brush_)
+        {
+            SafeRelease(rt_);
+            return false;
+        }
+        SetTextAntialiasForTarget(rt_);
+        return true;
     }
 
     bool CanvasD2D::CopyToHdc(HDC hdc, int dest_x, int dest_y,
@@ -820,6 +967,7 @@ namespace gfx
                 {
                     memcpy(bits, packed, static_cast<size_t>(width*4*height));
                     platform_old_ = SelectObject(platform_dc_, platform_dib_);
+                    platform_bits_ = bits;
                     ok = true;
                 }
             }
