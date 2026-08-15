@@ -44,6 +44,7 @@ class PopupHost {
   HWND owner_ = nullptr;
   bool owner_hooked_ = false;
   WNDPROC owner_old_proc_ = nullptr;
+  bool mouse_hooked_ = false;
 
   void PlaceRoot(Window* w, POINT screen, SizeF content);
   void PlaceChild(Window* w, const RectF& anchor_screen, SizeF content);
@@ -54,9 +55,13 @@ class PopupHost {
   bool IsHwndInStack(HWND hwnd) const;
   void InstallOwnerHook();
   void UninstallOwnerHook();
+  void InstallMouseHook();
+  void UninstallMouseHook();
+  void ClearOpenState();
 
   static LRESULT CALLBACK OwnerSubclassProc(HWND hwnd, UINT msg, WPARAM wparam,
                                             LPARAM lparam);
+  static LRESULT CALLBACK MouseHookProc(int code, WPARAM wparam, LPARAM lparam);
 };
 
 }  // namespace auralite::ui

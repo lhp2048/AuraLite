@@ -526,15 +526,17 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
     case WM_ACTIVATE:
       // PopupHost menus: inactive + activation target outside stack → dismiss
       // entire stack. Nested Push activates another layer in-stack — keep open.
-      if (popup_mode_ && LOWORD(wparam) == WA_INACTIVE &&
-          on_deactivate_outside_) {
-        HWND other = reinterpret_cast<HWND>(lparam);
-        auto cb = on_deactivate_outside_;
-        cb(other);
-        // |this| may be destroyed if the host dismissed the stack.
+      // Non-popup windows must fall through to DefWindowProc.
+      if (popup_mode_) {
+        if (LOWORD(wparam) == WA_INACTIVE && on_deactivate_outside_) {
+          HWND other = reinterpret_cast<HWND>(lparam);
+          auto cb = on_deactivate_outside_;
+          cb(other);
+          // |this| may be destroyed if the host dismissed the stack.
+        }
         return 0;
       }
-      return 0;
+      break;
 
     case WM_SETFOCUS:
       Invalidate();

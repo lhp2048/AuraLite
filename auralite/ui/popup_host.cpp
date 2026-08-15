@@ -7,6 +7,10 @@ namespace {
 
 thread_local PopupHost* g_current = nullptr;
 
+// Process-wide LL mouse hook while any PopupHost stack is open (UI thread).
+HHOOK g_mouse_hook = nullptr;
+PopupHost* g_mouse_hook_host = nullptr;
+
 RectF WorkAreaNear(POINT screen) {
   HMONITOR mon = MonitorFromPoint(screen, MONITOR_DEFAULTTONEAREST);
   MONITORINFO mi = {};
@@ -48,6 +52,15 @@ PopupHost::~PopupHost() { Dismiss(); }
 
 PopupHost* PopupHost::Current() { return g_current; }
 
+void PopupHost::ClearOpenState() {
+  UninstallMouseHook();
+  UninstallOwnerHook();
+  owner_ = nullptr;
+  if (g_current == this) {
+    g_current = nullptr;
+  }
+}
+
 void PopupHost::Show(HWND owner, POINT screen, std::unique_ptr<Node> root) {
   Dismiss();
   if (!root || !owner) {
@@ -56,7 +69,12 @@ void PopupHost::Show(HWND owner, POINT screen, std::unique_ptr<Node> root) {
   owner_ = owner;
   g_current = this;
   InstallOwnerHook();
+  InstallMouseHook();
   ShowLayer(std::move(root), screen, nullptr);
+  // CreatePopup failed (or ShowLayer no-op): do not leave TLS / hooks dangling.
+  if (stack_.empty()) {
+    ClearOpenState();
+  }
 }
 
 void PopupHost::ShowFromYaml(HWND owner, POINT screen,
@@ -74,6 +92,7 @@ void PopupHost::Push(const RectF& anchor_screen, std::unique_ptr<Node> root) {
     return;
   }
   g_current = this;
+  InstallMouseHook();
   ShowLayer(std::move(root), POINT{}, &anchor_screen);
 }
 
@@ -86,11 +105,7 @@ void PopupHost::DismissFrom(size_t level) {
     stack_.pop_back();
   }
   if (stack_.empty()) {
-    UninstallOwnerHook();
-    owner_ = nullptr;
-    if (g_current == this) {
-      g_current = nullptr;
-    }
+    ClearOpenState();
   }
 }
 
@@ -253,6 +268,45 @@ void PopupHost::UninstallOwnerHook() {
   }
   owner_hooked_ = false;
   owner_old_proc_ = nullptr;
+}
+
+void PopupHost::InstallMouseHook() {
+  if (mouse_hooked_ || g_mouse_hook) {
+    mouse_hooked_ = (g_mouse_hook_host == this);
+    return;
+  }
+  // WH_MOUSE_LL: temporary while stack open; catches outside clicks that do
+  // not reliably produce WM_ACTIVATE on the popup (e.g. click on owner).
+  g_mouse_hook = SetWindowsHookExW(WH_MOUSE_LL, &MouseHookProc,
+                                   GetModuleHandleW(nullptr), 0);
+  if (!g_mouse_hook) {
+    return;
+  }
+  g_mouse_hook_host = this;
+  mouse_hooked_ = true;
+}
+
+void PopupHost::UninstallMouseHook() {
+  if (g_mouse_hook && g_mouse_hook_host == this) {
+    UnhookWindowsHookEx(g_mouse_hook);
+    g_mouse_hook = nullptr;
+    g_mouse_hook_host = nullptr;
+  }
+  mouse_hooked_ = false;
+}
+
+LRESULT CALLBACK PopupHost::MouseHookProc(int code, WPARAM wparam,
+                                          LPARAM lparam) {
+  if (code == HC_ACTION && g_mouse_hook_host &&
+      (wparam == WM_LBUTTONDOWN || wparam == WM_RBUTTONDOWN)) {
+    const auto* info = reinterpret_cast<const MSLLHOOKSTRUCT*>(lparam);
+    if (info && !g_mouse_hook_host->HitAnyPopup(info->pt)) {
+      // Keep activate path; this covers cases activate misses.
+      // May UnhookWindowsHookEx — CallNextHookEx(nullptr) is still valid.
+      g_mouse_hook_host->Dismiss();
+    }
+  }
+  return CallNextHookEx(nullptr, code, wparam, lparam);
 }
 
 LRESULT CALLBACK PopupHost::OwnerSubclassProc(HWND hwnd, UINT msg,
