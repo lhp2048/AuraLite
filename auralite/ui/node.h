@@ -1,5 +1,6 @@
 #pragma once
 
+#include "auralite/reactive/observe.h"
 #include "auralite/ui/types.h"
 
 #include <functional>
@@ -8,6 +9,8 @@
 #include <vector>
 
 namespace auralite::ui {
+
+class Window;
 
 class Node {
  public:
@@ -115,6 +118,15 @@ class Node {
   void set_focusable(bool v) { focusable_ = v; }
   bool focused() const { return focused_; }
 
+  bool visible() const { return visible_; }
+  Node& set_visible(bool v);
+
+  // Keep subscription alive for this node's lifetime (unbind on destroy).
+  void OwnSubscription(auralite::reactive::Subscription sub);
+
+  Window* host_window() const { return host_window_; }
+  void set_host_window(Window* w);
+
   // Optional id for FindByName (YAML `name`, bind templates).
   Node& set_name(std::string name);
   const std::string& name() const { return name_; }
@@ -135,6 +147,9 @@ class Node {
   Node* parent_ = nullptr;
   bool focusable_ = false;
   bool focused_ = false;
+  bool visible_ = true;
+  std::vector<auralite::reactive::Subscription> owned_subs_;
+  Window* host_window_ = nullptr;
   std::string name_;
   ContextMenuHandler on_context_menu_;
 

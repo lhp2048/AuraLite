@@ -33,6 +33,15 @@ ImageButton& ImageButton::on_click(ClickHandler handler) {
   return *this;
 }
 
+ImageButton& ImageButton::set_enabled(bool e) {
+  enabled_ = e;
+  if (!enabled_) {
+    pressed_ = false;
+    hovered_ = false;
+  }
+  return *this;
+}
+
 SizeF ImageButton::Measure(float max_w, float max_h) {
   const float hug_w = preferred_width() > 0.f ? preferred_width() : 48.f;
   const float hug_h = preferred_height() > 0.f ? preferred_height() : 48.f;
@@ -47,17 +56,22 @@ void ImageButton::EnsureImage(auralite::Canvas& canvas) {
 }
 
 void ImageButton::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   EnsureImage(canvas);
   const ThemeTokens& th = Theme::Active();
 
   ColorF chrome = th.surface_alt;
-  if (pressed_) {
+  if (!enabled_) {
+    chrome = th.surface;
+  } else if (pressed_) {
     chrome = th.border;
   } else if (hovered_) {
     chrome = th.accent_soft;
   }
   canvas.FillRoundedRect(bounds_, 8.f, 8.f, chrome);
-  if (focused()) {
+  if (focused() && enabled_) {
     canvas.DrawDashedRect(bounds_, th.border_focus, 1.f);
   }
 
@@ -71,14 +85,14 @@ void ImageButton::Paint(auralite::Canvas& canvas) {
 }
 
 void ImageButton::OnMouseDown(const MouseEvent& e) {
-  if (e.button != MouseButton::Left) {
+  if (!enabled_ || e.button != MouseButton::Left) {
     return;
   }
   pressed_ = true;
 }
 
 void ImageButton::OnMouseUp(const MouseEvent& e) {
-  if (e.button != MouseButton::Left) {
+  if (!enabled_ || e.button != MouseButton::Left) {
     return;
   }
   const bool was_pressed = pressed_;
@@ -89,6 +103,9 @@ void ImageButton::OnMouseUp(const MouseEvent& e) {
 }
 
 void ImageButton::OnMouseEnter(const MouseEvent&) {
+  if (!enabled_) {
+    return;
+  }
   hovered_ = true;
 }
 

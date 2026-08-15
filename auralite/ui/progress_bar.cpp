@@ -61,6 +61,9 @@ SizeF ProgressBar::Measure(float max_w, float max_h) {
 }
 
 void ProgressBar::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   const ThemeTokens& th = Theme::Active();
   const float r = bounds_.h * 0.5f;
   canvas.FillRoundedRect(bounds_, r, r, th.scroll_track);

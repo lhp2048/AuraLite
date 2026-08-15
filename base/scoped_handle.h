@@ -152,7 +152,7 @@ namespace base
 
     // 特例化HICON, 因为销毁HICON需要调用DestroyIcon()而不是DeleteObject().
     template<>
-    void ScopedGDIObject<HICON>::Close()
+    inline void ScopedGDIObject<HICON>::Close()
     {
         if(object_)
         {

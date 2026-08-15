@@ -18,6 +18,8 @@ class ImageButton : public Node {
                          UINT stride);
   ImageButton& preferred_size(float w, float h);
   ImageButton& on_click(ClickHandler handler);
+  ImageButton& set_enabled(bool e);
+  bool enabled() const { return enabled_; }
 
   SizeF Measure(float max_w, float max_h) override;
   void Paint(auralite::Canvas& canvas) override;
@@ -34,6 +36,7 @@ class ImageButton : public Node {
   ClickHandler on_click_;
   bool hovered_ = false;
   bool pressed_ = false;
+  bool enabled_ = true;
 
   auralite::Image image_;
   UINT pixel_w_ = 0;

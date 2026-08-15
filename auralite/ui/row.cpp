@@ -86,7 +86,7 @@ SizeF Row::Measure(float max_w, float max_h) {
   int live = 0;
   bool any_flex = false;
   for (const auto& c : children_) {
-    if (!c) {
+    if (!c || !c->visible()) {
       continue;
     }
     ++live;
@@ -129,7 +129,7 @@ void Row::Layout(const RectF& final_rect) {
   std::vector<Node*> live;
   live.reserve(children_.size());
   for (auto& c : children_) {
-    if (c) {
+    if (c && c->visible()) {
       live.push_back(c.get());
     }
   }

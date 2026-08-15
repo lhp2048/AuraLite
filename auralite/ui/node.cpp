@@ -1,4 +1,5 @@
 #include "auralite/ui/node.h"
+#include "auralite/ui/window.h"
 
 #include <algorithm>
 
@@ -13,7 +14,17 @@ void Node::AddChild(std::unique_ptr<Node> child) {
     return;
   }
   child->parent_ = this;
+  child->set_host_window(host_window_);
   children_.push_back(std::move(child));
+}
+
+void Node::set_host_window(Window* w) {
+  host_window_ = w;
+  for (auto& child : children_) {
+    if (child) {
+      child->set_host_window(w);
+    }
+  }
 }
 
 Node& Node::set_width_policy(SizePolicy p) {
@@ -162,14 +173,20 @@ void Node::Layout(const RectF& final_rect) {
 }
 
 void Node::Paint(auralite::Canvas& canvas) {
+  if (!visible_) {
+    return;
+  }
   for (auto& child : children_) {
-    if (child) {
+    if (child && child->visible()) {
       child->Paint(canvas);
     }
   }
 }
 
 Node* Node::HitTest(float x, float y) {
+  if (!visible_) {
+    return nullptr;
+  }
   if (!ContainsPoint(bounds_, x, y)) {
     return nullptr;
   }
@@ -183,6 +200,21 @@ Node* Node::HitTest(float x, float y) {
     }
   }
   return this;
+}
+
+Node& Node::set_visible(bool v) {
+  if (visible_ == v) {
+    return *this;
+  }
+  visible_ = v;
+  if (host_window_) {
+    host_window_->RequestLayout();
+  }
+  return *this;
+}
+
+void Node::OwnSubscription(auralite::reactive::Subscription sub) {
+  owned_subs_.push_back(std::move(sub));
 }
 
 Node& Node::set_name(std::string name) {

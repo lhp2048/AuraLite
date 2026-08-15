@@ -43,7 +43,53 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 | `AuraLite.Base` / `AuraLite.UI` | 旧 Views 静态库（对照 / `1.x`·`2.x`）；**新 Demo 不链接** |
 | `d2d_demo` / `test_view` | 阶段一 / Views 冒烟 |
 
-**与分支关系：** `1.x` = Views+GDI+；`2.x` = Views+D2D 冻结线；`master` = 阶段二 `auralite::ui`。阶段二 Demo **只**链 `AuraLite::UINext`（传递依赖 D2D + yaml-cpp）。
+**与分支关系：** `1.x` = Views+GDI+；`2.x` = Views+D2D 冻结线；`master` = 阶段二 `auralite::ui` + **阶段三 reactive/async**。新 Demo **只**链 `AuraLite::UINext`（传递依赖 D2D + yaml-cpp + `AuraLite::Base` / MessageLoop）。
+
+### master 阶段三（异步与响应式）
+
+设计 / 计划：
+
+- [`…/specs/2026-08-15-auralite-phase3-reactive-async-design.md`](../../docs/superpowers/specs/2026-08-15-auralite-phase3-reactive-async-design.md)
+- [`…/plans/2026-08-15-auralite-phase3-reactive-async.md`](../../docs/superpowers/plans/2026-08-15-auralite-phase3-reactive-async.md)
+
+| 模块 | 说明 |
+|------|------|
+| `auralite::reactive` | `Signal` / `Computed` / `Observe` / `Batch`（读时追踪；**仅 UI 线程**，Debug assert） |
+| `auralite::async` | `ResumeOnUi` / `Delay` / `RunAsync` / `SpawnUi`（挂 `MessageLoopForUI`）；可选传入 `Window::alive_flag()`，关窗后**不再 resume** |
+| `auralite::ui` 绑定 | **单向** `BindText` / `BindVisible` / `BindEnabled`（Button/ImageButton）/ `BindChecked` / `BindValue` / `BindIndeterminate` / `BindItems`（VirtualList + ItemList）；写回用控件事件 |
+| `Application::Run` | `MessageLoopForUI`（与 Family Shell 同一套循环）；`Window::Invalidate` 同 turn 合并为一次 PostTask |
+
+**线程 / 生命周期：**
+
+- `Signal` / `Computed` / `Observe`：**仅 UI 线程**（Debug assert）。
+- 协程回 UI：`co_await Delay(ms, alive)` / `RunAsync(fn, alive)` / `ResumeOnUi(alive)`，其中 `alive = window.alive_flag()`。
+- **MSVC：** 禁止用临时 lambda 启动协程（`SpawnUi([...]() -> FireAndForget { ... })` 易崩溃）；用自由函数或具名可调用对象。
+
+**示例：**
+
+```cpp
+using namespace auralite::reactive;
+using namespace auralite::ui;
+using namespace auralite::async;
+Signal<int> n{0};
+Computed<std::wstring> text{[&] {
+  return L"n=" + std::to_wstring(n.Get());
+}};
+label->OwnSubscription(BindText(*label, text));
+button->on_click([&] { n.Set(n.Peek() + 1); });
+Batch([&] { n.Set(2); /* other Signals… */ });
+
+// Free function — do not use a temporary coroutine lambda on MSVC.
+FireAndForget Load(std::shared_ptr<std::atomic_bool> alive) {
+  co_await Delay(100, alive);
+  co_await RunAsync([] { /* worker */ }, alive);
+  // … update Signals on UI …
+}
+```
+
+**Demo / 测试：** `reactive_test`、`async_test`（控制台）、`reactive_demo`（小验收）、`reactive_gallery`（控件面 + Signal/Bind 展示，对齐 `ui_gallery`）。
+
+**非目标（本阶段不做）：** YAML 绑定表达式、自动双向绑定、`ObservableList` 细粒度 diff、Family Shell 迁移。
 
 #### Mini YAML 子集（Spec §3.4）
 

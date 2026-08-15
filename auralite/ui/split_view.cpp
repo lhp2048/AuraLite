@@ -145,14 +145,21 @@ void SplitView::ApplyRatioFromDividerOffset(float offset) {
 }
 
 void SplitView::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   const ThemeTokens& th = Theme::Active();
   if (Node* L = leading()) {
     canvas.FillRect(L->bounds(), th.surface_alt);
-    L->Paint(canvas);
+    if (L->visible()) {
+      L->Paint(canvas);
+    }
   }
   if (Node* R = trailing()) {
     canvas.FillRect(R->bounds(), th.surface);
-    R->Paint(canvas);
+    if (R->visible()) {
+      R->Paint(canvas);
+    }
   }
   const RectF div = DividerBounds();
   canvas.FillRect(div, th.border);
@@ -162,7 +169,7 @@ void SplitView::Paint(auralite::Canvas& canvas) {
 }
 
 Node* SplitView::HitTest(float x, float y) {
-  if (!ContainsPoint(bounds_, x, y)) {
+  if (!visible() || !ContainsPoint(bounds_, x, y)) {
     return nullptr;
   }
   if (IsPointInDivider(x, y)) {

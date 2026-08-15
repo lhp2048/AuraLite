@@ -64,7 +64,7 @@ SizeF Label::Measure(float max_w, float max_h) {
 }
 
 void Label::Paint(auralite::Canvas& canvas) {
-  if (text_.empty()) {
+  if (!visible() || text_.empty()) {
     return;
   }
   const ThemeTokens& th = Theme::Active();

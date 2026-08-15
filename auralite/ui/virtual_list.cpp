@@ -650,6 +650,9 @@ void VirtualList::PaintDefaultRow(auralite::Canvas& canvas, const RectF& row,
 }
 
 void VirtualList::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   RebuildPrefixIfNeeded();
   const ThemeTokens& th = Theme::Active();
   canvas.FillRect(bounds_, th.surface);

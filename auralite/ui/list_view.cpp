@@ -191,6 +191,9 @@ SizeF ListView::Measure(float max_w, float max_h) {
 }
 
 void ListView::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   const ThemeTokens& th = Theme::Active();
   const float fs = ResolveFontSize(font_size_);
   const ColorF text_c = text_color_.value_or(th.text);

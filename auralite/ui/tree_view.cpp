@@ -545,6 +545,9 @@ void TreeView::PaintCheckBox(auralite::Canvas& canvas, const RectF& box,
 }
 
 void TreeView::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   if (visible_dirty_) {
     RebuildVisible();
   }

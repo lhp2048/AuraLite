@@ -348,6 +348,9 @@ SizeF Combo::Measure(float max_w, float max_h) {
 }
 
 void Combo::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   const ThemeTokens& th = Theme::Active();
   canvas.FillRoundedRect(bounds_, 6.f, 6.f, th.surface);
   canvas.DrawRect(bounds_, focused() ? th.border_focus : th.border,

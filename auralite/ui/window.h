@@ -4,6 +4,7 @@
 #include "auralite/ui/node.h"
 #include "auralite/ui/theme.h"
 
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -31,6 +32,10 @@ class Window {
   Node* popup() const { return popup_.get(); }
 
   void Invalidate();
+  // Mark layout dirty and repaint (e.g. after visible toggles).
+  void RequestLayout();
+  // Shared alive flag for async/coroutines; cleared in destructor.
+  std::shared_ptr<std::atomic_bool> alive_flag() const { return alive_; }
   HWND hwnd() const { return hwnd_; }
 
   // Ref-counted ~30fps Invalidate for indeterminate ProgressBar etc.
@@ -82,7 +87,10 @@ class Window {
   bool tracking_mouse_leave_ = false;
   size_t ime_char_suppress_ = 0;
   int anim_clients_ = 0;
+  bool invalidate_posted_ = false;
   Theme::InvalidateSink theme_sink_;
+  std::shared_ptr<std::atomic_bool> alive_ =
+      std::make_shared<std::atomic_bool>(true);
 };
 
 }  // namespace auralite::ui

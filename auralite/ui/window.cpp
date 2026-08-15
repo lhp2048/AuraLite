@@ -1,5 +1,8 @@
 #include "auralite/ui/window.h"
 
+#include "auralite/async/task_lambda.h"
+#include "message_framework/message_loop.h"
+
 #include <imm.h>
 #include <windowsx.h>
 
@@ -34,6 +37,9 @@ std::wstring ImmGetString(HIMC himc, DWORD index) {
 Window::Window() = default;
 
 Window::~Window() {
+  if (alive_) {
+    alive_->store(false);
+  }
   Theme::RemoveInvalidateSink(&theme_sink_);
   if (hwnd_) {
     if (anim_clients_ > 0) {
@@ -124,6 +130,9 @@ void Window::SetRoot(std::unique_ptr<Node> root) {
   ClearPopup();
   SetFocusNode(nullptr);
   root_ = std::move(root);
+  if (root_) {
+    root_->set_host_window(this);
+  }
   mouse_capture_ = nullptr;
   hovered_ = nullptr;
   layout_dirty_ = true;
@@ -133,6 +142,9 @@ void Window::SetRoot(std::unique_ptr<Node> root) {
 void Window::SetPopup(std::unique_ptr<Node> popup,
                       std::function<void()> on_dismiss, Node* anchor) {
   popup_ = std::move(popup);
+  if (popup_) {
+    popup_->set_host_window(this);
+  }
   popup_dismiss_ = std::move(on_dismiss);
   popup_anchor_ = anchor;
   Invalidate();
@@ -200,13 +212,36 @@ void Window::SyncPopupLayout() {
 }
 
 void Window::Invalidate() {
-  if (hwnd_) {
-    InvalidateRect(hwnd_, nullptr, FALSE);
+  if (!hwnd_) {
+    return;
   }
+  // Coalesce multiple Invalidate calls in the same turn into one PostTask.
+  MessageLoop* loop = MessageLoop::current();
+  if (!loop) {
+    InvalidateRect(hwnd_, nullptr, FALSE);
+    return;
+  }
+  if (invalidate_posted_) {
+    return;
+  }
+  invalidate_posted_ = true;
+  auto alive = alive_;
+  loop->PostTask(new auralite::async::LambdaTask([this, alive] {
+    invalidate_posted_ = false;
+    if (!alive || !alive->load(std::memory_order_acquire) || !hwnd_) {
+      return;
+    }
+    InvalidateRect(hwnd_, nullptr, FALSE);
+  }));
+}
+
+void Window::RequestLayout() {
+  layout_dirty_ = true;
+  Invalidate();
 }
 
 void Window::CollectFocusable(Node* node, std::vector<Node*>* out) {
-  if (!node || !out) {
+  if (!node || !out || !node->visible()) {
     return;
   }
   if (node->focusable()) {

@@ -65,6 +65,15 @@ Button& Button::icon_bgra(UINT width, UINT height, const uint8_t* bgra,
   return *this;
 }
 
+Button& Button::set_enabled(bool e) {
+  enabled_ = e;
+  if (!enabled_) {
+    hovered_ = false;
+    pressed_ = false;
+  }
+  return *this;
+}
+
 SizeF Button::Measure(float max_w, float max_h) {
   const ThemeTokens& th = Theme::Active();
   const float fs = ResolveFontSize(font_size_);
@@ -79,6 +88,9 @@ SizeF Button::Measure(float max_w, float max_h) {
 
 ColorF Button::BgColor() const {
   const ThemeTokens& th = Theme::Active();
+  if (!enabled_) {
+    return th.surface_alt;
+  }
   if (pressed_) {
     return bg_pressed_.value_or(th.accent_pressed);
   }
@@ -90,6 +102,9 @@ ColorF Button::BgColor() const {
 
 ColorF Button::LabelColor() const {
   const ThemeTokens& th = Theme::Active();
+  if (!enabled_) {
+    return th.text_muted;
+  }
   if (text_color_) {
     return *text_color_;
   }
@@ -108,6 +123,9 @@ void Button::EnsureIcon(auralite::Canvas& canvas) {
 }
 
 void Button::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   EnsureIcon(canvas);
   const ThemeTokens& th = Theme::Active();
 
@@ -139,14 +157,14 @@ void Button::Paint(auralite::Canvas& canvas) {
 }
 
 void Button::OnMouseDown(const MouseEvent& e) {
-  if (e.button != MouseButton::Left) {
+  if (!enabled_ || e.button != MouseButton::Left) {
     return;
   }
   pressed_ = true;
 }
 
 void Button::OnMouseUp(const MouseEvent& e) {
-  if (e.button != MouseButton::Left) {
+  if (!enabled_ || e.button != MouseButton::Left) {
     return;
   }
   const bool was_pressed = pressed_;
@@ -166,7 +184,7 @@ void Button::OnMouseLeave(const MouseEvent&) {
 }
 
 void Button::OnKey(const KeyEvent& e) {
-  if (!e.down) {
+  if (!enabled_ || !e.down) {
     return;
   }
   if ((e.vk == VK_SPACE || e.vk == VK_RETURN) && on_click_) {

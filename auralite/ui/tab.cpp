@@ -123,6 +123,9 @@ void Tab::Layout(const RectF& final_rect) {
 }
 
 void Tab::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   if (has_headers()) {
     const ThemeTokens& th = Theme::Active();
     const int n = static_cast<int>(headers_.size());
@@ -149,12 +152,14 @@ void Tab::Paint(auralite::Canvas& canvas) {
                     th.border);
   }
   if (Node* page = SelectedPage()) {
-    page->Paint(canvas);
+    if (page->visible()) {
+      page->Paint(canvas);
+    }
   }
 }
 
 Node* Tab::HitTest(float x, float y) {
-  if (!ContainsPoint(bounds_, x, y)) {
+  if (!visible() || !ContainsPoint(bounds_, x, y)) {
     return nullptr;
   }
   if (has_headers() && ContainsPoint(header_bounds_, x, y)) {

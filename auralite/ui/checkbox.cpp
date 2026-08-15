@@ -53,6 +53,9 @@ SizeF Checkbox::Measure(float max_w, float max_h) {
 }
 
 void Checkbox::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   const ThemeTokens& th = Theme::Active();
   const RectF box = BoxRect();
   canvas.DrawRect(box, th.border, 1.5f);

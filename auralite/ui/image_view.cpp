@@ -59,6 +59,9 @@ void ImageView::EnsureImage(auralite::Canvas& canvas) {
 }
 
 void ImageView::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   EnsureImage(canvas);
   if (image_.empty()) {
     canvas.FillRect(bounds_, Theme::Active().surface_alt);

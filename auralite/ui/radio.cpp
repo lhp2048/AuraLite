@@ -87,6 +87,9 @@ SizeF Radio::Measure(float max_w, float max_h) {
 }
 
 void Radio::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   const ThemeTokens& th = Theme::Active();
   const RectF outer = DotRect();
   canvas.DrawEllipse(outer, th.border, 1.5f);

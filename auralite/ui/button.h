@@ -27,6 +27,8 @@ class Button : public Node {
   Button& text_color(const ColorF& c);
   // Optional icon: premul BGRA; uploaded to GPU on first paint.
   Button& icon_bgra(UINT width, UINT height, const uint8_t* bgra, UINT stride);
+  Button& set_enabled(bool e);
+  bool enabled() const { return enabled_; }
 
   const std::wstring& text() const { return text_; }
 
@@ -55,6 +57,7 @@ class Button : public Node {
 
   bool hovered_ = false;
   bool pressed_ = false;
+  bool enabled_ = true;
 
   auralite::Image icon_;
   UINT icon_w_ = 0;

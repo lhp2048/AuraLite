@@ -324,6 +324,9 @@ void TextField::HandleShortcut(UINT vk) {
 }
 
 void TextField::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   const ThemeTokens& th = Theme::Active();
   const float fs = ResolveFontSize(font_size_);
   canvas.FillRoundedRect(bounds_, 6.f, 6.f, th.surface);

@@ -106,6 +106,9 @@ SizeF Slider::Measure(float max_w, float max_h) {
 }
 
 void Slider::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   const ThemeTokens& th = Theme::Active();
   const float track_thickness = 6.f;
   RectF track{};

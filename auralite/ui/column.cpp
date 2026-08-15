@@ -86,7 +86,7 @@ SizeF Column::Measure(float max_w, float max_h) {
   float max_child_w = 0.f;
   int live = 0;
   for (const auto& c : children_) {
-    if (!c) {
+    if (!c || !c->visible()) {
       continue;
     }
     ++live;
@@ -122,7 +122,7 @@ void Column::Layout(const RectF& final_rect) {
   std::vector<Node*> live;
   live.reserve(children_.size());
   for (auto& c : children_) {
-    if (c) {
+    if (c && c->visible()) {
       live.push_back(c.get());
     }
   }

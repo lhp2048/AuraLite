@@ -7,7 +7,8 @@ class Application {
   // Per-monitor V2 when available; falls back to SetProcessDPIAware.
   static void EnableDpiAwareness();
 
-  // Pump the Win32 message loop until WM_QUIT. Returns exit code.
+  // Pump Win32 via MessageLoopForUI until WM_QUIT. Creates a live UI
+  // MessageLoop on this thread (required for PostTask / current()).
   static int Run();
 };
 

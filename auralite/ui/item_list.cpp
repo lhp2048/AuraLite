@@ -587,6 +587,9 @@ void ItemList::PaintRow(auralite::Canvas& canvas, int index, const RectF& row,
 }
 
 void ItemList::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   SyncVisibleRows();
 
   const ThemeTokens& th = Theme::Active();
@@ -643,7 +646,7 @@ void ItemList::Paint(auralite::Canvas& canvas) {
 Node* ItemList::HitTest(float x, float y) {
   // Always claim the list so focus/wheel/hover stay on ItemList; child events
   // are forwarded in OnMouse*.
-  if (!ContainsPoint(bounds_, x, y)) {
+  if (!visible() || !ContainsPoint(bounds_, x, y)) {
     return nullptr;
   }
   return this;

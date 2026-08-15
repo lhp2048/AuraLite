@@ -54,6 +54,9 @@ SizeF Switch::Measure(float max_w, float max_h) {
 }
 
 void Switch::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   const ThemeTokens& th = Theme::Active();
   const RectF track = TrackRect();
   const ColorF track_color = on_ ? th.accent : th.border;

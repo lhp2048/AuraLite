@@ -176,6 +176,8 @@ add_library(auralite_ui STATIC
   auralite/ui/application.cpp
   auralite/ui/factory.cpp
   auralite/ui/yaml_loader.cpp
+  auralite/reactive/observe.cpp
+  auralite/async/awaiters.cpp
 )
 add_library(AuraLite::UINext ALIAS auralite_ui)
 target_include_directories(auralite_ui PUBLIC "${AURALITE_ROOT}")
@@ -197,8 +199,35 @@ target_link_libraries(auralite_ui
     user32
     gdi32
 )
+if(AURALITE_BUILD_LEGACY)
+  target_link_libraries(auralite_ui PUBLIC AuraLite::Base)
+else()
+  message(FATAL_ERROR "Phase 3 auralite_ui requires AURALITE_BUILD_LEGACY for MessageLoop")
+endif()
 if(MSVC)
-  target_compile_options(auralite_ui PRIVATE /W3 /utf-8 /permissive-)
+  target_compile_options(auralite_ui PRIVATE /W3 /utf-8 /permissive- /wd4828)
+endif()
+
+# ---- reactive_test (Signal / Computed / Observe; console) ----
+add_executable(reactive_test examples/reactive_test/main.cpp)
+target_link_libraries(reactive_test PRIVATE AuraLite::UINext)
+target_compile_definitions(reactive_test PRIVATE
+  NOMINMAX UNICODE _UNICODE
+  WINVER=0x0A00 _WIN32_WINNT=0x0A00
+)
+if(MSVC)
+  target_compile_options(reactive_test PRIVATE /W3 /utf-8 /permissive-)
+endif()
+
+# ---- async_test (ResumeOnUi / Delay / RunAsync / SpawnUi; console) ----
+add_executable(async_test examples/async_test/main.cpp)
+target_link_libraries(async_test PRIVATE AuraLite::UINext)
+target_compile_definitions(async_test PRIVATE
+  NOMINMAX UNICODE _UNICODE
+  WINVER=0x0A00 _WIN32_WINNT=0x0A00
+)
+if(MSVC)
+  target_compile_options(async_test PRIVATE /W3 /utf-8 /permissive- /wd4828)
 endif()
 
 # ---- D2D demo + legacy smoke tests (same OutDir as library.sln) ----
@@ -277,6 +306,32 @@ if(AURALITE_BUILD_UI_DEMOS)
   if(MSVC)
     target_compile_options(ui_layout_test PRIVATE /W3 /utf-8 /permissive-)
   endif()
+
+  add_executable(reactive_demo WIN32 examples/reactive_demo/main.cpp)
+  target_link_libraries(reactive_demo PRIVATE AuraLite::UINext)
+  target_compile_definitions(reactive_demo PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(reactive_demo PRIVATE /W3 /utf-8 /permissive- /wd4828)
+  endif()
+
+  add_executable(reactive_gallery WIN32 examples/reactive_gallery/main.cpp)
+  target_link_libraries(reactive_gallery PRIVATE AuraLite::UINext)
+  target_compile_definitions(reactive_gallery PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(reactive_gallery PRIVATE /W3 /utf-8 /permissive- /wd4828)
+  endif()
+  add_custom_command(TARGET reactive_gallery POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+      "${AURALITE_ROOT}/examples/ui_gallery/themes"
+      "$<TARGET_FILE_DIR:reactive_gallery>/themes"
+    COMMENT "Copy themes next to reactive_gallery"
+  )
 
   add_executable(theme_test examples/theme_test/main.cpp)
   target_link_libraries(theme_test PRIVATE AuraLite::UINext)

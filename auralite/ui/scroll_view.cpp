@@ -93,10 +93,15 @@ void ScrollView::Layout(const RectF& final_rect) {
 }
 
 void ScrollView::Paint(auralite::Canvas& canvas) {
+  if (!visible()) {
+    return;
+  }
   const RectF clip = ViewportRect();
   canvas.PushAxisAlignedClip(clip);
   if (Node* c = content()) {
-    c->Paint(canvas);
+    if (c->visible()) {
+      c->Paint(canvas);
+    }
   }
   canvas.PopAxisAlignedClip();
 
@@ -105,7 +110,7 @@ void ScrollView::Paint(auralite::Canvas& canvas) {
 }
 
 Node* ScrollView::HitTest(float x, float y) {
-  if (!ContainsPoint(bounds_, x, y)) {
+  if (!visible() || !ContainsPoint(bounds_, x, y)) {
     return nullptr;
   }
   SyncVScrollBar();
