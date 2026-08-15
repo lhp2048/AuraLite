@@ -4,16 +4,20 @@
 #include "auralite/ui/checkbox.h"
 #include "auralite/ui/column.h"
 #include "auralite/ui/absolute.h"
+#include "auralite/ui/combo.h"
 #include "auralite/ui/image_button.h"
 #include "auralite/ui/image_view.h"
 #include "auralite/ui/label.h"
 #include "auralite/ui/list_view.h"
+#include "auralite/ui/progress_bar.h"
 #include "auralite/ui/radio.h"
 #include "auralite/ui/row.h"
 #include "auralite/ui/scroll_view.h"
+#include "auralite/ui/slider.h"
 #include "auralite/ui/split_view.h"
 #include "auralite/ui/switch_control.h"
 #include "auralite/ui/tab.h"
+#include "auralite/ui/text_area.h"
 #include "auralite/ui/text_field.h"
 #include "auralite/ui/tile.h"
 
@@ -516,5 +520,90 @@ inline SwitchBuilder Switch() { return SwitchBuilder(); }
 inline ScrollViewBuilder ScrollView() { return ScrollViewBuilder(); }
 inline ListViewBuilder ListView() { return ListViewBuilder(); }
 inline SplitViewBuilder SplitView() { return SplitViewBuilder(); }
+
+class ProgressBarBuilder : public detail::BuilderBase<ProgressBar> {
+ public:
+  ProgressBarBuilder& value(float v) {
+    get()->value(v);
+    return *this;
+  }
+  ProgressBarBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  ProgressBarBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
+};
+
+class SliderBuilder : public detail::BuilderBase<Slider> {
+ public:
+  SliderBuilder& value(float v) {
+    get()->value(v);
+    return *this;
+  }
+  SliderBuilder& on_changed(Slider::ChangeHandler handler) {
+    get()->on_changed(std::move(handler));
+    return *this;
+  }
+  SliderBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+};
+
+class ComboBuilder : public detail::BuilderBase<Combo> {
+ public:
+  ComboBuilder& items(std::vector<std::wstring> values) {
+    get()->items(std::move(values));
+    return *this;
+  }
+  ComboBuilder& selected(int index) {
+    get()->selected(index);
+    return *this;
+  }
+  ComboBuilder& on_changed(Combo::ChangeHandler handler) {
+    get()->on_changed(std::move(handler));
+    return *this;
+  }
+  ComboBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+};
+
+class TextAreaBuilder : public detail::BuilderBase<TextArea> {
+ public:
+  TextAreaBuilder& text(const std::wstring& t) {
+    get()->text(t);
+    return *this;
+  }
+  TextAreaBuilder& placeholder(const std::wstring& t) {
+    get()->placeholder(t);
+    return *this;
+  }
+  TextAreaBuilder& font_size(float size) {
+    get()->font_size(size);
+    return *this;
+  }
+  TextAreaBuilder& on_change(TextArea::ChangeHandler handler) {
+    get()->on_change(std::move(handler));
+    return *this;
+  }
+  TextAreaBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  TextAreaBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
+};
+
+inline ProgressBarBuilder ProgressBar() { return ProgressBarBuilder(); }
+inline SliderBuilder Slider() { return SliderBuilder(); }
+inline ComboBuilder Combo() { return ComboBuilder(); }
+inline TextAreaBuilder TextArea() { return TextAreaBuilder(); }
 
 }  // namespace auralite::ui::dsl

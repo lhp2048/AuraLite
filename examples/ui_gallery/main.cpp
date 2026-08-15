@@ -26,7 +26,10 @@
 #include "auralite/ui/scroll_view.h"
 #include "auralite/ui/split_view.h"
 #include "auralite/ui/switch_control.h"
-#include "auralite/ui/tab.h"
+#include "auralite/ui/combo.h"
+#include "auralite/ui/progress_bar.h"
+#include "auralite/ui/slider.h"
+#include "auralite/ui/text_area.h"
 #include "auralite/ui/text_field.h"
 #include "auralite/ui/tile.h"
 #include "auralite/ui/window.h"
@@ -255,6 +258,44 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
       window->Invalidate();
     });
   }
+  if (auto* slider = dynamic_cast<auralite::ui::Slider*>(node)) {
+    // Find sibling ProgressBar under same parent for linked demo.
+    auralite::ui::ProgressBar* bar = nullptr;
+    if (node->parent()) {
+      for (const auto& c : node->parent()->children()) {
+        if (auto* p = dynamic_cast<auralite::ui::ProgressBar*>(c.get())) {
+          bar = p;
+          break;
+        }
+      }
+    }
+    slider->on_changed([status, window, bar](float v) {
+      if (bar) {
+        bar->value(v);
+      }
+      wchar_t buf[64];
+      swprintf_s(buf, L"Slider: %.2f", v);
+      status->text(buf);
+      window->Invalidate();
+    });
+  }
+  if (auto* combo = dynamic_cast<auralite::ui::Combo*>(node)) {
+    combo->BindWindow(window);
+    combo->on_changed([status, window, combo](int index) {
+      std::wstring label = L"?";
+      if (index >= 0 && index < static_cast<int>(combo->items().size())) {
+        label = combo->items()[static_cast<size_t>(index)];
+      }
+      status->text(L"Combo: " + label);
+      window->Invalidate();
+    });
+  }
+  if (auto* area = dynamic_cast<auralite::ui::TextArea*>(node)) {
+    area->on_change([status, window](const std::wstring& t) {
+      status->text(L"TextArea chars: " + std::to_wstring(t.size()));
+      window->Invalidate();
+    });
+  }
   if (auto* img_btn = dynamic_cast<auralite::ui::ImageButton*>(node)) {
     img_btn->on_click([status, window]() {
       status->text(L"ImageButton clicked");
@@ -429,6 +470,24 @@ std::unique_ptr<auralite::ui::Node> BuildFluentGallery() {
                                          .bottom(8.f)
                                          .fixed_width(72.f)
                                          .fixed_height(28.f)))
+                   .child(Label()
+                              .text(L"ProgressBar / Slider")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(ProgressBar().value(0.45f).fixed_height(12.f))
+                   .child(Slider().value(0.45f))
+                   .child(Label().text(L"Combo").font_size(13.f).preferred_height(18.f))
+                   .child(Combo()
+                              .items({L"选项一", L"选项二", L"选项三"})
+                              .selected(0))
+                   .child(Label()
+                              .text(L"TextArea（多行）")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(TextArea()
+                              .placeholder(L"多行输入（Enter 换行）")
+                              .text(L"第一行\n第二行")
+                              .fixed_height(100.f))
                    .child(Label()
                               .text(L"ScrollView + ListView")
                               .font_size(13.f)

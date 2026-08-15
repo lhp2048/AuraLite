@@ -94,11 +94,31 @@ bool Window::Create(const wchar_t* title, int w, int h) {
 }
 
 void Window::SetRoot(std::unique_ptr<Node> root) {
+  ClearPopup();
   SetFocusNode(nullptr);
   root_ = std::move(root);
   mouse_capture_ = nullptr;
   hovered_ = nullptr;
   layout_dirty_ = true;
+  Invalidate();
+}
+
+void Window::SetPopup(std::unique_ptr<Node> popup,
+                      std::function<void()> on_dismiss, Node* anchor) {
+  popup_ = std::move(popup);
+  popup_dismiss_ = std::move(on_dismiss);
+  popup_anchor_ = anchor;
+  Invalidate();
+}
+
+void Window::ClearPopup() {
+  popup_.reset();
+  popup_anchor_ = nullptr;
+  if (popup_dismiss_) {
+    auto dismiss = std::move(popup_dismiss_);
+    popup_dismiss_ = nullptr;
+    dismiss();
+  }
   Invalidate();
 }
 
@@ -178,6 +198,9 @@ void Window::FocusNext(bool reverse) {
 void Window::NotifyDeviceLost() {
   if (root_) {
     root_->OnDeviceLost();
+  }
+  if (popup_) {
+    popup_->OnDeviceLost();
   }
 }
 
@@ -432,6 +455,9 @@ void Window::OnPaint() {
     }
     root_->Paint(canvas_);
   }
+  if (popup_) {
+    popup_->Paint(canvas_);
+  }
 
   if (!canvas_.EndDraw()) {
     if (canvas_.Init(hwnd_)) {
@@ -464,7 +490,7 @@ MouseButton Window::ButtonFromMsg(UINT msg, WPARAM wparam) {
 }
 
 void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
-  if (!root_) {
+  if (!root_ && !popup_) {
     return;
   }
 
@@ -487,7 +513,19 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
     ev.y = static_cast<float>(GET_Y_LPARAM(lparam));
   }
 
-  Node* hit = root_->HitTest(ev.x, ev.y);
+  Node* popup_hit = popup_ ? popup_->HitTest(ev.x, ev.y) : nullptr;
+  Node* root_hit = root_ ? root_->HitTest(ev.x, ev.y) : nullptr;
+
+  if ((msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN ||
+       msg == WM_MBUTTONDOWN) &&
+      popup_ && !popup_hit) {
+    if (!(popup_anchor_ && root_hit == popup_anchor_)) {
+      ClearPopup();
+      root_hit = root_ ? root_->HitTest(ev.x, ev.y) : nullptr;
+    }
+  }
+
+  Node* hit = popup_hit ? popup_hit : root_hit;
 
   if (msg == WM_MOUSEMOVE && !mouse_capture_) {
     if (hovered_ != hit) {

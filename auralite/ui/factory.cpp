@@ -4,16 +4,20 @@
 #include "auralite/ui/button.h"
 #include "auralite/ui/checkbox.h"
 #include "auralite/ui/column.h"
+#include "auralite/ui/combo.h"
 #include "auralite/ui/image_button.h"
 #include "auralite/ui/image_view.h"
 #include "auralite/ui/label.h"
 #include "auralite/ui/list_view.h"
+#include "auralite/ui/progress_bar.h"
 #include "auralite/ui/radio.h"
 #include "auralite/ui/row.h"
 #include "auralite/ui/scroll_view.h"
+#include "auralite/ui/slider.h"
 #include "auralite/ui/split_view.h"
 #include "auralite/ui/switch_control.h"
 #include "auralite/ui/tab.h"
+#include "auralite/ui/text_area.h"
 #include "auralite/ui/text_field.h"
 #include "auralite/ui/tile.h"
 #include "auralite/ui/yaml_loader.h"
@@ -597,6 +601,62 @@ void ViewFactory::RegisterBuiltinTypes() {
       split->set_ratio(props["ratio"].as<float>());
     }
     return split;
+  });
+
+  Register("ProgressBar", [](const YAML::Node& props, const HandlerMap&) {
+    auto bar = std::make_unique<ProgressBar>();
+    if (props["value"]) {
+      bar->value(props["value"].as<float>());
+    }
+    ApplyWidthHeight(bar.get(), props);
+    ApplyWeightCrossAlign(bar.get(), props, false);
+    return bar;
+  });
+
+  Register("Slider", [](const YAML::Node& props, const HandlerMap&) {
+    auto slider = std::make_unique<Slider>();
+    if (props["value"]) {
+      slider->value(props["value"].as<float>());
+    }
+    ApplyWidthHeight(slider.get(), props);
+    ApplyWeightCrossAlign(slider.get(), props, false);
+    return slider;
+  });
+
+  Register("Combo", [](const YAML::Node& props, const HandlerMap&) {
+    auto combo = std::make_unique<Combo>();
+    if (props["font_size"]) {
+      combo->font_size(props["font_size"].as<float>());
+    }
+    if (props["items"] && props["items"].IsSequence()) {
+      std::vector<std::wstring> items;
+      for (const auto& it : props["items"]) {
+        items.push_back(Utf8ToWide(it.as<std::string>()));
+      }
+      combo->items(std::move(items));
+    }
+    if (props["selected"]) {
+      combo->selected(props["selected"].as<int>());
+    }
+    ApplyWidthHeight(combo.get(), props);
+    ApplyWeightCrossAlign(combo.get(), props, false);
+    return combo;
+  });
+
+  Register("TextArea", [](const YAML::Node& props, const HandlerMap&) {
+    auto area = std::make_unique<TextArea>();
+    if (props["text"]) {
+      area->text(Utf8ToWide(props["text"].as<std::string>()));
+    }
+    if (props["placeholder"]) {
+      area->placeholder(Utf8ToWide(props["placeholder"].as<std::string>()));
+    }
+    if (props["font_size"]) {
+      area->font_size(props["font_size"].as<float>());
+    }
+    ApplyWidthHeight(area.get(), props);
+    ApplyWeightCrossAlign(area.get(), props, false);
+    return area;
   });
 }
 

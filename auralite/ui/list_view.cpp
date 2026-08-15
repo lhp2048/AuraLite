@@ -74,6 +74,8 @@ SizeF ListView::Measure(float max_w, float max_h) {
 }
 
 void ListView::Paint(auralite::Canvas& canvas) {
+  canvas.FillRect(bounds_, ColorF::FromRgb(255, 255, 255));
+  canvas.DrawRect(bounds_, ColorF::FromRgb(170, 180, 195), 1.f);
   const float ih = ItemHeight();
   for (int i = 0; i < item_count(); ++i) {
     const RectF row{bounds_.x, bounds_.y + static_cast<float>(i) * ih,

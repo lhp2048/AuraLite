@@ -156,6 +156,10 @@ add_library(auralite_ui STATIC
   auralite/ui/checkbox.cpp
   auralite/ui/radio.cpp
   auralite/ui/switch_control.cpp
+  auralite/ui/progress_bar.cpp
+  auralite/ui/slider.cpp
+  auralite/ui/combo.cpp
+  auralite/ui/text_area.cpp
   auralite/ui/scroll_view.cpp
   auralite/ui/list_view.cpp
   auralite/ui/split_view.cpp

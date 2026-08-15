@@ -1,0 +1,76 @@
+#pragma once
+
+#include "auralite/ui/node.h"
+
+#include <functional>
+#include <string>
+#include <vector>
+
+namespace auralite::ui {
+
+// Multiline plain-text editor (no rich text).
+class TextArea : public Node {
+ public:
+  using ChangeHandler = std::function<void(const std::wstring&)>;
+
+  TextArea();
+
+  TextArea& text(const std::wstring& t);
+  TextArea& placeholder(const std::wstring& t);
+  TextArea& font_size(float size);
+  TextArea& on_change(ChangeHandler handler);
+
+  const std::wstring& text() const { return text_; }
+  void set_text(const std::wstring& t);
+
+  SizeF Measure(float max_w, float max_h) override;
+  void Paint(auralite::Canvas& canvas) override;
+
+  void OnMouseDown(const MouseEvent& e) override;
+  void OnMouseMove(const MouseEvent& e) override;
+  void OnMouseUp(const MouseEvent& e) override;
+  void OnMouseWheel(const MouseEvent& e) override;
+  void OnKey(const KeyEvent& e) override;
+  void OnChar(wchar_t ch) override;
+  void OnFocus() override;
+  void OnBlur() override;
+
+  bool WantsMouseWheel() const override { return true; }
+  bool WantsIme() const override;
+  void OnImeComposition(const std::wstring& composition) override;
+  void OnImeResult(const std::wstring& result) override;
+  void OnImeEnd() override;
+
+ private:
+  static constexpr float kPad = 8.f;
+
+  float LineHeight() const;
+  void RebuildLines();
+  void EnsureCaretVisible();
+  void NotifyChanged();
+  void InsertText(const std::wstring& t);
+  void DeleteSelection();
+  bool HasSelection() const;
+  void GetOrderedSelection(size_t* a, size_t* b) const;
+  void SetCaret(size_t pos, bool extend);
+  size_t HitTestCaret(float x, float y) const;
+  void IndexToLineCol(size_t index, int* line, int* col) const;
+  size_t LineColToIndex(int line, int col) const;
+  bool CopyToClipboard() const;
+  bool PasteFromClipboard();
+  void HandleShortcut(UINT vk);
+
+  std::wstring text_;
+  std::wstring placeholder_;
+  std::wstring composition_;
+  std::vector<std::wstring> lines_;
+  std::vector<size_t> line_starts_;  // index into text_ for each line
+  float font_size_ = 14.f;
+  float scroll_y_ = 0.f;
+  size_t sel_start_ = 0;
+  size_t caret_ = 0;
+  bool selecting_ = false;
+  ChangeHandler on_change_;
+};
+
+}  // namespace auralite::ui

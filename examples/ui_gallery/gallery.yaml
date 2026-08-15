@@ -90,6 +90,18 @@ ScrollView:
               - Button: { text: "left+right", left: 8, right: 8, top: 8, height: 32 }
               - Label: { text: "x=12 y=48", font_size: 13, x: 12, y: 48, width: hug, height: hug }
               - Button: { text: "RB", right: 8, bottom: 8, width: 72, height: 28 }
+        - Label: { text: "ProgressBar / Slider", font_size: 13, preferred_height: 18 }
+        - ProgressBar: { value: 0.45, height: 12 }
+        - Slider: { value: 0.45, height: 28 }
+        - Label: { text: "Combo", font_size: 13, preferred_height: 18 }
+        - Combo:
+            selected: 0
+            items: ["选项一", "选项二", "选项三"]
+        - Label: { text: "TextArea（多行）", font_size: 13, preferred_height: 18 }
+        - TextArea:
+            placeholder: "多行输入（Enter 换行）"
+            height: 100
+            text: "第一行\n第二行"
         - Label: { text: "ScrollView + ListView", font_size: 13, preferred_height: 18 }
         - ScrollView:
             width: fill

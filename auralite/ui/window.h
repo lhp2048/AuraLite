@@ -3,6 +3,7 @@
 #include "auralite/canvas.h"
 #include "auralite/ui/node.h"
 
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -18,6 +19,14 @@ class Window {
 
   bool Create(const wchar_t* title, int w, int h);
   void SetRoot(std::unique_ptr<Node> root);
+  // Floating layer above root (Combo dropdown). |on_dismiss| runs on ClearPopup.
+  // |anchor| click while open is left to the control (toggle), not dismissed here.
+  void SetPopup(std::unique_ptr<Node> popup,
+                std::function<void()> on_dismiss = {},
+                Node* anchor = nullptr);
+  void ClearPopup();
+  Node* popup() const { return popup_.get(); }
+
   void Invalidate();
   HWND hwnd() const { return hwnd_; }
 
@@ -53,6 +62,9 @@ class Window {
   HWND hwnd_ = nullptr;
   auralite::Canvas canvas_;
   std::unique_ptr<Node> root_;
+  std::unique_ptr<Node> popup_;
+  std::function<void()> popup_dismiss_;
+  Node* popup_anchor_ = nullptr;
   bool layout_dirty_ = true;
   Node* mouse_capture_ = nullptr;
   Node* hovered_ = nullptr;

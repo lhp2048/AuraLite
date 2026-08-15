@@ -58,6 +58,8 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 - `Absolute`：锚定优先 `left`/`top`/`right`/`bottom`；否则 `x`/`y` + 自有宽高  
 - `Tab`：可选 `headers` / `header_height` 页签栏；`selected`  
 - `Tile`：`columns` / `item_size` / `spacing`  
+- 新增控件：`ProgressBar` / `Slider`（`value` 0～1）、`Combo`（`items` + `selected`，需 `BindWindow`）、`TextArea`（多行纯文本）  
+- **富文本**：本阶段不做，业务可自行集成  
 - 无热重载、无完整 schema；`ContextMenu` 仍为代码 API（`TrackPopupMenu`）
 
 #### 与 DuiLib 对照（布局）
