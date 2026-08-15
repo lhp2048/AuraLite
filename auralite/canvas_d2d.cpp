@@ -183,8 +183,14 @@ bool Canvas::CreateDeviceResources() {
       static_cast<UINT32>(rc.right > 0 ? rc.right : 1),
       static_cast<UINT32>(rc.bottom > 0 ? rc.bottom : 1));
 
-  const D2D1_RENDER_TARGET_PROPERTIES rt_props =
-      D2D1::RenderTargetProperties();
+  // Pixel-space contract for auralite::ui: layout, hit-test, and paint share
+  // the same units as GetClientRect / WM_MOUSE* (physical pixels). Explicit
+  // 96 DPI overrides the HWND RT default (system DIP), which otherwise scales
+  // drawing and makes every control's hover fire early / margins look uneven.
+  const D2D1_RENDER_TARGET_PROPERTIES rt_props = D2D1::RenderTargetProperties(
+      D2D1_RENDER_TARGET_TYPE_DEFAULT,
+      D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_UNKNOWN), kUiDpi,
+      kUiDpi);
   const D2D1_HWND_RENDER_TARGET_PROPERTIES hwnd_props =
       D2D1::HwndRenderTargetProperties(hwnd_, size);
 
@@ -194,10 +200,8 @@ bool Canvas::CreateDeviceResources() {
     return false;
   }
 
-  // Keep drawing units = physical pixels so layout / mouse hit-tests match paint.
-  // Default HWND RT inherits system DPI (DIPs), which shifts visuals vs GetClientRect
-  // and makes hover fire before the cursor reaches the drawn control.
-  render_target_->SetDpi(96.f, 96.f);
+  // Belt-and-suspenders: keep pixel space after device recreate.
+  render_target_->SetDpi(kUiDpi, kUiDpi);
 
   hr = render_target_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black),
                                              &brush_);
@@ -219,6 +223,8 @@ void Canvas::Resize(UINT width, UINT height) {
   }
   render_target_->Resize(D2D1::SizeU(width > 0 ? width : 1,
                                      height > 0 ? height : 1));
+  // Resize must not resurrect system DIP scaling.
+  render_target_->SetDpi(kUiDpi, kUiDpi);
 }
 
 bool Canvas::BeginDraw() {

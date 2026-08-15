@@ -466,6 +466,7 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
   MouseEvent ev;
   ev.button = ButtonFromMsg(msg, wparam);
 
+  // Same pixel space as Canvas (kUiDpi) and Node::bounds_ / HitTest.
   if (msg == WM_MOUSEWHEEL) {
     POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
     ScreenToClient(hwnd_, &pt);

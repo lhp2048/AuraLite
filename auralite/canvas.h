@@ -119,6 +119,9 @@ class Canvas {
   ID2D1HwndRenderTarget* render_target() const { return render_target_; }
   ID2D1Factory* d2d_factory() const { return d2d_factory_; }
 
+  // UI layout / hit-test / paint all use physical pixels (see CreateDeviceResources).
+  static constexpr float kUiDpi = 96.f;
+
  private:
   friend class Image;
   bool CreateDeviceResources();
