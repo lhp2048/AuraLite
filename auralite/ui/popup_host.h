@@ -11,6 +11,8 @@
 
 namespace auralite::ui {
 
+class Submenu;
+
 // Owns a stack of WS_POPUP menu windows (CreatePopup). Explicit instance;
 // TLS Current() is set while the stack is open for Submenu.
 class PopupHost {
@@ -24,11 +26,16 @@ class PopupHost {
   void Show(HWND owner, POINT screen, std::unique_ptr<Node> root);
   void ShowFromYaml(HWND owner, POINT screen, const std::string& path_or_yaml,
                     const HandlerMap& handlers);
-  void Push(const RectF& anchor_screen, std::unique_ptr<Node> root);
+  // |return_to|: on DismissFrom popping this layer, ReleaseRoot() and give
+  // the node back via Submenu::content(...).
+  void Push(const RectF& anchor_screen, std::unique_ptr<Node> root,
+            Submenu* return_to = nullptr);
   void Dismiss();
   void DismissFrom(size_t level);
   bool is_open() const { return !stack_.empty(); }
   size_t depth() const { return stack_.size(); }
+  // Index of |window| in the stack, or 0 if not found.
+  size_t LevelOf(const Window* window) const;
 
   // TLS: set for duration of Show/Push; Submenu uses Current().
   static PopupHost* Current();
@@ -39,6 +46,7 @@ class PopupHost {
  private:
   struct Layer {
     std::unique_ptr<Window> window;
+    Submenu* return_to = nullptr;
   };
   std::vector<Layer> stack_;
   HWND owner_ = nullptr;

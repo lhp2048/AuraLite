@@ -18,6 +18,7 @@
 #include "auralite/ui/scroll_view.h"
 #include "auralite/ui/slider.h"
 #include "auralite/ui/split_view.h"
+#include "auralite/ui/submenu.h"
 #include "auralite/ui/switch_control.h"
 #include "auralite/ui/tab.h"
 #include "auralite/ui/text_area.h"
@@ -456,6 +457,26 @@ class ScrollViewBuilder : public detail::BuilderBase<ScrollView> {
   }
 };
 
+class SubmenuBuilder : public detail::BuilderBase<Submenu> {
+ public:
+  SubmenuBuilder& text(const std::wstring& t) {
+    get()->text(t);
+    return *this;
+  }
+  SubmenuBuilder& content(std::unique_ptr<Node> n) {
+    get()->content(std::move(n));
+    return *this;
+  }
+  template <typename B>
+  SubmenuBuilder& content(B&& builder) {
+    return content(std::forward<B>(builder).Build());
+  }
+  SubmenuBuilder& open_on_hover(bool v) {
+    get()->open_on_hover(v);
+    return *this;
+  }
+};
+
 class ListViewBuilder : public detail::BuilderBase<ListView> {
  public:
   ListViewBuilder& font_size(float size) {
@@ -568,6 +589,7 @@ inline CheckboxBuilder Checkbox() { return CheckboxBuilder(); }
 inline RadioBuilder Radio() { return RadioBuilder(); }
 inline SwitchBuilder Switch() { return SwitchBuilder(); }
 inline ScrollViewBuilder ScrollView() { return ScrollViewBuilder(); }
+inline SubmenuBuilder Submenu() { return SubmenuBuilder(); }
 inline ListViewBuilder ListView() { return ListViewBuilder(); }
 inline SplitViewBuilder SplitView() { return SplitViewBuilder(); }
 

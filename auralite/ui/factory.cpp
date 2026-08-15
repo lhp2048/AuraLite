@@ -19,6 +19,7 @@
 #include "auralite/ui/scroll_view.h"
 #include "auralite/ui/slider.h"
 #include "auralite/ui/split_view.h"
+#include "auralite/ui/submenu.h"
 #include "auralite/ui/switch_control.h"
 #include "auralite/ui/tab.h"
 #include "auralite/ui/text_area.h"
@@ -313,6 +314,9 @@ std::string NodeTypeName(const Node* n) {
   }
   if (dynamic_cast<const ScrollView*>(n)) {
     return "ScrollView";
+  }
+  if (dynamic_cast<const Submenu*>(n)) {
+    return "Submenu";
   }
   if (dynamic_cast<const ListView*>(n)) {
     return "ListView";
@@ -661,6 +665,19 @@ void ViewFactory::RegisterBuiltinTypes() {
     ApplyWidthHeight(scroll.get(), props);
     ApplyWeightCrossAlign(scroll.get(), props, false);
     return scroll;
+  });
+
+  Register("Submenu", [](const YAML::Node& props, const HandlerMap&) {
+    auto sm = std::make_unique<Submenu>();
+    if (props["text"]) {
+      sm->text(Utf8ToWide(props["text"].as<std::string>()));
+    }
+    if (props["open_on_hover"]) {
+      sm->open_on_hover(props["open_on_hover"].as<bool>());
+    }
+    ApplyWidthHeight(sm.get(), props);
+    ApplyWeightCrossAlign(sm.get(), props, false);
+    return sm;
   });
 
   Register("ListView", [](const YAML::Node& props, const HandlerMap&) {

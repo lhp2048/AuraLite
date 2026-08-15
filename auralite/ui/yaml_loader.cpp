@@ -3,6 +3,7 @@
 #include "auralite/ui/factory.h"
 #include "auralite/ui/scroll_view.h"
 #include "auralite/ui/split_view.h"
+#include "auralite/ui/submenu.h"
 #include "auralite/ui/theme.h"
 
 #include <yaml-cpp/yaml.h>
@@ -55,6 +56,15 @@ void AttachScrollContent(ScrollView* scroll, const YAML::Node& props,
     return;
   }
   scroll->set_content(LoadYamlNode(props["content"], factory, handlers));
+}
+
+void AttachSubmenuContent(Submenu* sm, const YAML::Node& props,
+                          const ViewFactory& factory,
+                          const HandlerMap& handlers) {
+  if (!sm || !props["content"]) {
+    return;
+  }
+  sm->content(LoadYamlNode(props["content"], factory, handlers));
 }
 
 void AttachSplitPanes(SplitView* split, const YAML::Node& props,
@@ -152,6 +162,10 @@ std::unique_ptr<Node> LoadYamlNode(const YAML::Node& node,
   } else if (type == "ScrollView") {
     if (auto* scroll = dynamic_cast<ScrollView*>(built.get())) {
       AttachScrollContent(scroll, props, factory, handlers);
+    }
+  } else if (type == "Submenu") {
+    if (auto* sm = dynamic_cast<Submenu*>(built.get())) {
+      AttachSubmenuContent(sm, props, factory, handlers);
     }
   } else if (type == "SplitView") {
     if (auto* split = dynamic_cast<SplitView*>(built.get())) {

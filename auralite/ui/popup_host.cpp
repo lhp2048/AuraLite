@@ -1,5 +1,7 @@
 #include "auralite/ui/popup_host.h"
 
+#include "auralite/ui/submenu.h"
+
 #include <cmath>
 
 namespace auralite::ui {
@@ -87,20 +89,41 @@ void PopupHost::ShowFromYaml(HWND owner, POINT screen,
   }
 }
 
-void PopupHost::Push(const RectF& anchor_screen, std::unique_ptr<Node> root) {
+void PopupHost::Push(const RectF& anchor_screen, std::unique_ptr<Node> root,
+                     Submenu* return_to) {
   if (stack_.empty() || !root) {
     return;
   }
   g_current = this;
   InstallMouseHook();
+  const size_t before = stack_.size();
   ShowLayer(std::move(root), POINT{}, &anchor_screen);
+  if (stack_.size() > before) {
+    stack_.back().return_to = return_to;
+  }
+}
+
+size_t PopupHost::LevelOf(const Window* window) const {
+  for (size_t i = 0; i < stack_.size(); ++i) {
+    if (stack_[i].window.get() == window) {
+      return i;
+    }
+  }
+  return 0;
 }
 
 void PopupHost::DismissFrom(size_t level) {
   while (stack_.size() > level) {
-    if (stack_.back().window) {
+    Layer& layer = stack_.back();
+    if (layer.window) {
       // Avoid re-entrant Dismiss via WM_ACTIVATE while destroying.
-      stack_.back().window->set_on_deactivate_outside({});
+      layer.window->set_on_deactivate_outside({});
+      if (layer.return_to) {
+        auto root = layer.window->ReleaseRoot();
+        if (root) {
+          layer.return_to->content(std::move(root));
+        }
+      }
     }
     stack_.pop_back();
   }
