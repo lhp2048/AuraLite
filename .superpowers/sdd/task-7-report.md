@@ -1,36 +1,72 @@
-# Task 7 Report: Phase-1 closeout docs
+# Task 7 Report: SplitView / ContextMenu
 
 **Status:** DONE  
-**Commit:** `4f92cd7` `docs: mark AuraLite Phase-1 D2D-only complete`  
+**Date:** 2026-08-15  
 **Branch:** `master`  
-**Base:** `42a6c7c` (Task 6)
+**Repo:** `family_win_desktop/3rd-party/AuraLite`
 
-## What implemented
+## Summary
 
-Phase-1 D2D-only milestone documented and plan checkboxes closed.
+Added horizontal `SplitView` (two panes + draggable divider, ratio clamp) and `ContextMenu` (`AddItem` / `AddSeparator` / `Show` via Win32 `TrackPopupMenu`). Wired `WM_CONTEXTMENU` in `Window` to the hit node’s `OnContextMenu` (optional handler, then parent walk). `ui_smoke` demos both: split panes + right-click menu (Refresh / About / Reset ratio).
 
-| Deliverable | Change |
-|---|---|
-| `README.md` | Phase 1 marked **complete** with D2D-only definition; link to revised roadmap; Native* / `TrackPopupMenu` exception table; Phase 2 entry (`ViewFactory` + yaml-cpp, no canvas migration) |
-| `docs/.../2026-08-14-auralite-d2d-only-roadmap.md` | Task 1–7 steps and §5 milestone checklist all `[x]` |
-| `.superpowers/sdd/task-7-brief.md` | Task 7 + milestone checkboxes `[x]` |
-| `scripts/_plan_extract.txt` | Header note: phase 1 defers to revised roadmap (local edit; file gitignored) |
+## Commits
 
-## Phase 1 completion summary
+| SHA | Subject |
+|-----|---------|
+| `8737d36` | `feat(ui): add SplitView and ContextMenu` |
 
-- **Scope:** All self-draw Views on Direct2D + DirectWrite + WIC; GDI+ removed from master.
-- **Exceptions:** `NativeButton` / `NativeControlWin` / `NativeViewHost`; Win32 `TrackPopupMenu`.
-- **Verification:** Task 1–6 commits (`f0934bb` … `42a6c7c`); control acceptance table in README; plan §5 milestones checked.
-- **Phase 2 next:** Declarative UI (`ViewFactory`, yaml-cpp, Row/Column, login demo) — rendering already D2D.
+Base: `f0e03d9` (Task 6 ScrollView / ListView).
 
-## Files changed
+## Files created / modified
 
-- `family_win_desktop/3rd-party/AuraLite/README.md`
-- `family_win_desktop/docs/superpowers/plans/2026-08-14-auralite-d2d-only-roadmap.md` (parent repo commit `ace4413`)
-- `family_win_desktop/3rd-party/AuraLite/.superpowers/sdd/task-7-brief.md`
-- `family_win_desktop/3rd-party/AuraLite/.superpowers/sdd/task-7-report.md`
-- `family_win_desktop/3rd-party/AuraLite/scripts/_plan_extract.txt`
+**Created**
+- `auralite/ui/split_view.h` / `split_view.cpp`
+- `auralite/ui/context_menu.h` / `context_menu.cpp`
+
+**Modified**
+- `auralite/ui/node.h` / `node.cpp` — `OnContextMenu` + `set_on_context_menu` + parent bubble
+- `auralite/ui/window.h` / `window.cpp` — `WM_CONTEXTMENU` → hit / focused → `OnContextMenu`
+- `CMakeLists.txt` — wire sources into `auralite_ui`
+- `examples/ui_smoke/main.cpp` — SplitView + ContextMenu demo
+
+**Not committed (per constraints)**
+- `.superpowers/**` (including this report)
+
+## Interfaces delivered
+
+| Type | API |
+|------|-----|
+| `SplitView` | `preferred_size` / `set_leading` / `set_trailing` / `set_ratio` / drag divider (horizontal) |
+| `ContextMenu` | `AddItem(id, label)` / `AddSeparator` / `on_command` / `Show(HWND, POINT\|xy)` → `TrackPopupMenu` |
+| `Node` | `set_on_context_menu` / `OnContextMenu(screen_x,y)` (bubble to parent) |
+| `Window` | `WM_CONTEXTMENU` dispatch (mouse + keyboard `-1`) |
+
+## Build / test
+
+```text
+cmake --build build --config Debug --target ui_smoke
+```
+
+- **Build:** OK → `bin/x64/Debug/ui_smoke.exe`
+- **Run:** process stayed alive ~2s; stopped after smoke. Manual drag / menu not fully automated.
+
+## Self-review
+
+**Matches brief**
+- [x] SplitView horizontal two children + draggable splitter
+- [x] ContextMenu AddItem / AddSeparator / Show via TrackPopupMenu
+- [x] Window right-click → hit node OnContextMenu
+- [x] `ui_smoke` demos both
+- [x] CMake wired; commit message exact; no push; no `.superpowers` in commit
 
 ## Concerns
 
-None blocking. Phase 2 should open a separate implementation plan per roadmap §3.
+1. **Horizontal only** — vertical split deferred (spec allows “先做水平”).
+2. **ContextMenu is not a Node** — helper wrapping system menu; fine per phase-2 exception.
+3. **Parent bubble** — if hit has no handler, walks parents; root Column hosts the smoke menu.
+4. **Ratio reset** — menu command calls `Layout(bounds())` directly; does not set Window `layout_dirty_`.
+
+## Review (read-only)
+
+**Verdict:** **APPROVE** (`f0e03d9` → `8737d36`)  
+See `task-7-review.md` for checklist and notes. Full diff: `task-7-review-package.md` / `git diff f0e03d9..8737d36`.

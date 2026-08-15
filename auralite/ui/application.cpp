@@ -24,10 +24,22 @@ void Application::EnableDpiAwareness() {
 
 int Application::Run() {
   // MessageLoop TLS is a LazyInstance; RegisterCallback requires a manager.
-  // Process-lifetime so teardown happens after WinMain locals (Window) die.
-  // Family Shell already has its own manager and will not call Run until
-  // the later migration.
-  static base::AtExitManager exit_manager;
+  // Skip creating a second manager when the host (e.g. Family Shell) already
+  // owns one for the process.
+  //
+  // Lifetime: if we create the manager here it must outlive WinMain locals
+  // (Windows). Static storage is intentional for the "Run owns process" path.
+  struct OptionalAtExit {
+    base::AtExitManager* owned = nullptr;
+    OptionalAtExit() {
+      if (!base::AtExitManager::IsInitialized()) {
+        owned = new base::AtExitManager();
+      }
+    }
+    ~OptionalAtExit() { delete owned; }
+  };
+  static OptionalAtExit exit_holder;
+
   MessageLoopForUI loop;
   auralite::async::EnsureUiProxy();
   // Default: process all Windows messages (null dispatcher uses pump default).

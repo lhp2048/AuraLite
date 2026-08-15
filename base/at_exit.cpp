@@ -27,6 +27,12 @@ namespace base
         g_top_manager = NULL;
     }
 
+    // static
+    bool AtExitManager::IsInitialized()
+    {
+        return g_top_manager != NULL;
+    }
+
     void AtExitManager::RegisterCallback(AtExitCallbackType func, void* param)
     {
         if(!g_top_manager)

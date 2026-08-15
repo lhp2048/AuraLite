@@ -32,6 +32,9 @@ namespace base
         // 析构函数调用所有注册的回调, 析构之后不用再注册回调.
         ~AtExitManager();
 
+        // 若进程里已有 AtExitManager（例如 Family Shell wWinMain），返回 true。
+        static bool IsInitialized();
+
         // 注册退出时的回调函数. 函数原型是void func().
         static void RegisterCallback(AtExitCallbackType func, void* param);
         // 以LIFO序调用注册的回调函数, 函数返回之后可以注册新的回调.

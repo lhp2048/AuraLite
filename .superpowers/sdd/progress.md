@@ -1,18 +1,18 @@
-﻿# AuraLite Phase-1 D2D-only SDD Progress
+# AuraLite Phase 3 SDD Progress
 
-Plan: family_win_desktop/docs/superpowers/plans/2026-08-14-auralite-d2d-only-roadmap.md
-Branch: master (user-approved for Phase-1 D2D)
-Workspace: family_win_desktop/3rd-party/AuraLite
+Task 1: complete (working tree, review clean after UI-thread assert fix)
+Task 2: complete (working tree, review Approved; AtExit/gallery follow-ups deferred)
+Task 3: complete (working tree, Approved; Delay proxy fix applied)
+Task 4: complete (inline — visible / enabled / OwnSubscription)
+Task 5: complete (inline — host_window + BindText/Visible/Enabled)
+Task 6: complete (inline — BindItems → VirtualList)
+Task 7: complete (inline — reactive_demo builds)
+Task 8: complete (inline — README phase 3 section)
 
+Verification (Debug):
+- reactive_test ok
+- async_test ok
+- theme_test all passed
+- reactive_demo.exe / ui_gallery.exe linked
 
-Task 1: complete (commits 2d8a5bb..f0934bb, review clean — stubs/WidgetWin deferred to T2/T3)
-
-Task 2: complete (commits f0934bb..7300190, review clean)
-
-Task 3: complete (commits 7300190..40e58fa, review clean after fix)
-
-Task 4: complete (commits 40e58fa..fa95ef0, review clean)
-
-Task 5: complete (commits fa95ef0..f8f34f4, review clean)
-
-Task 6: complete (commit pending `chore: remove GDI+ backend from AuraLite master`; GDI+ removed from master self-draw)
+Commits: none (plan: only when user asks)
