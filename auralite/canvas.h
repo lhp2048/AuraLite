@@ -31,6 +31,8 @@ struct RectF {
   float h = 0.f;
 };
 
+enum class TextHAlign { Left, Center, Right };
+
 class Canvas;
 
 // GPU bitmap owned by a Canvas render target. Recreate after device loss.
@@ -94,7 +96,8 @@ class Canvas {
   // Draws UTF-16 text with DirectWrite (ClearType / grayscale via D2D).
   void DrawText(const std::wstring& text, const RectF& layout_rect,
                 const ColorF& color, float font_size = 16.f,
-                const wchar_t* font_family = L"Microsoft YaHei UI");
+                const wchar_t* font_family = L"Microsoft YaHei UI",
+                TextHAlign align = TextHAlign::Left);
 
   void DrawImage(const Image& image, const RectF& dest);
   void DrawImage(const Image& image, const RectF& src, const RectF& dest);

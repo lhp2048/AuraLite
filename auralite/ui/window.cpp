@@ -71,6 +71,7 @@ bool Window::Create(const wchar_t* title, int w, int h) {
 void Window::SetRoot(std::unique_ptr<Node> root) {
   root_ = std::move(root);
   mouse_capture_ = nullptr;
+  hovered_ = nullptr;
   layout_dirty_ = true;
   Invalidate();
 }
@@ -144,6 +145,7 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       canvas_.Shutdown();
       hwnd_ = nullptr;
       mouse_capture_ = nullptr;
+      hovered_ = nullptr;
       // Quit the app when the last UI window closes (Task 1 single-window).
       PostQuitMessage(0);
       return 0;
@@ -238,11 +240,25 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
     ev.y = static_cast<float>(GET_Y_LPARAM(lparam));
   }
 
-  Node* target = mouse_capture_;
-  if (!target) {
-    target = root_->HitTest(ev.x, ev.y);
+  Node* hit = root_->HitTest(ev.x, ev.y);
+
+  if (msg == WM_MOUSEMOVE && !mouse_capture_) {
+    if (hovered_ != hit) {
+      if (hovered_) {
+        hovered_->OnMouseLeave(ev);
+      }
+      hovered_ = hit;
+      if (hovered_) {
+        hovered_->OnMouseEnter(ev);
+      }
+    }
   }
+
+  Node* target = mouse_capture_ ? mouse_capture_ : hit;
   if (!target) {
+    if (msg == WM_MOUSEMOVE) {
+      Invalidate();
+    }
     return;
   }
 
@@ -262,6 +278,16 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
         ReleaseCapture();
       }
       mouse_capture_ = nullptr;
+      // Refresh hover after release (cursor may still be over a control).
+      if (hovered_ != hit) {
+        if (hovered_) {
+          hovered_->OnMouseLeave(ev);
+        }
+        hovered_ = hit;
+        if (hovered_) {
+          hovered_->OnMouseEnter(ev);
+        }
+      }
       break;
     case WM_MOUSEMOVE:
       target->OnMouseMove(ev);
@@ -272,6 +298,8 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
     default:
       break;
   }
+
+  Invalidate();
 }
 
 void Window::DispatchKey(UINT msg, WPARAM wparam) {

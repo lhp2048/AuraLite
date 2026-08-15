@@ -31,6 +31,8 @@ class Node {
   virtual void OnMouseDown(const MouseEvent&) {}
   virtual void OnMouseUp(const MouseEvent&) {}
   virtual void OnMouseMove(const MouseEvent&) {}
+  virtual void OnMouseEnter(const MouseEvent&) {}
+  virtual void OnMouseLeave(const MouseEvent&) {}
   virtual void OnMouseWheel(const MouseEvent&) {}
   virtual void OnKey(const KeyEvent&) {}
   virtual void OnFocus() {}

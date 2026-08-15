@@ -290,7 +290,7 @@ void Canvas::DrawRect(const RectF& rect, const ColorF& color,
 
 void Canvas::DrawText(const std::wstring& text, const RectF& layout_rect,
                       const ColorF& color, float font_size,
-                      const wchar_t* font_family) {
+                      const wchar_t* font_family, TextHAlign align) {
   if (!render_target_ || !dwrite_factory_ || text.empty()) {
     return;
   }
@@ -303,8 +303,22 @@ void Canvas::DrawText(const std::wstring& text, const RectF& layout_rect,
   if (FAILED(hr) || !format) {
     return;
   }
-  format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-  format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+
+  DWRITE_TEXT_ALIGNMENT dwrite_align = DWRITE_TEXT_ALIGNMENT_LEADING;
+  switch (align) {
+    case TextHAlign::Center:
+      dwrite_align = DWRITE_TEXT_ALIGNMENT_CENTER;
+      break;
+    case TextHAlign::Right:
+      dwrite_align = DWRITE_TEXT_ALIGNMENT_TRAILING;
+      break;
+    case TextHAlign::Left:
+    default:
+      dwrite_align = DWRITE_TEXT_ALIGNMENT_LEADING;
+      break;
+  }
+  format->SetTextAlignment(dwrite_align);
+  format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
 
   ID2D1SolidColorBrush* brush = BrushFor(color);
   if (brush) {

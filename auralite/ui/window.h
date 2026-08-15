@@ -40,6 +40,7 @@ class Window {
   std::unique_ptr<Node> root_;
   bool layout_dirty_ = true;
   Node* mouse_capture_ = nullptr;
+  Node* hovered_ = nullptr;
 };
 
 }  // namespace auralite::ui

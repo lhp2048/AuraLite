@@ -12,6 +12,8 @@ struct SizeF {
   float h = 0.f;
 };
 
+enum class TextAlign { Left, Center, Right };
+
 enum class MouseButton { Left, Right, Middle };
 
 struct MouseEvent {

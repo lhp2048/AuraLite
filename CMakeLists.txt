@@ -134,6 +134,10 @@ add_library(auralite_ui STATIC
   auralite/ui/node.cpp
   auralite/ui/column.cpp
   auralite/ui/row.cpp
+  auralite/ui/label.cpp
+  auralite/ui/button.cpp
+  auralite/ui/image_view.cpp
+  auralite/ui/image_button.cpp
   auralite/ui/window.cpp
   auralite/ui/application.cpp
 )
