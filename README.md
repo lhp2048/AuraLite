@@ -58,8 +58,8 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 - `Absolute`：锚定优先 `left`/`top`/`right`/`bottom`；否则 `x`/`y` + 自有宽高  
 - `Tab`：可选 `headers` / `header_height` 页签栏；`selected`  
 - `Tile`：`columns` / `item_size` / `spacing`  
-- 新增控件：`ProgressBar` / `Slider`（`value` 0～1）、`Combo`（`items` + `selected`，需 `BindWindow`）、`TextArea`（多行纯文本）  
-- **富文本**：本阶段不做，业务可自行集成  
+- 新增控件：`ProgressBar`（`value` / `indeterminate`，不确定态需 `BindWindow`）、`Slider`（`orientation` / `step` / `tick_count`）、`Combo`（单选/多选 `multi`、可筛选 `editable`，需 `BindWindow`）、`TextArea`（多行，`wrap` 软换行）、`VirtualList` / `ItemList`（`columns` + `show_header`；排序 / 拖列宽 / `frozen_count`；Shift+滚轮横滑）、`TreeView`（展开折叠；`checkable` 三态勾选；`lazy` + `on_load_children` / `NotifyChildrenLoaded`）
+- **富文本**：本阶段不做，业务可自行集成
 - 无热重载、无完整 schema；`ContextMenu` 仍为代码 API（`TrackPopupMenu`）
 
 #### 与 DuiLib 对照（布局）
@@ -88,6 +88,16 @@ cmake --build build --config Debug --target login_demo ui_gallery auralite_ui ui
 ```
 
 产物目录：`bin|lib/<Platform>/<Config>/`（YAML 会复制到 exe 旁）。
+
+#### Theme
+
+- 全局 `Theme::Active()` 提供颜色 / 字体 token；内置 `light` / `dark`，也可从 `themes/*.yaml` 注册扩展主题
+- 运行时切换：`Theme::SetActive("dark")`（会 `Invalidate` 已绑定窗口）
+- 同名 `Register` / `RegisterFromFile` 若正是当前主题，会刷新 Active 并通知窗口
+- 控件未调用 `font_size(...)` 时回落 `fonts.size`（`ResolveFontSize`）；颜色等同理可稀疏覆盖
+- 控制台冒烟：`theme_test`（`examples/theme_test`）
+
+`ui_gallery` 示例：`examples/ui_gallery/themes/` 下 YAML 与 Light/Dark 按钮（手测换肤）。
 
 关闭旧库：`-DAURALITE_BUILD_LEGACY=OFF`。旧 `library.sln` 仍可并行使用。
 

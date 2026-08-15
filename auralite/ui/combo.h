@@ -3,6 +3,7 @@
 #include "auralite/ui/node.h"
 
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -10,10 +11,12 @@ namespace auralite::ui {
 
 class Window;
 
-// Single-select dropdown; requires BindWindow for popup list.
+// Dropdown; requires BindWindow. Single or multi (checkable popup).
 class Combo : public Node {
  public:
   using ChangeHandler = std::function<void(int index)>;
+  using MultiChangeHandler =
+      std::function<void(const std::vector<int>& indices)>;
 
   Combo();
 
@@ -23,8 +26,15 @@ class Combo : public Node {
   Combo& add_item(std::wstring text);
   Combo& selected(int index);
   int selected() const { return selected_; }
+  Combo& selected_indices(std::vector<int> indices);
+  const std::vector<int>& selected_indices() const { return selected_indices_; }
   Combo& on_changed(ChangeHandler handler);
+  Combo& on_multi_changed(MultiChangeHandler handler);
   Combo& font_size(float size);
+  Combo& editable(bool enable);
+  bool editable() const { return editable_; }
+  Combo& multi(bool enable);
+  bool multi() const { return multi_; }
 
   const std::vector<std::wstring>& items() const { return items_; }
   bool is_open() const { return open_; }
@@ -34,19 +44,34 @@ class Combo : public Node {
 
   void OnMouseDown(const MouseEvent& e) override;
   void OnKey(const KeyEvent& e) override;
+  void OnChar(wchar_t ch) override;
 
   void ClosePopup();
 
  private:
   void OpenPopup();
   void SelectIndex(int index, bool notify);
+  void SetMultiFromPopup();
+  void NotifyMulti();
+  void NavigatePopup(int delta);
+  void CommitPopupSelection();
+  bool ItemMatchesFilter(const std::wstring& text) const;
+  bool IsIndexSelected(int index) const;
+  std::wstring SummaryLabel() const;
+  class ListView* PopupList() const;
 
   Window* window_ = nullptr;
   std::vector<std::wstring> items_;
+  std::vector<int> popup_index_map_;
+  std::vector<int> selected_indices_;
   int selected_ = -1;
   bool open_ = false;
-  float font_size_ = 14.f;
+  bool editable_ = false;
+  bool multi_ = false;
+  std::wstring filter_;
+  std::optional<float> font_size_;
   ChangeHandler on_changed_;
+  MultiChangeHandler on_multi_changed_;
 };
 
 }  // namespace auralite::ui

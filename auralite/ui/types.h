@@ -28,6 +28,8 @@ struct MouseEvent {
   float y = 0.f;
   MouseButton button = MouseButton::Left;
   int wheel_delta = 0;
+  bool shift = false;
+  bool ctrl = false;
 };
 
 struct KeyEvent {

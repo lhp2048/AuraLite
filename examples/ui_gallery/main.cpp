@@ -32,6 +32,10 @@
 #include "auralite/ui/text_area.h"
 #include "auralite/ui/text_field.h"
 #include "auralite/ui/tile.h"
+#include "auralite/ui/item_list.h"
+#include "auralite/ui/virtual_list.h"
+#include "auralite/ui/tree_view.h"
+#include "auralite/ui/theme.h"
 #include "auralite/ui/window.h"
 
 namespace {
@@ -60,6 +64,36 @@ std::string NarrowPath(const std::wstring& wide) {
   WideCharToMultiByte(CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()),
                       out.data(), n, nullptr, nullptr);
   return out;
+}
+
+std::string ResolveThemesDir() {
+  namespace fs = std::filesystem;
+  const std::wstring beside = ExeDir() + L"\\themes";
+  if (fs::is_directory(beside)) {
+    return NarrowPath(beside);
+  }
+  const char* candidates[] = {
+      "themes",
+      "examples/ui_gallery/themes",
+      "../examples/ui_gallery/themes",
+      "../../examples/ui_gallery/themes",
+  };
+  for (const char* c : candidates) {
+    if (fs::is_directory(c)) {
+      return c;
+    }
+  }
+  return NarrowPath(beside);
+}
+
+void InitGalleryThemes() {
+  auralite::ui::Theme::RegisterBuiltInLight();
+  auralite::ui::Theme::RegisterBuiltInDark();
+  const std::string dir = ResolveThemesDir();
+  if (!dir.empty()) {
+    auralite::ui::Theme::RegisterFromDir(dir);
+  }
+  auralite::ui::Theme::SetActive("light");
 }
 
 std::string ResolveGalleryYaml() {
@@ -132,7 +166,8 @@ auralite::ui::Label* FindStatusLabel(auralite::ui::Node* node) {
       return;
     }
     if (auto* label = dynamic_cast<auralite::ui::Label*>(n)) {
-      if (label->text().find(L"拖拽") != std::wstring::npos) {
+      // Prefer the gallery subtitle; do not match helper labels like "↑ …".
+      if (label->text().find(L"拖拽分割") != std::wstring::npos) {
         found = label;
       }
     }
@@ -238,6 +273,13 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
         status->text(L"Button clicked");
         window->Invalidate();
       });
+    } else if (text == L"Light" || text == L"Dark") {
+      btn->on_click([status, window, text]() {
+        const std::string name = (text == L"Light") ? "light" : "dark";
+        auralite::ui::Theme::SetActive(name);
+        status->text(L"Theme: " + text);
+        window->Invalidate();
+      });
     } else if (text == L"Float" || text == L"RB" || text == L"left+right" ||
                text == L"A" || text == L"B") {
       btn->on_click([status, window, text]() {
@@ -258,14 +300,19 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
       window->Invalidate();
     });
   }
+  if (auto* bar = dynamic_cast<auralite::ui::ProgressBar*>(node)) {
+    bar->BindWindow(window);
+  }
   if (auto* slider = dynamic_cast<auralite::ui::Slider*>(node)) {
     // Find sibling ProgressBar under same parent for linked demo.
     auralite::ui::ProgressBar* bar = nullptr;
     if (node->parent()) {
       for (const auto& c : node->parent()->children()) {
         if (auto* p = dynamic_cast<auralite::ui::ProgressBar*>(c.get())) {
-          bar = p;
-          break;
+          if (!p->indeterminate()) {
+            bar = p;
+            break;
+          }
         }
       }
     }
@@ -281,18 +328,140 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
   }
   if (auto* combo = dynamic_cast<auralite::ui::Combo*>(node)) {
     combo->BindWindow(window);
-    combo->on_changed([status, window, combo](int index) {
-      std::wstring label = L"?";
-      if (index >= 0 && index < static_cast<int>(combo->items().size())) {
-        label = combo->items()[static_cast<size_t>(index)];
-      }
-      status->text(L"Combo: " + label);
-      window->Invalidate();
-    });
+    if (combo->multi()) {
+      combo->on_multi_changed([status, window, combo](const std::vector<int>& idxs) {
+        status->text(L"Combo multi: " + std::to_wstring(idxs.size()) + L" 项");
+        window->Invalidate();
+        (void)combo;
+      });
+    } else {
+      combo->on_changed([status, window, combo](int index) {
+        std::wstring label = L"?";
+        if (index >= 0 && index < static_cast<int>(combo->items().size())) {
+          label = combo->items()[static_cast<size_t>(index)];
+        }
+        status->text(L"Combo: " + label);
+        window->Invalidate();
+      });
+    }
   }
   if (auto* area = dynamic_cast<auralite::ui::TextArea*>(node)) {
     area->on_change([status, window](const std::wstring& t) {
       status->text(L"TextArea chars: " + std::to_wstring(t.size()));
+      window->Invalidate();
+    });
+  }
+  if (auto* vlist = dynamic_cast<auralite::ui::VirtualList*>(node)) {
+    vlist->on_selection_changed([status, window](int index) {
+      status->text(L"VirtualList: " + std::to_wstring(index));
+      window->Invalidate();
+    });
+    vlist->on_sort_changed([status, window](int col, auralite::ui::ListSortDir dir) {
+      std::wstring d = L"无";
+      if (dir == auralite::ui::ListSortDir::Asc) {
+        d = L"升序";
+      } else if (dir == auralite::ui::ListSortDir::Desc) {
+        d = L"降序";
+      }
+      status->text(L"VirtualList 排序 col=" + std::to_wstring(col) + L" " + d);
+      window->Invalidate();
+    });
+    vlist->on_check_changed([status, window](int index, bool checked) {
+      status->text(L"VirtualList check " + std::to_wstring(index) +
+                   (checked ? L": on" : L": off"));
+      window->Invalidate();
+    });
+  }
+  if (auto* tree = dynamic_cast<auralite::ui::TreeView*>(node)) {
+    tree->checkable(true);
+    tree->on_selection_changed([status, window, tree](int id) {
+      status->text(L"TreeView: " + tree->text(id));
+      window->Invalidate();
+    });
+    tree->on_expanded_changed([status, window](int id, bool expanded) {
+      status->text(L"TreeView id " + std::to_wstring(id) +
+                   (expanded ? L" expanded" : L" collapsed"));
+      window->Invalidate();
+    });
+    tree->on_check_changed([status, window, tree](int id, auralite::ui::TreeCheckState st) {
+      std::wstring s = L"未选";
+      if (st == auralite::ui::TreeCheckState::Checked) {
+        s = L"已选";
+      } else if (st == auralite::ui::TreeCheckState::Partial) {
+        s = L"部分";
+      }
+      status->text(L"TreeView 勾选 " + tree->text(id) + L": " + s);
+      window->Invalidate();
+    });
+    tree->on_load_children([status, window, tree](int id) {
+      status->text(L"TreeView 懒加载: " + tree->text(id));
+      // Simulate async fill (sync here for demo).
+      tree->AddChild(id, L"云端灯-1");
+      tree->AddChild(id, L"云端灯-2");
+      tree->AddChild(id, L"云端开关");
+      tree->NotifyChildrenLoaded(id);
+      window->Invalidate();
+    });
+  }
+  if (auto* items = dynamic_cast<auralite::ui::ItemList*>(node)) {
+    items->row_height(40.f);
+    while (items->item_count() < 100) {
+      items->AddItem();
+    }
+    if (items->has_item_template()) {
+      items->on_bind_item(
+          [status, window](int index, auralite::ui::Node& row,
+                           const auralite::ui::ItemListRowState& st) {
+            if (auto* title =
+                    dynamic_cast<auralite::ui::Label*>(row.FindByName("title"))) {
+              title->text(L"任务-" + std::to_wstring(index + 1));
+              title->color(st.selected ? auralite::ColorF::FromRgb(255, 255, 255)
+                                       : auralite::ColorF::FromRgb(25, 35, 50));
+            }
+            if (auto* bar = dynamic_cast<auralite::ui::ProgressBar*>(
+                    row.FindByName("progress"))) {
+              const float v = static_cast<float>((index * 17) % 101) / 100.f;
+              bar->value(v);
+            }
+            if (auto* btn = dynamic_cast<auralite::ui::Button*>(
+                    row.FindByName("action"))) {
+              btn->on_click([status, window, index]() {
+                status->text(L"ItemList 详情: row " + std::to_wstring(index));
+                window->Invalidate();
+              });
+            }
+          });
+    } else {
+      items->on_paint_item(
+          [](auralite::Canvas& canvas, const auralite::RectF& row,
+             const auralite::ui::ItemListRowState& st) {
+            const auralite::ColorF bg =
+                st.selected ? auralite::ColorF::FromRgb(51, 120, 210)
+                : st.hovered ? auralite::ColorF::FromRgb(230, 238, 250)
+                             : auralite::ColorF::FromRgb(255, 255, 255);
+            canvas.FillRect(row, bg);
+            const auralite::ColorF tc =
+                st.selected ? auralite::ColorF::FromRgb(255, 255, 255)
+                            : auralite::ColorF::FromRgb(25, 35, 50);
+            canvas.DrawText(L"item " + std::to_wstring(st.index),
+                            auralite::RectF{row.x + 8.f, row.y,
+                                            std::max(0.f, row.w - 16.f), row.h},
+                            tc, 13.f, L"Microsoft YaHei UI",
+                            auralite::TextHAlign::Left);
+          });
+    }
+    items->on_selection_changed([status, window](int index) {
+      status->text(L"ItemList: row " + std::to_wstring(index));
+      window->Invalidate();
+    });
+    items->on_sort_changed([status, window](int col, auralite::ui::ListSortDir dir) {
+      std::wstring d = L"无";
+      if (dir == auralite::ui::ListSortDir::Asc) {
+        d = L"升序";
+      } else if (dir == auralite::ui::ListSortDir::Desc) {
+        d = L"降序";
+      }
+      status->text(L"ItemList 排序 col=" + std::to_wstring(col) + L" " + d);
       window->Invalidate();
     });
   }
@@ -305,6 +474,149 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
   for (const auto& child : node->children()) {
     WireInteractive(child.get(), status, window);
   }
+}
+
+std::unique_ptr<auralite::ui::Node> MakeDemoVirtualList() {
+  using namespace auralite::ui::dsl;
+  constexpr int kCount = 50000;
+  auto checked = std::make_shared<std::vector<char>>(
+      static_cast<size_t>(kCount), 0);
+
+  return VirtualList()
+      .fixed_height(180.f)
+      .show_header(true)
+      .frozen_count(1)
+      .columns({{L"名称", 140.f, 0.f, auralite::ui::TextAlign::Left},
+                {L"状态", 160.f, 0.f, auralite::ui::TextAlign::Left},
+                {L"详情", 180.f, 0.f, auralite::ui::TextAlign::Left},
+                {L"编号", 100.f, 0.f, auralite::ui::TextAlign::Right}})
+      .item_count([kCount]() { return kCount; })
+      .item_kind([](int i) {
+        using K = auralite::ui::VirtualListItemKind;
+        switch (i % 5) {
+          case 1:
+            return K::IconText;
+          case 2:
+            return K::TwoLine;
+          case 3:
+            return K::Checkable;
+          case 4:
+            return K::Custom;
+          default:
+            return K::Text;
+        }
+      })
+      .item_text([](int i) {
+        return L"行 " + std::to_wstring(i);
+      })
+      .item_cell_text([](int i, int col) {
+        if (col == 0) {
+          return L"行 " + std::to_wstring(i + 1);
+        }
+        if (col == 1) {
+          return L"状态-" + std::to_wstring(i % 5);
+        }
+        if (col == 2) {
+          return L"详情-" + std::to_wstring(i);
+        }
+        return L"#" + std::to_wstring(i);
+      })
+      .item_sub_text([](int i) {
+        return L"副标题 · index=" + std::to_wstring(i);
+      })
+      .item_checked([checked](int i) {
+        return i >= 0 && i < static_cast<int>(checked->size()) &&
+               (*checked)[static_cast<size_t>(i)] != 0;
+      })
+      .item_set_checked([checked](int i, bool on) {
+        if (i >= 0 && i < static_cast<int>(checked->size())) {
+          (*checked)[static_cast<size_t>(i)] = on ? 1 : 0;
+        }
+      })
+      .on_paint_item([](auralite::Canvas& canvas, const auralite::RectF& row,
+                        const auralite::ui::VirtualListItemState& st) {
+        if (st.index % 5 != 4) {
+          return;  // non-Custom: default template already painted
+        }
+        const auralite::ColorF bg =
+            st.selected ? auralite::ColorF::FromRgb(51, 120, 210)
+            : st.hovered ? auralite::ColorF::FromRgb(230, 238, 250)
+                         : auralite::ColorF::FromRgb(255, 248, 240);
+        canvas.FillRect(row, bg);
+        const auralite::ColorF tc =
+            st.selected ? auralite::ColorF::FromRgb(255, 255, 255)
+                        : auralite::ColorF::FromRgb(25, 35, 50);
+        const auralite::RectF title_r{row.x + 8.f, row.y, row.w - 64.f, row.h};
+        canvas.DrawText(L"自定义行 " + std::to_wstring(st.index), title_r, tc,
+                        14.f, L"Microsoft YaHei UI",
+                        auralite::TextHAlign::Left);
+        const float bw = 48.f;
+        const auralite::RectF badge{row.x + row.w - bw - 8.f, row.y + 8.f, bw,
+                                    row.h - 16.f};
+        canvas.FillRoundedRect(badge, 4.f, 4.f,
+                               auralite::ColorF::FromRgb(220, 90, 70));
+        canvas.DrawText(L"CUS", badge, auralite::ColorF::FromRgb(255, 255, 255),
+                        11.f, L"Microsoft YaHei UI",
+                        auralite::TextHAlign::Center);
+      })
+      .Build();
+}
+
+std::unique_ptr<auralite::ui::Node> MakeDemoTreeView() {
+  using namespace auralite::ui::dsl;
+  auto tree = TreeView().checkable(true).fixed_height(180.f).Build();
+  auto* t = static_cast<auralite::ui::TreeView*>(tree.get());
+  const int root = t->AddRoot(L"智能家庭", true);
+  const int rooms = t->AddChild(root, L"房间", true);
+  t->AddChild(rooms, L"客厅");
+  t->AddChild(rooms, L"主卧");
+  t->AddChild(rooms, L"次卧");
+  const int devices = t->AddChild(root, L"设备", true);
+  const int lights = t->AddChild(devices, L"灯光", false);
+  t->AddChild(lights, L"吊灯");
+  t->AddChild(lights, L"筒灯");
+  t->AddChild(devices, L"空调");
+  t->AddChild(devices, L"窗帘");
+  const int scenes = t->AddChild(root, L"情景", false);
+  t->AddChild(scenes, L"回家");
+  t->AddChild(scenes, L"离家");
+  const int cloud = t->AddChild(root, L"云端设备", false);
+  t->set_lazy(cloud, true);
+  t->set_checked(root, auralite::ui::TreeCheckState::Checked, false);
+  t->set_selected_id(rooms, false);
+  return tree;
+}
+
+std::unique_ptr<auralite::ui::Node> MakeDemoItemList() {
+  using namespace auralite::ui::dsl;
+  auto list = ItemList().row_height(40.f).fixed_height(160.f).Build();
+  auto* items = static_cast<auralite::ui::ItemList*>(list.get());
+  items->item_template_factory([]() {
+    auto title = Label().text(L"").Build();
+    title->set_name("title");
+    title->fixed_width(140.f);
+    auto bar = ProgressBar().value(0.f).Build();
+    bar->set_name("progress");
+    bar->fixed_height(10.f);
+    bar->fill_width();
+    bar->weight(1.f);
+    auto action = Button().text(L"详情").Build();
+    action->set_name("action");
+    action->fixed_width(64.f);
+    action->fixed_height(28.f);
+    return Row()
+        .spacing(8.f)
+        .fill_width()
+        .fixed_height(36.f)
+        .child(std::move(title))
+        .child(std::move(bar))
+        .child(std::move(action))
+        .Build();
+  });
+  for (int i = 0; i < 100; ++i) {
+    items->AddItem();
+  }
+  return list;
 }
 
 std::unique_ptr<auralite::ui::Node> BuildFluentGallery() {
@@ -333,6 +645,16 @@ std::unique_ptr<auralite::ui::Node> BuildFluentGallery() {
                    .padding(20.f)
                    .spacing(10.f)
                    .child(Label().text(L"AuraLite UI Gallery").font_size(22.f))
+                   .child(Row()
+                              .spacing(8.f)
+                              .child(Button()
+                                         .text(L"Light")
+                                         .hug_width()
+                                         .fixed_height(32.f))
+                              .child(Button()
+                                         .text(L"Dark")
+                                         .hug_width()
+                                         .fixed_height(32.f)))
                    .child(Label()
                               .text(L"拖拽分割 · 右键菜单 · 滚动列表")
                               .font_size(13.f)
@@ -475,19 +797,75 @@ std::unique_ptr<auralite::ui::Node> BuildFluentGallery() {
                               .font_size(13.f)
                               .preferred_height(18.f))
                    .child(ProgressBar().value(0.45f).fixed_height(12.f))
-                   .child(Slider().value(0.45f))
+                   .child(Slider().value(0.45f).step(0.05f).tick_count(5))
+                   .child(Label()
+                              .text(L"ProgressBar indeterminate")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(ProgressBar().indeterminate(true).fixed_height(12.f))
+                   .child(Label()
+                              .text(L"Vertical Slider")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(Row()
+                              .spacing(12.f)
+                              .fixed_height(100.f)
+                              .child(Slider()
+                                         .value(0.6f)
+                                         .orientation(
+                                             auralite::ui::SliderOrientation::Vertical)
+                                         .fixed_width(28.f)
+                                         .fill_height())
+                              .child(Label()
+                                         .text(L"↑ 键盘 / 拖动")
+                                         .font_size(12.f)
+                                         .preferred_height(20.f)))
                    .child(Label().text(L"Combo").font_size(13.f).preferred_height(18.f))
                    .child(Combo()
-                              .items({L"选项一", L"选项二", L"选项三"})
+                              .items({L"选项一", L"选项二", L"选项三", L"选项四",
+                                      L"选项五"})
                               .selected(0))
                    .child(Label()
-                              .text(L"TextArea（多行）")
+                              .text(L"Combo（可筛选）")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(Combo()
+                              .editable(true)
+                              .items({L"北京", L"上海", L"广州", L"深圳", L"杭州",
+                                      L"成都"})
+                              .selected(0))
+                   .child(Label()
+                              .text(L"Combo（多选）")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(Combo()
+                              .multi(true)
+                              .items({L"红", L"橙", L"黄", L"绿", L"蓝"})
+                              .selected_indices({0, 2}))
+                   .child(Label()
+                              .text(L"TextArea（软换行）")
                               .font_size(13.f)
                               .preferred_height(18.f))
                    .child(TextArea()
-                              .placeholder(L"多行输入（Enter 换行）")
-                              .text(L"第一行\n第二行")
+                              .placeholder(L"多行输入（软换行 / Enter 硬换行）")
+                              .wrap(true)
+                              .text(L"这是一段较长的文本，用来演示按控件宽度自动软换行；也可以按 Enter 插入硬换行。\n第二段。")
                               .fixed_height(100.f))
+                   .child(Label()
+                              .text(L"VirtualList（多列表头）")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(MakeDemoVirtualList())
+                   .child(Label()
+                              .text(L"TreeView（勾选 + 懒加载）")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(MakeDemoTreeView())
+                   .child(Label()
+                              .text(L"ItemList（模板 + 表头）")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(MakeDemoItemList())
                    .child(Label()
                               .text(L"ScrollView + ListView")
                               .font_size(13.f)
@@ -510,6 +888,8 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
   auralite::ui::Application::EnableDpiAwareness();
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
+  InitGalleryThemes();
+
   const bool fluent = UseFluent(cmd_line);
   const wchar_t* title =
       fluent ? L"AuraLite UI Gallery (fluent)" : L"AuraLite UI Gallery (YAML)";
@@ -521,6 +901,8 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
     CoUninitialize();
     return 1;
   }
+
+  InitGalleryThemes();
 
   std::unique_ptr<auralite::ui::Node> root;
   try {

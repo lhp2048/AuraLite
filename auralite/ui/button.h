@@ -3,6 +3,7 @@
 #include "auralite/ui/node.h"
 
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -18,6 +19,12 @@ class Button : public Node {
   Button& font_size(float size);
   Button& on_click(ClickHandler handler);
   Button& preferred_size(float w, float h);
+  // Sparse color overrides; unset falls back to Theme accent*.
+  Button& bg(const ColorF& c);
+  Button& bg_hover(const ColorF& c);
+  Button& bg_pressed(const ColorF& c);
+  // Optional label color; unset → text_on_accent, or text if custom bg set.
+  Button& text_color(const ColorF& c);
   // Optional icon: premul BGRA; uploaded to GPU on first paint.
   Button& icon_bgra(UINT width, UINT height, const uint8_t* bgra, UINT stride);
 
@@ -36,9 +43,14 @@ class Button : public Node {
  private:
   void EnsureIcon(auralite::Canvas& canvas);
   ColorF BgColor() const;
+  ColorF LabelColor() const;
 
   std::wstring text_;
-  float font_size_ = 15.f;
+  std::optional<float> font_size_;
+  std::optional<ColorF> bg_;
+  std::optional<ColorF> bg_hover_;
+  std::optional<ColorF> bg_pressed_;
+  std::optional<ColorF> text_color_;
   ClickHandler on_click_;
 
   bool hovered_ = false;

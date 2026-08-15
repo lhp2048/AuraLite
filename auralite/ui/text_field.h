@@ -3,6 +3,7 @@
 #include "auralite/ui/node.h"
 
 #include <functional>
+#include <optional>
 #include <string>
 
 namespace auralite::ui {
@@ -67,7 +68,7 @@ class TextField : public Node {
   std::wstring placeholder_;
   std::wstring composition_;
   bool password_ = false;
-  float font_size_ = 15.f;
+  std::optional<float> font_size_;
   size_t sel_start_ = 0;  // anchor
   size_t caret_ = 0;      // active end
   bool selecting_ = false;

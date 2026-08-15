@@ -3,6 +3,7 @@
 #include "auralite/ui/factory.h"
 #include "auralite/ui/scroll_view.h"
 #include "auralite/ui/split_view.h"
+#include "auralite/ui/theme.h"
 
 #include <yaml-cpp/yaml.h>
 
@@ -69,6 +70,26 @@ void AttachSplitPanes(SplitView* split, const YAML::Node& props,
   }
 }
 
+// Root may be a typed node, or a wrapper map with optional `theme:`.
+// `root["theme"]` is safe here: `root` is const (yaml-cpp const [] does
+// not insert a missing key, which would break UnwrapTypedNode).
+YAML::Node PeelThemeAndActivate(const YAML::Node& root) {
+  if (!root || !root.IsMap() || !root["theme"] || !root["theme"].IsScalar()) {
+    return root;
+  }
+  Theme::SetActive(root["theme"].as<std::string>());
+  if (root.size() <= 1) {
+    return root;
+  }
+  YAML::Node peeled(YAML::NodeType::Map);
+  for (auto it = root.begin(); it != root.end(); ++it) {
+    if (it->first.as<std::string>() != "theme") {
+      peeled[it->first] = it->second;
+    }
+  }
+  return peeled;
+}
+
 }  // namespace
 
 std::wstring Utf8ToWide(const std::string& utf8) {
@@ -100,6 +121,10 @@ std::unique_ptr<Node> LoadYamlNode(const YAML::Node& node,
   std::unique_ptr<Node> built = factory.Build(type, props, handlers);
   if (!built) {
     throw std::runtime_error("Unknown or failed YAML type: " + type);
+  }
+
+  if (props["name"]) {
+    built->set_name(props["name"].as<std::string>());
   }
 
   // Absolute placement: anchors preferred; x/y as fallback origin.
@@ -141,7 +166,7 @@ std::unique_ptr<Node> LoadYamlString(const std::string& yaml,
                                      const ViewFactory& factory,
                                      const HandlerMap& handlers) {
   const YAML::Node root = YAML::Load(yaml);
-  return LoadYamlNode(root, factory, handlers);
+  return LoadYamlNode(PeelThemeAndActivate(root), factory, handlers);
 }
 
 std::unique_ptr<Node> LoadYamlFile(const std::string& path,

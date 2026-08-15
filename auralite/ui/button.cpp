@@ -1,5 +1,7 @@
 #include "auralite/ui/button.h"
 
+#include "auralite/ui/theme.h"
+
 #include <algorithm>
 
 namespace auralite::ui {
@@ -33,6 +35,26 @@ Button& Button::preferred_size(float w, float h) {
   return *this;
 }
 
+Button& Button::bg(const ColorF& c) {
+  bg_ = c;
+  return *this;
+}
+
+Button& Button::bg_hover(const ColorF& c) {
+  bg_hover_ = c;
+  return *this;
+}
+
+Button& Button::bg_pressed(const ColorF& c) {
+  bg_pressed_ = c;
+  return *this;
+}
+
+Button& Button::text_color(const ColorF& c) {
+  text_color_ = c;
+  return *this;
+}
+
 Button& Button::icon_bgra(UINT width, UINT height, const uint8_t* bgra,
                           UINT stride) {
   icon_.Reset();
@@ -44,21 +66,37 @@ Button& Button::icon_bgra(UINT width, UINT height, const uint8_t* bgra,
 }
 
 SizeF Button::Measure(float max_w, float max_h) {
+  const ThemeTokens& th = Theme::Active();
+  const float fs = ResolveFontSize(font_size_);
   const float hug_w =
-      text_.empty() ? preferred_width()
-                    : (auralite::MeasureUiTextWidth(text_, font_size_) + 24.f);
+      text_.empty()
+          ? preferred_width()
+          : (auralite::MeasureUiTextWidth(text_, fs, th.font_ui.c_str()) +
+             24.f);
   const float hug_h = preferred_height() > 0.f ? preferred_height() : 40.f;
   return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 ColorF Button::BgColor() const {
+  const ThemeTokens& th = Theme::Active();
   if (pressed_) {
-    return ColorF::FromRgb(25, 85, 160);
+    return bg_pressed_.value_or(th.accent_pressed);
   }
   if (hovered_) {
-    return ColorF::FromRgb(55, 130, 215);
+    return bg_hover_.value_or(th.accent_hover);
   }
-  return ColorF::FromRgb(40, 110, 200);
+  return bg_.value_or(th.accent);
+}
+
+ColorF Button::LabelColor() const {
+  const ThemeTokens& th = Theme::Active();
+  if (text_color_) {
+    return *text_color_;
+  }
+  if (bg_ || bg_hover_ || bg_pressed_) {
+    return th.text;
+  }
+  return th.text_on_accent;
 }
 
 void Button::EnsureIcon(auralite::Canvas& canvas) {
@@ -71,11 +109,13 @@ void Button::EnsureIcon(auralite::Canvas& canvas) {
 
 void Button::Paint(auralite::Canvas& canvas) {
   EnsureIcon(canvas);
+  const ThemeTokens& th = Theme::Active();
 
   const float radius = 8.f;
   canvas.FillRoundedRect(bounds_, radius, radius, BgColor());
   if (focused()) {
-    canvas.DrawRect(bounds_, ColorF::FromRgb(20, 60, 120), 2.f);
+    // Dashed focus ring — less heavy than a solid overlay on filled buttons.
+    canvas.DrawDashedRect(bounds_, th.border_focus, 1.f);
   }
 
   float text_x = bounds_.x + 12.f;
@@ -93,8 +133,8 @@ void Button::Paint(auralite::Canvas& canvas) {
     const RectF text_rect{
         text_x, bounds_.y,
         std::max(0.f, bounds_.x + bounds_.w - 12.f - text_x), bounds_.h};
-    canvas.DrawText(text_, text_rect, ColorF::FromRgb(255, 255, 255), font_size_,
-                    L"Microsoft YaHei UI", auralite::TextHAlign::Center);
+    canvas.DrawText(text_, text_rect, LabelColor(), ResolveFontSize(font_size_),
+                    th.font_ui.c_str(), auralite::TextHAlign::Center);
   }
 }
 

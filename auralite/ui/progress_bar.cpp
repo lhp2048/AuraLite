@@ -1,5 +1,8 @@
 #include "auralite/ui/progress_bar.h"
 
+#include "auralite/ui/theme.h"
+#include "auralite/ui/window.h"
+
 #include <algorithm>
 
 namespace auralite::ui {
@@ -9,9 +12,45 @@ ProgressBar::ProgressBar() {
   fixed_height(12.f);
 }
 
+ProgressBar::~ProgressBar() {
+  if (anim_registered_ && window_) {
+    window_->UnregisterAnimation();
+    anim_registered_ = false;
+  }
+}
+
+void ProgressBar::BindWindow(Window* window) {
+  if (anim_registered_ && window_) {
+    window_->UnregisterAnimation();
+    anim_registered_ = false;
+  }
+  window_ = window;
+  SyncAnimation();
+}
+
 ProgressBar& ProgressBar::value(float v) {
   value_ = std::clamp(v, 0.f, 1.f);
   return *this;
+}
+
+ProgressBar& ProgressBar::indeterminate(bool enable) {
+  indeterminate_ = enable;
+  SyncAnimation();
+  return *this;
+}
+
+void ProgressBar::SyncAnimation() {
+  const bool want = indeterminate_ && window_ != nullptr;
+  if (want == anim_registered_) {
+    return;
+  }
+  if (want) {
+    window_->RegisterAnimation();
+    anim_registered_ = true;
+  } else if (window_) {
+    window_->UnregisterAnimation();
+    anim_registered_ = false;
+  }
 }
 
 SizeF ProgressBar::Measure(float max_w, float max_h) {
@@ -22,14 +61,30 @@ SizeF ProgressBar::Measure(float max_w, float max_h) {
 }
 
 void ProgressBar::Paint(auralite::Canvas& canvas) {
+  const ThemeTokens& th = Theme::Active();
   const float r = bounds_.h * 0.5f;
-  canvas.FillRoundedRect(bounds_, r, r, ColorF::FromRgb(220, 226, 235));
+  canvas.FillRoundedRect(bounds_, r, r, th.scroll_track);
+
+  if (indeterminate_) {
+    const float pulse_w = std::max(24.f, bounds_.w * 0.28f);
+    const float travel = std::max(0.f, bounds_.w - pulse_w);
+    const float t =
+        static_cast<float>(GetTickCount64() % 1400ULL) / 1400.f;
+    // Ease back and forth.
+    const float phase = (t < 0.5f) ? (t * 2.f) : (2.f - t * 2.f);
+    RectF fill = bounds_;
+    fill.x = bounds_.x + travel * phase;
+    fill.w = pulse_w;
+    canvas.FillRoundedRect(fill, r, r, th.accent);
+    return;
+  }
+
   if (value_ <= 0.f) {
     return;
   }
   RectF fill = bounds_;
   fill.w = std::max(0.f, bounds_.w * value_);
-  canvas.FillRoundedRect(fill, r, r, ColorF::FromRgb(40, 110, 200));
+  canvas.FillRoundedRect(fill, r, r, th.accent);
 }
 
 }  // namespace auralite::ui

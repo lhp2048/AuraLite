@@ -3,6 +3,7 @@
 #include "auralite/ui/node.h"
 
 #include <functional>
+#include <optional>
 #include <string>
 
 namespace auralite::ui {
@@ -36,7 +37,7 @@ class Checkbox : public Node {
   static constexpr float kLabelGap = 8.f;
 
   std::wstring text_;
-  float font_size_ = 14.f;
+  std::optional<float> font_size_;
   bool checked_ = false;
   ChangedHandler on_changed_;
   bool pressed_ = false;

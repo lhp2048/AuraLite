@@ -1,5 +1,7 @@
 #include "auralite/ui/text_field.h"
 
+#include "auralite/ui/theme.h"
+
 #include <dwrite.h>
 
 #include <algorithm>
@@ -7,15 +9,6 @@
 
 namespace auralite::ui {
 namespace {
-
-const ColorF kBg = ColorF::FromRgb(255, 255, 255);
-const ColorF kBorder = ColorF::FromRgb(170, 180, 195);
-const ColorF kBorderFocus = ColorF::FromRgb(40, 110, 200);
-const ColorF kText = ColorF::FromRgb(25, 35, 50);
-const ColorF kPlaceholder = ColorF::FromRgb(150, 160, 175);
-const ColorF kSelection = ColorF::FromRgb(51, 153, 255, 140);
-const ColorF kComposition = ColorF::FromRgb(40, 110, 200);
-constexpr wchar_t kFontFamily[] = L"Microsoft YaHei UI";
 
 IDWriteFactory* SharedDWrite() {
   static IDWriteFactory* factory = nullptr;
@@ -36,8 +29,9 @@ float MeasureWidth(const std::wstring& text, float font_size) {
   }
   IDWriteTextFormat* format = nullptr;
   HRESULT hr = factory->CreateTextFormat(
-      kFontFamily, nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL,
-      DWRITE_FONT_STRETCH_NORMAL, font_size, L"zh-cn", &format);
+      Theme::Active().font_ui.c_str(), nullptr, DWRITE_FONT_WEIGHT_NORMAL,
+      DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, font_size, L"zh-cn",
+      &format);
   if (FAILED(hr) || !format) {
     return font_size * 0.55f * static_cast<float>(text.size());
   }
@@ -152,7 +146,7 @@ void TextField::GetOrderedSelection(size_t* start, size_t* end) const {
 }
 
 float TextField::TextWidth(const std::wstring& s) const {
-  return MeasureWidth(s, font_size_);
+  return MeasureWidth(s, ResolveFontSize(font_size_));
 }
 
 void TextField::SetCursor(size_t pos, bool extend_selection) {
@@ -330,8 +324,10 @@ void TextField::HandleShortcut(UINT vk) {
 }
 
 void TextField::Paint(auralite::Canvas& canvas) {
-  canvas.FillRoundedRect(bounds_, 6.f, 6.f, kBg);
-  canvas.DrawRect(bounds_, focused() ? kBorderFocus : kBorder, 1.5f);
+  const ThemeTokens& th = Theme::Active();
+  const float fs = ResolveFontSize(font_size_);
+  canvas.FillRoundedRect(bounds_, 6.f, 6.f, th.surface);
+  canvas.DrawRect(bounds_, focused() ? th.border_focus : th.border, 1.5f);
 
   const RectF text_rect{bounds_.x + kPadX, bounds_.y,
                         (std::max)(0.f, bounds_.w - kPadX * 2.f), bounds_.h};
@@ -348,17 +344,18 @@ void TextField::Paint(auralite::Canvas& canvas) {
     if (a <= base.size() && b <= base.size() && a < b) {
       const float x0 = text_rect.x + TextWidth(base.substr(0, a));
       const float x1 = text_rect.x + TextWidth(base.substr(0, b));
-      const float th = font_size_ + 4.f;
-      const float ty = bounds_.y + (bounds_.h - th) * 0.5f;
-      canvas.FillRect(RectF{x0, ty, (std::max)(1.f, x1 - x0), th}, kSelection);
+      const float line_h = fs + 4.f;
+      const float ty = bounds_.y + (bounds_.h - line_h) * 0.5f;
+      canvas.FillRect(RectF{x0, ty, (std::max)(1.f, x1 - x0), line_h},
+                      th.selection);
     }
   }
 
   if (show_placeholder) {
-    canvas.DrawText(placeholder_, text_rect, kPlaceholder, font_size_,
-                    kFontFamily, auralite::TextHAlign::Left);
+    canvas.DrawText(placeholder_, text_rect, th.text_muted, fs,
+                    th.font_ui.c_str(), auralite::TextHAlign::Left);
   } else if (!shown.empty()) {
-    canvas.DrawText(shown, text_rect, kText, font_size_, kFontFamily,
+    canvas.DrawText(shown, text_rect, th.text, fs, th.font_ui.c_str(),
                     auralite::TextHAlign::Left);
   }
 
@@ -366,8 +363,8 @@ void TextField::Paint(auralite::Canvas& canvas) {
     const std::wstring before = DisplayText().substr(0, caret_);
     const float x0 = text_rect.x + TextWidth(before);
     const float cw = TextWidth(composition_);
-    const float uy = bounds_.y + bounds_.h * 0.5f + font_size_ * 0.45f;
-    canvas.FillRect(RectF{x0, uy, (std::max)(1.f, cw), 2.f}, kComposition);
+    const float uy = bounds_.y + bounds_.h * 0.5f + fs * 0.45f;
+    canvas.FillRect(RectF{x0, uy, (std::max)(1.f, cw), 2.f}, th.accent);
   }
 
   if (focused() && !HasSelection()) {
@@ -376,9 +373,9 @@ void TextField::Paint(auralite::Canvas& canvas) {
     if (!composition_.empty() && !password_) {
       caret_x += TextWidth(composition_);
     }
-    const float th = font_size_ + 4.f;
-    const float ty = bounds_.y + (bounds_.h - th) * 0.5f;
-    canvas.FillRect(RectF{caret_x, ty, 1.5f, th}, kText);
+    const float line_h = fs + 4.f;
+    const float ty = bounds_.y + (bounds_.h - line_h) * 0.5f;
+    canvas.FillRect(RectF{caret_x, ty, 1.5f, line_h}, th.text);
   }
 }
 

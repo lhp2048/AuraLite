@@ -7,6 +7,8 @@ namespace auralite::ui {
 // Vertical flex container: main axis = Y, cross axis = X.
 class Column : public Node {
  public:
+  Column();
+
   Column& padding(float all);
   Column& padding(float left, float top, float right, float bottom);
   Column& spacing(float s);

@@ -1,5 +1,7 @@
 #include "auralite/ui/split_view.h"
 
+#include "auralite/ui/theme.h"
+
 #include <algorithm>
 #include <windows.h>
 
@@ -143,19 +145,20 @@ void SplitView::ApplyRatioFromDividerOffset(float offset) {
 }
 
 void SplitView::Paint(auralite::Canvas& canvas) {
+  const ThemeTokens& th = Theme::Active();
   if (Node* L = leading()) {
-    canvas.FillRect(L->bounds(), ColorF::FromRgb(236, 242, 248));
+    canvas.FillRect(L->bounds(), th.surface_alt);
     L->Paint(canvas);
   }
   if (Node* R = trailing()) {
-    canvas.FillRect(R->bounds(), ColorF::FromRgb(248, 242, 236));
+    canvas.FillRect(R->bounds(), th.surface);
     R->Paint(canvas);
   }
   const RectF div = DividerBounds();
-  canvas.FillRect(div, ColorF::FromRgb(180, 188, 200));
+  canvas.FillRect(div, th.border);
   const float mid = div.x + div.w * 0.5f;
   canvas.FillRect(RectF{mid - 0.5f, div.y + div.h * 0.35f, 1.f, div.h * 0.3f},
-                  ColorF::FromRgb(120, 130, 145));
+                  th.text_muted);
 }
 
 Node* SplitView::HitTest(float x, float y) {

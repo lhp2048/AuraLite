@@ -1,20 +1,12 @@
 #include "auralite/ui/text_area.h"
 
+#include "auralite/ui/theme.h"
+
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace auralite::ui {
-namespace {
-
-const ColorF kBg = ColorF::FromRgb(255, 255, 255);
-const ColorF kBorder = ColorF::FromRgb(170, 180, 195);
-const ColorF kBorderFocus = ColorF::FromRgb(40, 110, 200);
-const ColorF kText = ColorF::FromRgb(25, 35, 50);
-const ColorF kPlaceholder = ColorF::FromRgb(150, 160, 175);
-const ColorF kSelection = ColorF::FromRgb(51, 153, 255, 140);
-constexpr wchar_t kFontFamily[] = L"Microsoft YaHei UI";
-
-}  // namespace
 
 TextArea::TextArea() {
   set_focusable(true);
@@ -35,6 +27,14 @@ TextArea& TextArea::placeholder(const std::wstring& t) {
 
 TextArea& TextArea::font_size(float size) {
   font_size_ = size;
+  RebuildLines();
+  return *this;
+}
+
+TextArea& TextArea::wrap(bool enable) {
+  wrap_ = enable;
+  wrap_width_ = -1.f;
+  RebuildLines();
   return *this;
 }
 
@@ -56,24 +56,80 @@ void TextArea::set_text(const std::wstring& t) {
   NotifyChanged();
 }
 
-float TextArea::LineHeight() const { return font_size_ + 6.f; }
+float TextArea::LineHeight() const { return ResolveFontSize(font_size_) + 6.f; }
+
+float TextArea::ContentWidth() const {
+  return std::max(1.f, bounds_.w - kPad * 2.f);
+}
+
+void TextArea::AppendWrappedParagraph(size_t para_start,
+                                      const std::wstring& para, float max_w) {
+  if (para.empty()) {
+    lines_.push_back(L"");
+    line_starts_.push_back(para_start);
+    return;
+  }
+  if (!wrap_ || max_w <= 1.f) {
+    lines_.push_back(para);
+    line_starts_.push_back(para_start);
+    return;
+  }
+
+  const float fs = ResolveFontSize(font_size_);
+  size_t i = 0;
+  while (i < para.size()) {
+    size_t end = i + 1;
+    size_t last_fit = i + 1;
+    while (end <= para.size()) {
+      const float w = auralite::MeasureUiTextWidth(
+          para.substr(i, end - i), fs, Theme::Active().font_ui.c_str());
+      if (w <= max_w) {
+        last_fit = end;
+        if (end == para.size()) {
+          break;
+        }
+        ++end;
+      } else {
+        break;
+      }
+    }
+    if (last_fit == i) {
+      last_fit = i + 1;
+    }
+    lines_.push_back(para.substr(i, last_fit - i));
+    line_starts_.push_back(para_start + i);
+    i = last_fit;
+  }
+}
 
 void TextArea::RebuildLines() {
+  const float max_w = (bounds_.w > 0.f) ? ContentWidth() : 1.0e9f;
+  wrap_width_ = max_w;
+
   lines_.clear();
   line_starts_.clear();
+
   size_t start = 0;
-  line_starts_.push_back(0);
   for (size_t i = 0; i < text_.size(); ++i) {
     if (text_[i] == L'\n') {
-      lines_.push_back(text_.substr(start, i - start));
+      AppendWrappedParagraph(start, text_.substr(start, i - start), max_w);
       start = i + 1;
-      line_starts_.push_back(start);
     }
   }
-  lines_.push_back(text_.substr(start));
+  AppendWrappedParagraph(start, text_.substr(start), max_w);
+
   if (lines_.empty()) {
     lines_.push_back(L"");
     line_starts_.assign(1, 0);
+  }
+}
+
+void TextArea::Layout(const RectF& final_rect) {
+  Node::Layout(final_rect);
+  const float w = ContentWidth();
+  if (std::fabs(w - wrap_width_) > 0.5f) {
+    RebuildLines();
+    EnsureCaretVisible();
   }
 }
 
@@ -124,8 +180,21 @@ void TextArea::IndexToLineCol(size_t index, int* line, int* col) const {
     l = i;
   }
   l = (std::max)(0, l);
+  // Prefer end of previous visual line when index lands on a soft-wrap boundary
+  // that is also the start of the next line (except after hard '\n').
+  if (l + 1 < static_cast<int>(line_starts_.size()) &&
+      line_starts_[static_cast<size_t>(l + 1)] == index && index > 0 &&
+      text_[index - 1] != L'\n') {
+    // Stay on current line start (beginning of wrapped line) — OK for caret
+    // at wrap point showing at start of next line (common editors).
+  }
   *line = l;
   *col = static_cast<int>(index - line_starts_[static_cast<size_t>(l)]);
+  const int max_col =
+      static_cast<int>(lines_[static_cast<size_t>(l)].size());
+  if (*col > max_col) {
+    *col = max_col;
+  }
 }
 
 size_t TextArea::LineColToIndex(int line, int col) const {
@@ -145,11 +214,12 @@ size_t TextArea::HitTestCaret(float x, float y) const {
   int line = static_cast<int>((y - content_y) / lh);
   line = std::clamp(line, 0, static_cast<int>(lines_.size()) - 1);
   const std::wstring& s = lines_[static_cast<size_t>(line)];
+  const float fs = ResolveFontSize(font_size_);
   float best_d = 1.0e9f;
   size_t best = 0;
   for (size_t c = 0; c <= s.size(); ++c) {
-    const float tw =
-        auralite::MeasureUiTextWidth(s.substr(0, c), font_size_);
+    const float tw = auralite::MeasureUiTextWidth(
+        s.substr(0, c), fs, Theme::Active().font_ui.c_str());
     const float d = std::fabs((content_x + tw) - x);
     if (d < best_d) {
       best_d = d;
@@ -279,8 +349,10 @@ SizeF TextArea::Measure(float max_w, float max_h) {
 }
 
 void TextArea::Paint(auralite::Canvas& canvas) {
-  canvas.FillRoundedRect(bounds_, 6.f, 6.f, kBg);
-  canvas.DrawRect(bounds_, focused() ? kBorderFocus : kBorder, 1.5f);
+  const ThemeTokens& th = Theme::Active();
+  const float fs = ResolveFontSize(font_size_);
+  canvas.FillRoundedRect(bounds_, 6.f, 6.f, th.surface);
+  canvas.DrawRect(bounds_, focused() ? th.border_focus : th.border, 1.5f);
 
   canvas.PushAxisAlignedClip(bounds_);
 
@@ -288,14 +360,14 @@ void TextArea::Paint(auralite::Canvas& canvas) {
   const float content_y = bounds_.y + kPad - scroll_y_;
   const float lh = LineHeight();
   const float content_w = std::max(0.f, bounds_.w - kPad * 2.f);
+  const wchar_t* font = th.font_ui.c_str();
 
   const bool show_ph =
       text_.empty() && composition_.empty() && !placeholder_.empty();
   if (show_ph) {
     canvas.DrawText(placeholder_,
                     RectF{content_x, bounds_.y + kPad, content_w, lh},
-                    kPlaceholder, font_size_, kFontFamily,
-                    auralite::TextHAlign::Left);
+                    th.text_muted, fs, font, auralite::TextHAlign::Left);
   } else {
     size_t sel_a = 0;
     size_t sel_b = 0;
@@ -317,17 +389,18 @@ void TextArea::Paint(auralite::Canvas& canvas) {
         if (a < b) {
           const float x0 = content_x + auralite::MeasureUiTextWidth(
                                            line.substr(0, a - line_begin),
-                                           font_size_);
+                                           fs, font);
           const float x1 = content_x + auralite::MeasureUiTextWidth(
                                            line.substr(0, b - line_begin),
-                                           font_size_);
-          canvas.FillRect(RectF{x0, y, std::max(1.f, x1 - x0), lh}, kSelection);
+                                           fs, font);
+          canvas.FillRect(RectF{x0, y, std::max(1.f, x1 - x0), lh},
+                          th.selection);
         }
       }
 
       if (!line.empty()) {
-        canvas.DrawText(line, RectF{content_x, y, content_w, lh}, kText,
-                        font_size_, kFontFamily, auralite::TextHAlign::Left);
+        canvas.DrawText(line, RectF{content_x, y, content_w, lh}, th.text, fs,
+                        font, auralite::TextHAlign::Left);
       }
     }
 
@@ -337,14 +410,13 @@ void TextArea::Paint(auralite::Canvas& canvas) {
       IndexToLineCol(caret_, &line, &col);
       const std::wstring& s = lines_[static_cast<size_t>(line)];
       float caret_x =
-          content_x +
-          auralite::MeasureUiTextWidth(s.substr(0, static_cast<size_t>(col)),
-                                       font_size_);
+          content_x + auralite::MeasureUiTextWidth(
+                          s.substr(0, static_cast<size_t>(col)), fs, font);
       if (!composition_.empty()) {
-        caret_x += auralite::MeasureUiTextWidth(composition_, font_size_);
+        caret_x += auralite::MeasureUiTextWidth(composition_, fs, font);
       }
       const float y = content_y + static_cast<float>(line) * lh;
-      canvas.FillRect(RectF{caret_x, y, 1.5f, lh}, kText);
+      canvas.FillRect(RectF{caret_x, y, 1.5f, lh}, th.text);
     }
   }
 

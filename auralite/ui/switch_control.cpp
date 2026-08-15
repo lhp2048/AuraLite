@@ -1,5 +1,7 @@
 #include "auralite/ui/switch_control.h"
 
+#include "auralite/ui/theme.h"
+
 #include <algorithm>
 
 namespace auralite::ui {
@@ -40,19 +42,21 @@ RectF Switch::TrackRect() const {
 }
 
 SizeF Switch::Measure(float max_w, float max_h) {
+  const ThemeTokens& th = Theme::Active();
+  const float fs = ResolveFontSize(font_size_);
   const float text_w =
       text_.empty() ? 0.f
-                    : auralite::MeasureUiTextWidth(text_, font_size_);
+                    : auralite::MeasureUiTextWidth(text_, fs, th.font_ui.c_str());
   const float hug_w =
       kTrackWidth + (text_.empty() ? 0.f : kLabelGap + text_w);
-  const float hug_h = std::max(kTrackHeight, font_size_ + 6.f);
+  const float hug_h = std::max(kTrackHeight, fs + 6.f);
   return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 void Switch::Paint(auralite::Canvas& canvas) {
+  const ThemeTokens& th = Theme::Active();
   const RectF track = TrackRect();
-  const ColorF track_color =
-      on_ ? ColorF::FromRgb(40, 110, 200) : ColorF::FromRgb(180, 180, 180);
+  const ColorF track_color = on_ ? th.accent : th.border;
   const float radius = kTrackHeight * 0.5f;
   canvas.FillRoundedRect(track, radius, radius, track_color);
 
@@ -60,20 +64,20 @@ void Switch::Paint(auralite::Canvas& canvas) {
   const float thumb_x =
       on_ ? (track.x + kTrackWidth - kThumbSize - 2.f) : (track.x + 2.f);
   const RectF thumb{thumb_x, thumb_y, kThumbSize, kThumbSize};
-  canvas.FillEllipse(thumb, ColorF::FromRgb(255, 255, 255));
-  canvas.DrawEllipse(thumb, ColorF::FromRgb(120, 120, 120), 1.f);
+  canvas.FillEllipse(thumb, th.surface);
+  canvas.DrawEllipse(thumb, th.border, 1.f);
 
   if (!text_.empty()) {
     const float text_x = track.x + kTrackWidth + kLabelGap;
     const RectF text_rect{text_x, bounds_.y,
                           std::max(0.f, bounds_.x + bounds_.w - text_x),
                           bounds_.h};
-    canvas.DrawText(text_, text_rect, ColorF::FromRgb(30, 40, 55), font_size_,
-                    L"Microsoft YaHei UI", auralite::TextHAlign::Left);
+    canvas.DrawText(text_, text_rect, th.text, ResolveFontSize(font_size_),
+                    th.font_ui.c_str(), auralite::TextHAlign::Left);
   }
 
   if (focused()) {
-    canvas.DrawRect(bounds_, ColorF::FromRgb(40, 110, 200), 1.5f);
+    canvas.DrawDashedRect(bounds_, th.border_focus, 1.f);
   }
 }
 

@@ -161,10 +161,18 @@ add_library(auralite_ui STATIC
   auralite/ui/combo.cpp
   auralite/ui/text_area.cpp
   auralite/ui/scroll_view.cpp
+  auralite/ui/vertical_scrollbar.cpp
+  auralite/ui/horizontal_scrollbar.cpp
   auralite/ui/list_view.cpp
+  auralite/ui/list_columns.cpp
+  auralite/ui/item_list.cpp
+  auralite/ui/virtual_list.cpp
+  auralite/ui/tree_view.cpp
   auralite/ui/split_view.cpp
   auralite/ui/context_menu.cpp
   auralite/ui/window.cpp
+  auralite/ui/theme.cpp
+  auralite/ui/theme_yaml.cpp
   auralite/ui/application.cpp
   auralite/ui/factory.cpp
   auralite/ui/yaml_loader.cpp
@@ -253,6 +261,12 @@ if(AURALITE_BUILD_UI_DEMOS)
       "$<TARGET_FILE_DIR:ui_gallery>/gallery.yaml"
     COMMENT "Copy gallery.yaml next to ui_gallery"
   )
+  add_custom_command(TARGET ui_gallery POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+      "${AURALITE_ROOT}/examples/ui_gallery/themes"
+      "$<TARGET_FILE_DIR:ui_gallery>/themes"
+    COMMENT "Copy themes next to ui_gallery"
+  )
 
   add_executable(ui_layout_test examples/ui_layout_test/main.cpp)
   target_link_libraries(ui_layout_test PRIVATE AuraLite::UINext)
@@ -262,6 +276,16 @@ if(AURALITE_BUILD_UI_DEMOS)
   )
   if(MSVC)
     target_compile_options(ui_layout_test PRIVATE /W3 /utf-8 /permissive-)
+  endif()
+
+  add_executable(theme_test examples/theme_test/main.cpp)
+  target_link_libraries(theme_test PRIVATE AuraLite::UINext)
+  target_compile_definitions(theme_test PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(theme_test PRIVATE /W3 /utf-8 /permissive-)
   endif()
 endif()
 

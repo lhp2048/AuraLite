@@ -1,5 +1,7 @@
 #include "auralite/ui/image_view.h"
 
+#include "auralite/ui/theme.h"
+
 namespace auralite::ui {
 
 ImageView::ImageView() {
@@ -59,7 +61,7 @@ void ImageView::EnsureImage(auralite::Canvas& canvas) {
 void ImageView::Paint(auralite::Canvas& canvas) {
   EnsureImage(canvas);
   if (image_.empty()) {
-    canvas.FillRect(bounds_, ColorF::FromRgb(210, 216, 224));
+    canvas.FillRect(bounds_, Theme::Active().surface_alt);
     return;
   }
   canvas.DrawImage(image_, bounds_);

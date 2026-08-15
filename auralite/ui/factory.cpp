@@ -9,6 +9,10 @@
 #include "auralite/ui/image_view.h"
 #include "auralite/ui/label.h"
 #include "auralite/ui/list_view.h"
+#include "auralite/ui/list_columns.h"
+#include "auralite/ui/item_list.h"
+#include "auralite/ui/virtual_list.h"
+#include "auralite/ui/tree_view.h"
 #include "auralite/ui/progress_bar.h"
 #include "auralite/ui/radio.h"
 #include "auralite/ui/row.h"
@@ -26,6 +30,7 @@
 
 #include <filesystem>
 #include <sstream>
+#include <algorithm>
 #include <stdexcept>
 #include <utility>
 
@@ -150,6 +155,61 @@ void ApplyWidthHeight(Node* node, const YAML::Node& props) {
   ApplySizeAxis(node, props, "height", false);
 }
 
+std::vector<ListColumn> ParseListColumns(const YAML::Node& props) {
+  std::vector<ListColumn> cols;
+  if (!props["columns"] || !props["columns"].IsSequence()) {
+    return cols;
+  }
+  for (const auto& c : props["columns"]) {
+    ListColumn col;
+    if (c.IsScalar()) {
+      col.title = Utf8ToWide(c.as<std::string>());
+    } else if (c.IsMap()) {
+      if (c["title"]) {
+        col.title = Utf8ToWide(c["title"].as<std::string>());
+      }
+      if (c["width"]) {
+        col.width = c["width"].as<float>();
+      }
+      if (c["weight"]) {
+        col.weight = c["weight"].as<float>();
+      }
+      if (c["align"]) {
+        const std::string a = c["align"].as<std::string>();
+        if (a == "center") {
+          col.align = TextAlign::Center;
+        } else if (a == "right") {
+          col.align = TextAlign::Right;
+        }
+      }
+      if (c["sortable"]) {
+        col.sortable = c["sortable"].as<bool>();
+      }
+      if (c["resizable"]) {
+        col.resizable = c["resizable"].as<bool>();
+      }
+    }
+    cols.push_back(std::move(col));
+  }
+  return cols;
+}
+
+void ApplyListColumnsHeader(auto* list, const YAML::Node& props) {
+  auto cols = ParseListColumns(props);
+  if (!cols.empty()) {
+    list->columns(std::move(cols));
+  }
+  if (props["show_header"]) {
+    list->show_header(props["show_header"].as<bool>());
+  }
+  if (props["header_height"]) {
+    list->header_height(props["header_height"].as<float>());
+  }
+  if (props["frozen_count"]) {
+    list->frozen_count(props["frozen_count"].as<int>());
+  }
+}
+
 void ApplyWeightCrossAlign(Node* node, const YAML::Node& props,
                            bool label_text_align) {
   if (!node) {
@@ -255,6 +315,27 @@ std::string NodeTypeName(const Node* n) {
   }
   if (dynamic_cast<const ListView*>(n)) {
     return "ListView";
+  }
+  if (dynamic_cast<const ItemList*>(n)) {
+    return "ItemList";
+  }
+  if (dynamic_cast<const VirtualList*>(n)) {
+    return "VirtualList";
+  }
+  if (dynamic_cast<const TreeView*>(n)) {
+    return "TreeView";
+  }
+  if (dynamic_cast<const ProgressBar*>(n)) {
+    return "ProgressBar";
+  }
+  if (dynamic_cast<const Slider*>(n)) {
+    return "Slider";
+  }
+  if (dynamic_cast<const Combo*>(n)) {
+    return "Combo";
+  }
+  if (dynamic_cast<const TextArea*>(n)) {
+    return "TextArea";
   }
   if (dynamic_cast<const SplitView*>(n)) {
     return "SplitView";
@@ -608,6 +689,9 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["value"]) {
       bar->value(props["value"].as<float>());
     }
+    if (props["indeterminate"]) {
+      bar->indeterminate(props["indeterminate"].as<bool>());
+    }
     ApplyWidthHeight(bar.get(), props);
     ApplyWeightCrossAlign(bar.get(), props, false);
     return bar;
@@ -617,6 +701,20 @@ void ViewFactory::RegisterBuiltinTypes() {
     auto slider = std::make_unique<Slider>();
     if (props["value"]) {
       slider->value(props["value"].as<float>());
+    }
+    if (props["step"]) {
+      slider->step(props["step"].as<float>());
+    }
+    if (props["tick_count"]) {
+      slider->tick_count(props["tick_count"].as<int>());
+    }
+    if (props["orientation"]) {
+      const auto o = props["orientation"].as<std::string>();
+      if (o == "vertical" || o == "v") {
+        slider->orientation(SliderOrientation::Vertical);
+      } else {
+        slider->orientation(SliderOrientation::Horizontal);
+      }
     }
     ApplyWidthHeight(slider.get(), props);
     ApplyWeightCrossAlign(slider.get(), props, false);
@@ -628,6 +726,12 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["font_size"]) {
       combo->font_size(props["font_size"].as<float>());
     }
+    if (props["editable"]) {
+      combo->editable(props["editable"].as<bool>());
+    }
+    if (props["multi"]) {
+      combo->multi(props["multi"].as<bool>());
+    }
     if (props["items"] && props["items"].IsSequence()) {
       std::vector<std::wstring> items;
       for (const auto& it : props["items"]) {
@@ -636,7 +740,15 @@ void ViewFactory::RegisterBuiltinTypes() {
       combo->items(std::move(items));
     }
     if (props["selected"]) {
-      combo->selected(props["selected"].as<int>());
+      if (props["selected"].IsSequence()) {
+        std::vector<int> idxs;
+        for (const auto& it : props["selected"]) {
+          idxs.push_back(it.as<int>());
+        }
+        combo->selected_indices(std::move(idxs));
+      } else {
+        combo->selected(props["selected"].as<int>());
+      }
     }
     ApplyWidthHeight(combo.get(), props);
     ApplyWeightCrossAlign(combo.get(), props, false);
@@ -654,9 +766,145 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["font_size"]) {
       area->font_size(props["font_size"].as<float>());
     }
+    if (props["wrap"]) {
+      area->wrap(props["wrap"].as<bool>());
+    }
     ApplyWidthHeight(area.get(), props);
     ApplyWeightCrossAlign(area.get(), props, false);
     return area;
+  });
+
+  // Thin YAML: count of Text rows for smoke demos. Real apps use fluent callbacks.
+  Register("VirtualList", [](const YAML::Node& props, const HandlerMap&) {
+    auto list = std::make_unique<VirtualList>();
+    int count = 100;
+    if (props["count"]) {
+      count = std::max(0, props["count"].as<int>());
+    }
+    if (props["font_size"]) {
+      list->font_size(props["font_size"].as<float>());
+    }
+    ApplyListColumnsHeader(list.get(), props);
+    list->item_count([count]() { return count; });
+    if (!list->columns().empty()) {
+      list->item_cell_text([](int i, int col) {
+        if (col == 0) {
+          return L"行 " + std::to_wstring(i + 1);
+        }
+        if (col == 1) {
+          return L"状态-" + std::to_wstring(i % 5);
+        }
+        if (col == 2) {
+          return L"详情-" + std::to_wstring(i);
+        }
+        return L"#" + std::to_wstring(i);
+      });
+    } else {
+      list->item_text([](int i) {
+        return L"Virtual item " + std::to_wstring(i);
+      });
+    }
+    ApplyWidthHeight(list.get(), props);
+    ApplyWeightCrossAlign(list.get(), props, false);
+    return list;
+  });
+
+  // TreeView: nested YAML `nodes:` with text / expanded / children / lazy / checked.
+  Register("TreeView", [](const YAML::Node& props, const HandlerMap&) {
+    auto tree = std::make_unique<TreeView>();
+    if (props["font_size"]) {
+      tree->font_size(props["font_size"].as<float>());
+    }
+    if (props["row_height"]) {
+      tree->row_height(props["row_height"].as<float>());
+    }
+    if (props["indent"]) {
+      tree->indent(props["indent"].as<float>());
+    }
+    if (props["checkable"]) {
+      tree->checkable(props["checkable"].as<bool>());
+    }
+    if (props["check_cascade"]) {
+      tree->check_cascade(props["check_cascade"].as<bool>());
+    }
+    std::function<void(int parent, const YAML::Node& seq)> load;
+    load = [&](int parent, const YAML::Node& seq) {
+      if (!seq || !seq.IsSequence()) {
+        return;
+      }
+      for (const auto& item : seq) {
+        std::wstring text = L"node";
+        bool expanded = false;
+        bool lazy = false;
+        bool checked = false;
+        if (item.IsMap()) {
+          if (item["text"]) {
+            text = Utf8ToWide(item["text"].as<std::string>());
+          }
+          if (item["expanded"]) {
+            expanded = item["expanded"].as<bool>();
+          }
+          if (item["lazy"]) {
+            lazy = item["lazy"].as<bool>();
+          }
+          if (item["checked"]) {
+            checked = item["checked"].as<bool>();
+          }
+          const int id = tree->AddNode(parent, std::move(text), expanded);
+          if (lazy) {
+            tree->set_lazy(id, true);
+          }
+          if (checked) {
+            tree->set_checked(id, TreeCheckState::Checked, false);
+          }
+          if (item["children"]) {
+            load(id, item["children"]);
+          }
+        } else {
+          tree->AddNode(parent, Utf8ToWide(item.as<std::string>()), false);
+        }
+      }
+    };
+    if (props["nodes"]) {
+      load(-1, props["nodes"]);
+    }
+    ApplyWidthHeight(tree.get(), props);
+    ApplyWeightCrossAlign(tree.get(), props, false);
+    return tree;
+  });
+
+  // ItemList: count + optional item_template (row widget tree); bind/paint in code.
+  Register("ItemList", [this](const YAML::Node& props, const HandlerMap& handlers) {
+    auto list = std::make_unique<ItemList>();
+    int count = 0;
+    if (props["count"]) {
+      count = std::max(0, props["count"].as<int>());
+    }
+    if (props["row_height"]) {
+      list->row_height(props["row_height"].as<float>());
+    }
+    if (props["overscan"]) {
+      list->overscan(props["overscan"].as<int>());
+    }
+    if (props["row_padding"]) {
+      list->row_padding(props["row_padding"].as<float>());
+    }
+    ApplyListColumnsHeader(list.get(), props);
+    if (props["item_template"]) {
+      const YAML::Node tmpl = props["item_template"];
+      list->item_template_factory([this, tmpl, handlers]() {
+        return LoadYamlNode(tmpl, *this, handlers);
+      });
+    }
+    for (int i = 0; i < count; ++i) {
+      list->AddItem();
+    }
+    if (props["selected"]) {
+      list->set_selected_index(props["selected"].as<int>(), false);
+    }
+    ApplyWidthHeight(list.get(), props);
+    ApplyWeightCrossAlign(list.get(), props, false);
+    return list;
   });
 }
 

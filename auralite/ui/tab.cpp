@@ -1,5 +1,7 @@
 #include "auralite/ui/tab.h"
 
+#include "auralite/ui/theme.h"
+
 #include <algorithm>
 
 namespace auralite::ui {
@@ -122,28 +124,29 @@ void Tab::Layout(const RectF& final_rect) {
 
 void Tab::Paint(auralite::Canvas& canvas) {
   if (has_headers()) {
+    const ThemeTokens& th = Theme::Active();
     const int n = static_cast<int>(headers_.size());
     const float slot =
         n > 0 ? header_bounds_.w / static_cast<float>(n) : header_bounds_.w;
-    canvas.FillRect(header_bounds_, ColorF::FromRgb(235, 238, 245));
+    canvas.FillRect(header_bounds_, th.surface_alt);
     for (int i = 0; i < n; ++i) {
       const RectF cell{header_bounds_.x + slot * static_cast<float>(i),
                        header_bounds_.y, slot, header_bounds_.h};
       if (i == selected_) {
-        canvas.FillRect(cell, ColorF::FromRgb(210, 220, 240));
+        canvas.FillRect(cell, th.accent_soft);
       }
-      canvas.DrawText(headers_[static_cast<size_t>(i)], cell,
-                      ColorF::FromRgb(30, 40, 55), 14.f, L"Microsoft YaHei UI",
+      canvas.DrawText(headers_[static_cast<size_t>(i)], cell, th.text,
+                      th.font_size, th.font_ui.c_str(),
                       auralite::TextHAlign::Center);
       if (i + 1 < n) {
         canvas.FillRect(RectF{cell.x + cell.w - 1.f, cell.y + 6.f, 1.f,
                               cell.h - 12.f},
-                        ColorF::FromRgb(200, 205, 215));
+                        th.divider);
       }
     }
     canvas.FillRect(RectF{header_bounds_.x, header_bounds_.y + header_bounds_.h - 1.f,
                           header_bounds_.w, 1.f},
-                    ColorF::FromRgb(180, 185, 195));
+                    th.border);
   }
   if (Node* page = SelectedPage()) {
     page->Paint(canvas);

@@ -92,6 +92,9 @@ class Canvas {
   void FillRoundedRect(const RectF& rect, float radius_x, float radius_y,
                        const ColorF& color);
   void DrawRect(const RectF& rect, const ColorF& color, float stroke_width = 1.f);
+  // Focus rings etc. Uses D2D dash style.
+  void DrawDashedRect(const RectF& rect, const ColorF& color,
+                      float stroke_width = 1.f);
   void FillEllipse(const RectF& rect, const ColorF& color);
   void DrawEllipse(const RectF& rect, const ColorF& color,
                    float stroke_width = 1.f);

@@ -299,6 +299,29 @@ void Canvas::DrawRect(const RectF& rect, const ColorF& color,
   render_target_->DrawRectangle(ToD2D(rect), brush, stroke_width);
 }
 
+void Canvas::DrawDashedRect(const RectF& rect, const ColorF& color,
+                            float stroke_width) {
+  if (!render_target_ || !d2d_factory_) {
+    return;
+  }
+  ID2D1SolidColorBrush* brush = BrushFor(color);
+  if (!brush) {
+    return;
+  }
+  ID2D1StrokeStyle* style = nullptr;
+  const HRESULT hr = d2d_factory_->CreateStrokeStyle(
+      D2D1::StrokeStyleProperties(
+          D2D1_CAP_STYLE_FLAT, D2D1_CAP_STYLE_FLAT, D2D1_CAP_STYLE_FLAT,
+          D2D1_LINE_JOIN_MITER, 10.f, D2D1_DASH_STYLE_DASH, 0.f),
+      nullptr, 0, &style);
+  if (FAILED(hr) || !style) {
+    render_target_->DrawRectangle(ToD2D(rect), brush, stroke_width);
+    return;
+  }
+  render_target_->DrawRectangle(ToD2D(rect), brush, stroke_width, style);
+  style->Release();
+}
+
 void Canvas::FillEllipse(const RectF& rect, const ColorF& color) {
   if (!render_target_ || rect.w <= 0.f || rect.h <= 0.f) {
     return;
@@ -387,11 +410,13 @@ void Canvas::DrawText(const std::wstring& text, const RectF& layout_rect,
   }
   format->SetTextAlignment(dwrite_align);
   format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+  format->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
 
   ID2D1SolidColorBrush* brush = BrushFor(color);
   if (brush) {
     render_target_->DrawText(text.c_str(), static_cast<UINT32>(text.size()),
-                             format, ToD2D(layout_rect), brush);
+                             format, ToD2D(layout_rect), brush,
+                             D2D1_DRAW_TEXT_OPTIONS_CLIP);
   }
   format->Release();
 }

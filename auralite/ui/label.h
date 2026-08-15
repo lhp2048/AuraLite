@@ -2,6 +2,7 @@
 
 #include "auralite/ui/node.h"
 
+#include <optional>
 #include <string>
 
 namespace auralite::ui {
@@ -18,7 +19,7 @@ class Label : public Node {
   Label& preferred_height(float h);
 
   const std::wstring& text() const { return text_; }
-  float font_size() const { return font_size_; }
+  float font_size() const;
   TextAlign align() const { return align_; }
 
   SizeF Measure(float max_w, float max_h) override;
@@ -28,8 +29,8 @@ class Label : public Node {
   static auralite::TextHAlign ToCanvasAlign(TextAlign a);
 
   std::wstring text_;
-  float font_size_ = 16.f;
-  ColorF color_ = ColorF::FromRgb(30, 40, 55);
+  std::optional<float> font_size_;
+  std::optional<ColorF> color_;
   TextAlign align_ = TextAlign::Left;
 };
 

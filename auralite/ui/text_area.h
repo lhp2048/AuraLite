@@ -3,12 +3,13 @@
 #include "auralite/ui/node.h"
 
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace auralite::ui {
 
-// Multiline plain-text editor (no rich text).
+// Multiline plain-text editor (no rich text). Soft-wrap by default.
 class TextArea : public Node {
  public:
   using ChangeHandler = std::function<void(const std::wstring&)>;
@@ -18,12 +19,15 @@ class TextArea : public Node {
   TextArea& text(const std::wstring& t);
   TextArea& placeholder(const std::wstring& t);
   TextArea& font_size(float size);
+  TextArea& wrap(bool enable);
+  bool wrap() const { return wrap_; }
   TextArea& on_change(ChangeHandler handler);
 
   const std::wstring& text() const { return text_; }
   void set_text(const std::wstring& t);
 
   SizeF Measure(float max_w, float max_h) override;
+  void Layout(const RectF& final_rect) override;
   void Paint(auralite::Canvas& canvas) override;
 
   void OnMouseDown(const MouseEvent& e) override;
@@ -45,6 +49,7 @@ class TextArea : public Node {
   static constexpr float kPad = 8.f;
 
   float LineHeight() const;
+  float ContentWidth() const;
   void RebuildLines();
   void EnsureCaretVisible();
   void NotifyChanged();
@@ -59,14 +64,18 @@ class TextArea : public Node {
   bool CopyToClipboard() const;
   bool PasteFromClipboard();
   void HandleShortcut(UINT vk);
+  void AppendWrappedParagraph(size_t para_start, const std::wstring& para,
+                              float max_w);
 
   std::wstring text_;
   std::wstring placeholder_;
   std::wstring composition_;
   std::vector<std::wstring> lines_;
-  std::vector<size_t> line_starts_;  // index into text_ for each line
-  float font_size_ = 14.f;
+  std::vector<size_t> line_starts_;  // index into text_ for each visual line
+  std::optional<float> font_size_;
   float scroll_y_ = 0.f;
+  float wrap_width_ = -1.f;
+  bool wrap_ = true;
   size_t sel_start_ = 0;
   size_t caret_ = 0;
   bool selecting_ = false;

@@ -1,5 +1,7 @@
 #include "auralite/ui/checkbox.h"
 
+#include "auralite/ui/theme.h"
+
 #include <algorithm>
 
 namespace auralite::ui {
@@ -40,29 +42,30 @@ RectF Checkbox::BoxRect() const {
 }
 
 SizeF Checkbox::Measure(float max_w, float max_h) {
+  const ThemeTokens& th = Theme::Active();
+  const float fs = ResolveFontSize(font_size_);
   const float text_w =
       text_.empty() ? 0.f
-                    : auralite::MeasureUiTextWidth(text_, font_size_);
+                    : auralite::MeasureUiTextWidth(text_, fs, th.font_ui.c_str());
   const float hug_w = kBoxSize + (text_.empty() ? 0.f : kLabelGap + text_w);
-  const float hug_h = std::max(kBoxSize, font_size_ + 6.f);
+  const float hug_h = std::max(kBoxSize, fs + 6.f);
   return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 void Checkbox::Paint(auralite::Canvas& canvas) {
+  const ThemeTokens& th = Theme::Active();
   const RectF box = BoxRect();
-  const ColorF border = ColorF::FromRgb(60, 60, 60);
-  canvas.DrawRect(box, border, 1.5f);
+  canvas.DrawRect(box, th.border, 1.5f);
 
   if (checked_) {
-    const ColorF mark = ColorF::FromRgb(20, 120, 60);
     const float x0 = box.x + 3.f;
     const float y0 = box.y + 8.f;
     const float x1 = box.x + 7.f;
     const float y1 = box.y + 12.f;
     const float x2 = box.x + 13.f;
     const float y2 = box.y + 4.f;
-    canvas.DrawLine(x0, y0, x1, y1, mark, 2.f);
-    canvas.DrawLine(x1, y1, x2, y2, mark, 2.f);
+    canvas.DrawLine(x0, y0, x1, y1, th.glyph, 2.f);
+    canvas.DrawLine(x1, y1, x2, y2, th.glyph, 2.f);
   }
 
   if (!text_.empty()) {
@@ -70,12 +73,12 @@ void Checkbox::Paint(auralite::Canvas& canvas) {
     const RectF text_rect{text_x, bounds_.y,
                           std::max(0.f, bounds_.x + bounds_.w - text_x),
                           bounds_.h};
-    canvas.DrawText(text_, text_rect, ColorF::FromRgb(30, 40, 55), font_size_,
-                    L"Microsoft YaHei UI", auralite::TextHAlign::Left);
+    canvas.DrawText(text_, text_rect, th.text, ResolveFontSize(font_size_),
+                    th.font_ui.c_str(), auralite::TextHAlign::Left);
   }
 
   if (focused()) {
-    canvas.DrawRect(bounds_, ColorF::FromRgb(40, 110, 200), 1.5f);
+    canvas.DrawDashedRect(bounds_, th.border_focus, 1.f);
   }
 }
 

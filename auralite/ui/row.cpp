@@ -47,6 +47,8 @@ float MainOffset(float free, Align a) {
 
 }  // namespace
 
+Row::Row() { fill_width(); }
+
 Row& Row::padding(float all) {
   pad_l_ = pad_t_ = pad_r_ = pad_b_ = all;
   return *this;
@@ -82,12 +84,14 @@ SizeF Row::Measure(float max_w, float max_h) {
   float used_w = 0.f;
   float max_child_h = 0.f;
   int live = 0;
+  bool any_flex = false;
   for (const auto& c : children_) {
     if (!c) {
       continue;
     }
     ++live;
     if (IsFlexWidth(c.get())) {
+      any_flex = true;
       if (c->height_policy() == SizePolicy::Fixed && c->preferred_height() > 0.f) {
         max_child_h = std::max(max_child_h, c->preferred_height());
       } else {
@@ -104,8 +108,14 @@ SizeF Row::Measure(float max_w, float max_h) {
     used_w += spacing_ * static_cast<float>(live - 1);
   }
 
-  return ResolveSize(max_w, max_h, used_w + pad_l_ + pad_r_,
-                     max_child_h + pad_t_ + pad_b_);
+  // Fill children are omitted from used_w; if any exist, hug width should still
+  // claim the available max so they are not crushed to ~0.
+  float hug_w = used_w + pad_l_ + pad_r_;
+  if (any_flex && max_w > 0.f) {
+    hug_w = std::max(hug_w, max_w);
+  }
+
+  return ResolveSize(max_w, max_h, hug_w, max_child_h + pad_t_ + pad_b_);
 }
 
 void Row::Layout(const RectF& final_rect) {

@@ -1,0 +1,23 @@
+name: dark
+colors:
+  window_bg: "#1e1e1e"
+  surface: "#2d2d2d"
+  surface_alt: "#252525"
+  text: "#e8e8e8"
+  text_muted: "#9a9a9a"
+  text_on_accent: "#ffffff"
+  accent: "#4c8bf5"
+  accent_hover: "#5d97f7"
+  accent_pressed: "#3a7ae0"
+  accent_soft: "#2a3a50"
+  border: "#555555"
+  border_focus: "#4c8bf5"
+  divider: "#404040"
+  selection: "#4c8bf588"
+  scroll_track: "#3a3a3a"
+  scroll_thumb: "#888888"
+  glyph: "#4c8bf5"
+fonts:
+  ui: "Microsoft YaHei UI"
+  size: 14
+  size_sm: 13

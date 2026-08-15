@@ -1,6 +1,7 @@
 #pragma once
 
 #include "auralite/ui/node.h"
+#include "auralite/ui/vertical_scrollbar.h"
 
 #include <memory>
 
@@ -28,10 +29,9 @@ class ScrollView : public Node {
   void OnMouseUp(const MouseEvent& e) override;
 
  private:
-  static constexpr float kScrollbarWidth = 10.f;
-  static constexpr float kMinThumbHeight = 20.f;
   static constexpr float kDefaultLineScroll = 40.f;
 
+  void SyncVScrollBar();
   float ContentHeight() const;
   float ViewportWidth() const;
   float ViewportHeight() const;
@@ -39,15 +39,10 @@ class ScrollView : public Node {
   bool NeedsScrollbar() const;
   void ClampScrollOffset();
   RectF ViewportRect() const;
-  RectF ScrollbarBounds() const;
-  RectF ThumbBounds() const;
-  float ScrollOffsetFromThumbY(float thumb_y) const;
 
   float scroll_offset_ = 0.f;
   float content_h_ = 0.f;
-  bool dragging_thumb_ = false;
-  float drag_thumb_anchor_y_ = 0.f;
-  float drag_scroll_anchor_ = 0.f;
+  VerticalScrollbar vscroll_;
 };
 
 }  // namespace auralite::ui

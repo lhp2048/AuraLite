@@ -20,6 +20,8 @@ class Node {
   void set_bounds(const RectF& r) { bounds_ = r; }
 
   Node* parent() const { return parent_; }
+  // Event-routing parent only (not added to children_). Used by virtualized hosts.
+  void set_event_parent(Node* parent) { parent_ = parent; }
 
   SizePolicy width_policy() const { return width_policy_; }
   SizePolicy height_policy() const { return height_policy_; }
@@ -113,6 +115,12 @@ class Node {
   void set_focusable(bool v) { focusable_ = v; }
   bool focused() const { return focused_; }
 
+  // Optional id for FindByName (YAML `name`, bind templates).
+  Node& set_name(std::string name);
+  const std::string& name() const { return name_; }
+  Node* FindByName(const std::string& name);
+  const Node* FindByName(const std::string& name) const;
+
  protected:
   friend class Window;
   void set_focused(bool v) { focused_ = v; }
@@ -127,6 +135,7 @@ class Node {
   Node* parent_ = nullptr;
   bool focusable_ = false;
   bool focused_ = false;
+  std::string name_;
   ContextMenuHandler on_context_menu_;
 
   SizePolicy width_policy_ = SizePolicy::Hug;

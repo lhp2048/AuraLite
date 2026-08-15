@@ -2,6 +2,7 @@
 
 #include "auralite/canvas.h"
 #include "auralite/ui/node.h"
+#include "auralite/ui/theme.h"
 
 #include <functional>
 #include <memory>
@@ -32,11 +33,16 @@ class Window {
   void Invalidate();
   HWND hwnd() const { return hwnd_; }
 
+  // Ref-counted ~30fps Invalidate for indeterminate ProgressBar etc.
+  void RegisterAnimation();
+  void UnregisterAnimation();
+
   void SetFocusNode(Node* node);
   Node* focused_node() const { return focused_; }
   void FocusNext(bool reverse);
 
  private:
+  static constexpr UINT_PTR kAnimTimerId = 1;
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam,
                                   LPARAM lparam);
   static Window* FromHwnd(HWND hwnd);
@@ -75,6 +81,8 @@ class Window {
   Node* focused_ = nullptr;
   bool tracking_mouse_leave_ = false;
   size_t ime_char_suppress_ = 0;
+  int anim_clients_ = 0;
+  Theme::InvalidateSink theme_sink_;
 };
 
 }  // namespace auralite::ui

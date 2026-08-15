@@ -1,5 +1,7 @@
 #include "auralite/ui/image_button.h"
 
+#include "auralite/ui/theme.h"
+
 #include <algorithm>
 
 namespace auralite::ui {
@@ -46,14 +48,18 @@ void ImageButton::EnsureImage(auralite::Canvas& canvas) {
 
 void ImageButton::Paint(auralite::Canvas& canvas) {
   EnsureImage(canvas);
+  const ThemeTokens& th = Theme::Active();
 
-  ColorF chrome = ColorF::FromRgb(230, 235, 242);
+  ColorF chrome = th.surface_alt;
   if (pressed_) {
-    chrome = ColorF::FromRgb(190, 200, 215);
+    chrome = th.border;
   } else if (hovered_) {
-    chrome = ColorF::FromRgb(210, 220, 232);
+    chrome = th.accent_soft;
   }
   canvas.FillRoundedRect(bounds_, 8.f, 8.f, chrome);
+  if (focused()) {
+    canvas.DrawDashedRect(bounds_, th.border_focus, 1.f);
+  }
 
   if (!image_.empty()) {
     const float pad = 6.f;

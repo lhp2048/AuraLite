@@ -1,0 +1,23 @@
+name: light
+colors:
+  window_bg: "#f5f8fc"
+  surface: "#ffffff"
+  surface_alt: "#f5f7fa"
+  text: "#192332"
+  text_muted: "#96a0af"
+  text_on_accent: "#ffffff"
+  accent: "#286ec8"
+  accent_hover: "#3782d7"
+  accent_pressed: "#1955a0"
+  accent_soft: "#e6eefa"
+  border: "#aab4c3"
+  border_focus: "#286ec8"
+  divider: "#e6e9ee"
+  selection: "#3399ff8c"
+  scroll_track: "#dcdcdc"
+  scroll_thumb: "#969696"
+  glyph: "#286ec8"
+fonts:
+  ui: "Microsoft YaHei UI"
+  size: 14
+  size_sm: 13

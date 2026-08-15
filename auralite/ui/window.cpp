@@ -34,9 +34,31 @@ std::wstring ImmGetString(HIMC himc, DWORD index) {
 Window::Window() = default;
 
 Window::~Window() {
+  Theme::RemoveInvalidateSink(&theme_sink_);
   if (hwnd_) {
+    if (anim_clients_ > 0) {
+      KillTimer(hwnd_, kAnimTimerId);
+      anim_clients_ = 0;
+    }
     DestroyWindow(hwnd_);
     hwnd_ = nullptr;
+  }
+}
+
+void Window::RegisterAnimation() {
+  ++anim_clients_;
+  if (anim_clients_ == 1 && hwnd_) {
+    SetTimer(hwnd_, kAnimTimerId, 33, nullptr);
+  }
+}
+
+void Window::UnregisterAnimation() {
+  if (anim_clients_ <= 0) {
+    return;
+  }
+  --anim_clients_;
+  if (anim_clients_ == 0 && hwnd_) {
+    KillTimer(hwnd_, kAnimTimerId);
   }
 }
 
@@ -68,6 +90,8 @@ bool Window::Create(const wchar_t* title, int w, int h) {
     return false;
   }
 
+  (void)Theme::Active();
+
   HINSTANCE instance = GetModuleHandleW(nullptr);
   if (!EnsureWindowClass(instance)) {
     return false;
@@ -88,6 +112,9 @@ bool Window::Create(const wchar_t* title, int w, int h) {
 
   // Detach default IME until a WantsIme() node receives focus.
   ImmAssociateContextEx(hwnd_, NULL, 0);
+
+  theme_sink_ = [this] { Invalidate(); };
+  Theme::AddInvalidateSink(&theme_sink_);
 
   layout_dirty_ = true;
   return true;
@@ -148,6 +175,16 @@ void Window::SyncPopupLayout() {
     return;
   }
   const RectF a = popup_anchor_->bounds();
+  const RectF client = ClientRectF();
+  // Dismiss when the anchor has scrolled/clipped fully out of the client.
+  const bool visible =
+      a.x < client.x + client.w && a.x + a.w > client.x &&
+      a.y < client.y + client.h && a.y + a.h > client.y;
+  if (!visible) {
+    RequestClearPopup();
+    return;
+  }
+
   float h = popup_->bounds().h;
   if (h <= 0.f) {
     h = popup_->Measure(a.w, 200.f).h;
@@ -155,7 +192,11 @@ void Window::SyncPopupLayout() {
   if (h <= 0.f) {
     h = 120.f;
   }
-  popup_->Layout(RectF{a.x, a.y + a.h + 2.f, a.w, h});
+  float y = a.y + a.h + 2.f;
+  if (y + h > client.y + client.h && a.y - 2.f - h >= client.y) {
+    y = a.y - 2.f - h;
+  }
+  popup_->Layout(RectF{a.x, y, a.w, h});
 }
 
 void Window::Invalidate() {
@@ -409,7 +450,18 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       Invalidate();
       return 0;
 
+    case WM_TIMER:
+      if (wparam == kAnimTimerId) {
+        Invalidate();
+        return 0;
+      }
+      break;
+
     case WM_DESTROY:
+      if (anim_clients_ > 0) {
+        KillTimer(hwnd_, kAnimTimerId);
+        anim_clients_ = 0;
+      }
       canvas_.Shutdown();
       hwnd_ = nullptr;
       mouse_capture_ = nullptr;
@@ -481,7 +533,7 @@ void Window::OnPaint() {
     return;
   }
 
-  canvas_.Clear(ColorF::FromRgb(245, 248, 252));
+  canvas_.Clear(Theme::Active().window_bg);
 
   if (root_) {
     const RectF client = ClientRectF();
@@ -537,6 +589,8 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
 
   MouseEvent ev;
   ev.button = ButtonFromMsg(msg, wparam);
+  ev.shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+  ev.ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
 
   // Same pixel space as Canvas (kUiDpi) and Node::bounds_ / HitTest.
   if (msg == WM_MOUSEWHEEL) {

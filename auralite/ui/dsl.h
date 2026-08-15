@@ -9,6 +9,9 @@
 #include "auralite/ui/image_view.h"
 #include "auralite/ui/label.h"
 #include "auralite/ui/list_view.h"
+#include "auralite/ui/item_list.h"
+#include "auralite/ui/virtual_list.h"
+#include "auralite/ui/tree_view.h"
 #include "auralite/ui/progress_bar.h"
 #include "auralite/ui/radio.h"
 #include "auralite/ui/row.h"
@@ -527,6 +530,10 @@ class ProgressBarBuilder : public detail::BuilderBase<ProgressBar> {
     get()->value(v);
     return *this;
   }
+  ProgressBarBuilder& indeterminate(bool enable) {
+    get()->indeterminate(enable);
+    return *this;
+  }
   ProgressBarBuilder& fill_width() {
     get()->fill_width();
     return *this;
@@ -543,12 +550,36 @@ class SliderBuilder : public detail::BuilderBase<Slider> {
     get()->value(v);
     return *this;
   }
+  SliderBuilder& step(float s) {
+    get()->step(s);
+    return *this;
+  }
+  SliderBuilder& tick_count(int n) {
+    get()->tick_count(n);
+    return *this;
+  }
+  SliderBuilder& orientation(SliderOrientation o) {
+    get()->orientation(o);
+    return *this;
+  }
   SliderBuilder& on_changed(Slider::ChangeHandler handler) {
     get()->on_changed(std::move(handler));
     return *this;
   }
   SliderBuilder& fill_width() {
     get()->fill_width();
+    return *this;
+  }
+  SliderBuilder& fill_height() {
+    get()->fill_height();
+    return *this;
+  }
+  SliderBuilder& fixed_width(float w) {
+    get()->fixed_width(w);
+    return *this;
+  }
+  SliderBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
     return *this;
   }
 };
@@ -563,8 +594,24 @@ class ComboBuilder : public detail::BuilderBase<Combo> {
     get()->selected(index);
     return *this;
   }
+  ComboBuilder& selected_indices(std::vector<int> indices) {
+    get()->selected_indices(std::move(indices));
+    return *this;
+  }
+  ComboBuilder& editable(bool enable) {
+    get()->editable(enable);
+    return *this;
+  }
+  ComboBuilder& multi(bool enable) {
+    get()->multi(enable);
+    return *this;
+  }
   ComboBuilder& on_changed(Combo::ChangeHandler handler) {
     get()->on_changed(std::move(handler));
+    return *this;
+  }
+  ComboBuilder& on_multi_changed(Combo::MultiChangeHandler handler) {
+    get()->on_multi_changed(std::move(handler));
     return *this;
   }
   ComboBuilder& fill_width() {
@@ -587,6 +634,10 @@ class TextAreaBuilder : public detail::BuilderBase<TextArea> {
     get()->font_size(size);
     return *this;
   }
+  TextAreaBuilder& wrap(bool enable) {
+    get()->wrap(enable);
+    return *this;
+  }
   TextAreaBuilder& on_change(TextArea::ChangeHandler handler) {
     get()->on_change(std::move(handler));
     return *this;
@@ -601,9 +652,220 @@ class TextAreaBuilder : public detail::BuilderBase<TextArea> {
   }
 };
 
+class VirtualListBuilder : public detail::BuilderBase<VirtualList> {
+ public:
+  VirtualListBuilder& item_count(VirtualList::ItemCountFn fn) {
+    get()->item_count(std::move(fn));
+    return *this;
+  }
+  VirtualListBuilder& item_kind(VirtualList::ItemKindFn fn) {
+    get()->item_kind(std::move(fn));
+    return *this;
+  }
+  VirtualListBuilder& item_text(VirtualList::ItemTextFn fn) {
+    get()->item_text(std::move(fn));
+    return *this;
+  }
+  VirtualListBuilder& item_sub_text(VirtualList::ItemSubTextFn fn) {
+    get()->item_sub_text(std::move(fn));
+    return *this;
+  }
+  VirtualListBuilder& item_cell_text(VirtualList::ItemCellTextFn fn) {
+    get()->item_cell_text(std::move(fn));
+    return *this;
+  }
+  VirtualListBuilder& item_checked(VirtualList::ItemCheckedFn fn) {
+    get()->item_checked(std::move(fn));
+    return *this;
+  }
+  VirtualListBuilder& item_set_checked(VirtualList::ItemCheckSetFn fn) {
+    get()->item_set_checked(std::move(fn));
+    return *this;
+  }
+  VirtualListBuilder& on_paint_item(VirtualList::PaintItemFn fn) {
+    get()->on_paint_item(std::move(fn));
+    return *this;
+  }
+  VirtualListBuilder& on_selection_changed(VirtualList::SelectionHandler h) {
+    get()->on_selection_changed(std::move(h));
+    return *this;
+  }
+  VirtualListBuilder& on_check_changed(VirtualList::CheckHandler h) {
+    get()->on_check_changed(std::move(h));
+    return *this;
+  }
+  VirtualListBuilder& font_size(float size) {
+    get()->font_size(size);
+    return *this;
+  }
+  VirtualListBuilder& overscan(int rows) {
+    get()->overscan(rows);
+    return *this;
+  }
+  VirtualListBuilder& columns(std::vector<ListColumn> cols) {
+    get()->columns(std::move(cols));
+    return *this;
+  }
+  VirtualListBuilder& show_header(bool v) {
+    get()->show_header(v);
+    return *this;
+  }
+  VirtualListBuilder& header_height(float h) {
+    get()->header_height(h);
+    return *this;
+  }
+  VirtualListBuilder& frozen_count(int n) {
+    get()->frozen_count(n);
+    return *this;
+  }
+  VirtualListBuilder& on_sort_changed(VirtualList::SortHandler h) {
+    get()->on_sort_changed(std::move(h));
+    return *this;
+  }
+  VirtualListBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  VirtualListBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
+  VirtualListBuilder& fill_height() {
+    get()->fill_height();
+    return *this;
+  }
+};
+
+class TreeViewBuilder : public detail::BuilderBase<TreeView> {
+ public:
+  TreeViewBuilder& font_size(float size) {
+    get()->font_size(size);
+    return *this;
+  }
+  TreeViewBuilder& row_height(float h) {
+    get()->row_height(h);
+    return *this;
+  }
+  TreeViewBuilder& indent(float px) {
+    get()->indent(px);
+    return *this;
+  }
+  TreeViewBuilder& on_selection_changed(TreeView::SelectionHandler h) {
+    get()->on_selection_changed(std::move(h));
+    return *this;
+  }
+  TreeViewBuilder& on_expanded_changed(TreeView::ExpandHandler h) {
+    get()->on_expanded_changed(std::move(h));
+    return *this;
+  }
+  TreeViewBuilder& checkable(bool v) {
+    get()->checkable(v);
+    return *this;
+  }
+  TreeViewBuilder& check_cascade(bool v) {
+    get()->check_cascade(v);
+    return *this;
+  }
+  TreeViewBuilder& on_check_changed(TreeView::CheckHandler h) {
+    get()->on_check_changed(std::move(h));
+    return *this;
+  }
+  TreeViewBuilder& on_load_children(TreeView::LoadChildrenHandler h) {
+    get()->on_load_children(std::move(h));
+    return *this;
+  }
+  TreeViewBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  TreeViewBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
+};
+
+class ItemListBuilder : public detail::BuilderBase<ItemList> {
+ public:
+  ItemListBuilder& add_item(ItemList::PaintItemFn paint = {}) {
+    get()->AddItem(std::move(paint));
+    return *this;
+  }
+  ItemListBuilder& item_count(int n) {
+    get()->set_item_count(n);
+    return *this;
+  }
+  ItemListBuilder& on_paint_item(ItemList::PaintItemFn fn) {
+    get()->on_paint_item(std::move(fn));
+    return *this;
+  }
+  ItemListBuilder& on_bind_item(ItemList::BindItemFn fn) {
+    get()->on_bind_item(std::move(fn));
+    return *this;
+  }
+  ItemListBuilder& item_template_factory(ItemList::ItemTemplateFactory fn) {
+    get()->item_template_factory(std::move(fn));
+    return *this;
+  }
+  ItemListBuilder& on_selection_changed(ItemList::SelectionHandler h) {
+    get()->on_selection_changed(std::move(h));
+    return *this;
+  }
+  ItemListBuilder& row_height(float h) {
+    get()->row_height(h);
+    return *this;
+  }
+  ItemListBuilder& overscan(int rows) {
+    get()->overscan(rows);
+    return *this;
+  }
+  ItemListBuilder& row_padding(float pad) {
+    get()->row_padding(pad);
+    return *this;
+  }
+  ItemListBuilder& header_height(float h) {
+    get()->header_height(h);
+    return *this;
+  }
+  ItemListBuilder& columns(std::vector<ListColumn> cols) {
+    get()->columns(std::move(cols));
+    return *this;
+  }
+  ItemListBuilder& show_header(bool v) {
+    get()->show_header(v);
+    return *this;
+  }
+  ItemListBuilder& frozen_count(int n) {
+    get()->frozen_count(n);
+    return *this;
+  }
+  ItemListBuilder& on_sort_changed(ItemList::SortHandler h) {
+    get()->on_sort_changed(std::move(h));
+    return *this;
+  }
+  ItemListBuilder& selected(int index) {
+    get()->set_selected_index(index, false);
+    return *this;
+  }
+  ItemListBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  ItemListBuilder& fill_height() {
+    get()->fill_height();
+    return *this;
+  }
+  ItemListBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
+};
+
 inline ProgressBarBuilder ProgressBar() { return ProgressBarBuilder(); }
 inline SliderBuilder Slider() { return SliderBuilder(); }
 inline ComboBuilder Combo() { return ComboBuilder(); }
 inline TextAreaBuilder TextArea() { return TextAreaBuilder(); }
+inline VirtualListBuilder VirtualList() { return VirtualListBuilder(); }
+inline TreeViewBuilder TreeView() { return TreeViewBuilder(); }
+inline ItemListBuilder ItemList() { return ItemListBuilder(); }
 
 }  // namespace auralite::ui::dsl

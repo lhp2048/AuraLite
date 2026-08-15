@@ -3,6 +3,7 @@
 #include "auralite/ui/node.h"
 
 #include <functional>
+#include <optional>
 #include <string>
 
 namespace auralite::ui {
@@ -38,7 +39,7 @@ class Switch : public Node {
   static constexpr float kLabelGap = 8.f;
 
   std::wstring text_;
-  float font_size_ = 14.f;
+  std::optional<float> font_size_;
   bool on_ = false;
   ChangedHandler on_changed_;
   bool pressed_ = false;

@@ -3,6 +3,7 @@
 #include "auralite/ui/node.h"
 
 #include <functional>
+#include <optional>
 #include <string>
 
 namespace auralite::ui {
@@ -42,7 +43,7 @@ class Radio : public Node {
   static constexpr float kLabelGap = 8.f;
 
   std::wstring text_;
-  float font_size_ = 14.f;
+  std::optional<float> font_size_;
   int group_id_ = 0;
   bool checked_ = false;
   ChangedHandler on_changed_;

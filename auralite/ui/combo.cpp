@@ -1,11 +1,44 @@
 #include "auralite/ui/combo.h"
 
 #include "auralite/ui/list_view.h"
+#include "auralite/ui/theme.h"
 #include "auralite/ui/window.h"
 
 #include <algorithm>
 
 namespace auralite::ui {
+namespace {
+
+wchar_t ToLowerW(wchar_t c) {
+  if (c >= L'A' && c <= L'Z') {
+    return static_cast<wchar_t>(c - L'A' + L'a');
+  }
+  return c;
+}
+
+bool ContainsIgnoreCase(const std::wstring& hay, const std::wstring& needle) {
+  if (needle.empty()) {
+    return true;
+  }
+  if (needle.size() > hay.size()) {
+    return false;
+  }
+  for (size_t i = 0; i + needle.size() <= hay.size(); ++i) {
+    bool ok = true;
+    for (size_t j = 0; j < needle.size(); ++j) {
+      if (ToLowerW(hay[i + j]) != ToLowerW(needle[j])) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) {
+      return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace
 
 Combo::Combo() {
   set_focusable(true);
@@ -20,12 +53,18 @@ Combo& Combo::items(std::vector<std::wstring> values) {
   if (selected_ >= static_cast<int>(items_.size())) {
     selected_ = items_.empty() ? -1 : 0;
   }
+  selected_indices_.erase(
+      std::remove_if(selected_indices_.begin(), selected_indices_.end(),
+                     [this](int i) {
+                       return i < 0 || i >= static_cast<int>(items_.size());
+                     }),
+      selected_indices_.end());
   return *this;
 }
 
 Combo& Combo::add_item(std::wstring text) {
   items_.push_back(std::move(text));
-  if (selected_ < 0 && !items_.empty()) {
+  if (!multi_ && selected_ < 0 && !items_.empty()) {
     selected_ = 0;
   }
   return *this;
@@ -36,8 +75,30 @@ Combo& Combo::selected(int index) {
   return *this;
 }
 
+Combo& Combo::selected_indices(std::vector<int> indices) {
+  selected_indices_.clear();
+  for (int i : indices) {
+    if (i >= 0 && i < static_cast<int>(items_.size())) {
+      if (std::find(selected_indices_.begin(), selected_indices_.end(), i) ==
+          selected_indices_.end()) {
+        selected_indices_.push_back(i);
+      }
+    }
+  }
+  std::sort(selected_indices_.begin(), selected_indices_.end());
+  if (!selected_indices_.empty()) {
+    selected_ = selected_indices_.front();
+  }
+  return *this;
+}
+
 Combo& Combo::on_changed(ChangeHandler handler) {
   on_changed_ = std::move(handler);
+  return *this;
+}
+
+Combo& Combo::on_multi_changed(MultiChangeHandler handler) {
+  on_multi_changed_ = std::move(handler);
   return *this;
 }
 
@@ -46,21 +107,135 @@ Combo& Combo::font_size(float size) {
   return *this;
 }
 
+Combo& Combo::editable(bool enable) {
+  editable_ = enable;
+  if (!editable_) {
+    filter_.clear();
+  }
+  return *this;
+}
+
+Combo& Combo::multi(bool enable) {
+  multi_ = enable;
+  if (multi_ && selected_ >= 0 && selected_indices_.empty()) {
+    selected_indices_.push_back(selected_);
+  }
+  return *this;
+}
+
+bool Combo::IsIndexSelected(int index) const {
+  return std::find(selected_indices_.begin(), selected_indices_.end(),
+                   index) != selected_indices_.end();
+}
+
+void Combo::NotifyMulti() {
+  if (on_multi_changed_) {
+    on_multi_changed_(selected_indices_);
+  }
+}
+
 void Combo::SelectIndex(int index, bool notify) {
   if (items_.empty()) {
     selected_ = -1;
+    selected_indices_.clear();
     return;
   }
   selected_ = std::clamp(index, 0, static_cast<int>(items_.size()) - 1);
-  if (notify && on_changed_) {
+  filter_.clear();
+  if (multi_) {
+    selected_indices_.assign(1, selected_);
+    if (notify) {
+      NotifyMulti();
+    }
+  } else if (notify && on_changed_) {
     on_changed_(selected_);
   }
 }
 
+void Combo::SetMultiFromPopup() {
+  ListView* list = PopupList();
+  if (!list) {
+    return;
+  }
+  selected_indices_.clear();
+  for (int popup_i : list->checked_indices()) {
+    if (popup_i >= 0 && popup_i < static_cast<int>(popup_index_map_.size())) {
+      selected_indices_.push_back(
+          popup_index_map_[static_cast<size_t>(popup_i)]);
+    }
+  }
+  std::sort(selected_indices_.begin(), selected_indices_.end());
+  selected_ = selected_indices_.empty() ? -1 : selected_indices_.front();
+  NotifyMulti();
+  if (window_) {
+    window_->Invalidate();
+  }
+}
+
+bool Combo::ItemMatchesFilter(const std::wstring& text) const {
+  if (!editable_ || filter_.empty()) {
+    return true;
+  }
+  return ContainsIgnoreCase(text, filter_);
+}
+
+ListView* Combo::PopupList() const {
+  if (!window_) {
+    return nullptr;
+  }
+  return dynamic_cast<ListView*>(window_->popup());
+}
+
 void Combo::ClosePopup() {
+  if (multi_ && open_) {
+    SetMultiFromPopup();
+  }
   open_ = false;
+  popup_index_map_.clear();
   if (window_ && window_->popup()) {
     window_->ClearPopup();
+  }
+}
+
+void Combo::NavigatePopup(int delta) {
+  ListView* list = PopupList();
+  if (!list || list->item_count() <= 0) {
+    return;
+  }
+  int i = list->selected_index();
+  if (i < 0) {
+    i = (delta >= 0) ? 0 : list->item_count() - 1;
+  } else {
+    i = std::clamp(i + delta, 0, list->item_count() - 1);
+  }
+  list->set_selected_index(i, false);
+  if (window_) {
+    window_->Invalidate();
+  }
+}
+
+void Combo::CommitPopupSelection() {
+  ListView* list = PopupList();
+  if (!list) {
+    return;
+  }
+  if (multi_) {
+    if (list->selected_index() >= 0) {
+      list->ToggleChecked(list->selected_index());
+      SetMultiFromPopup();
+    }
+    return;
+  }
+  const int popup_idx = list->selected_index();
+  if (popup_idx < 0 ||
+      popup_idx >= static_cast<int>(popup_index_map_.size())) {
+    return;
+  }
+  SelectIndex(popup_index_map_[static_cast<size_t>(popup_idx)], true);
+  open_ = false;
+  popup_index_map_.clear();
+  if (window_) {
+    window_->RequestClearPopup();
   }
 }
 
@@ -74,21 +249,62 @@ void Combo::OpenPopup() {
   }
 
   auto list = std::make_unique<ListView>();
-  list->font_size(font_size_);
-  for (const auto& t : items_) {
-    list->AddItem(t);
+  if (font_size_) {
+    list->font_size(*font_size_);
   }
-  if (selected_ >= 0) {
-    list->set_selected_index(selected_);
+  if (multi_) {
+    list->checkable(true);
   }
-  list->on_selection_changed([this](int index) {
-    SelectIndex(index, true);
-    open_ = false;
-    if (window_) {
-      // Defer destroy: ListView is still on the mouse-down stack.
-      window_->RequestClearPopup();
+  popup_index_map_.clear();
+  int select_popup = -1;
+  std::vector<int> checked_popup;
+  for (int i = 0; i < static_cast<int>(items_.size()); ++i) {
+    if (!ItemMatchesFilter(items_[static_cast<size_t>(i)])) {
+      continue;
     }
-  });
+    const int popup_i = list->AddItem(items_[static_cast<size_t>(i)]);
+    popup_index_map_.push_back(i);
+    if (multi_) {
+      if (IsIndexSelected(i)) {
+        checked_popup.push_back(popup_i);
+        if (select_popup < 0) {
+          select_popup = popup_i;
+        }
+      }
+    } else if (i == selected_) {
+      select_popup = popup_i;
+    }
+  }
+  if (list->item_count() == 0) {
+    list->AddItem(L"（无匹配）");
+    popup_index_map_.clear();
+  }
+  if (multi_) {
+    list->set_checked_indices(checked_popup);
+    list->on_check_changed([this](int, bool) { SetMultiFromPopup(); });
+  } else {
+    list->on_selection_changed([this](int popup_idx) {
+      if (popup_idx < 0 ||
+          popup_idx >= static_cast<int>(popup_index_map_.size())) {
+        open_ = false;
+        if (window_) {
+          window_->RequestClearPopup();
+        }
+        return;
+      }
+      SelectIndex(popup_index_map_[static_cast<size_t>(popup_idx)], true);
+      open_ = false;
+      popup_index_map_.clear();
+      if (window_) {
+        window_->RequestClearPopup();
+      }
+    });
+  }
+  if (select_popup >= 0) {
+    list->set_selected_index(select_popup, false);
+  } else if (list->item_count() > 0 && !popup_index_map_.empty()) {
+    list->set_selected_index(0, false);
+  }
 
   const SizeF want = list->Measure(bounds_.w, 200.f);
   const float h = std::min(want.h, 180.f);
@@ -96,7 +312,34 @@ void Combo::OpenPopup() {
   list->Layout(RectF{bounds_.x, bounds_.y + bounds_.h + 2.f, bounds_.w, h});
 
   open_ = true;
-  window_->SetPopup(std::move(list), [this]() { open_ = false; }, this);
+  window_->SetPopup(std::move(list), [this]() {
+    if (multi_ && open_) {
+      // Dismiss already ran ClearPopup; sync from last known state is done
+      // in SetMultiFromPopup during checks. Just clear flags.
+    }
+    open_ = false;
+    popup_index_map_.clear();
+  }, this);
+  window_->SetFocusNode(this);
+}
+
+std::wstring Combo::SummaryLabel() const {
+  if (multi_) {
+    if (selected_indices_.empty()) {
+      return L"（未选择）";
+    }
+    if (selected_indices_.size() == 1) {
+      const int i = selected_indices_.front();
+      if (i >= 0 && i < static_cast<int>(items_.size())) {
+        return items_[static_cast<size_t>(i)];
+      }
+    }
+    return L"已选 " + std::to_wstring(selected_indices_.size()) + L" 项";
+  }
+  if (selected_ >= 0 && selected_ < static_cast<int>(items_.size())) {
+    return items_[static_cast<size_t>(selected_)];
+  }
+  return L"（未选择）";
 }
 
 SizeF Combo::Measure(float max_w, float max_h) {
@@ -105,27 +348,41 @@ SizeF Combo::Measure(float max_w, float max_h) {
 }
 
 void Combo::Paint(auralite::Canvas& canvas) {
-  canvas.FillRoundedRect(bounds_, 6.f, 6.f, ColorF::FromRgb(255, 255, 255));
-  canvas.DrawRect(bounds_, focused() ? ColorF::FromRgb(40, 110, 200)
-                                     : ColorF::FromRgb(170, 180, 195),
+  const ThemeTokens& th = Theme::Active();
+  canvas.FillRoundedRect(bounds_, 6.f, 6.f, th.surface);
+  canvas.DrawRect(bounds_, focused() ? th.border_focus : th.border,
                   focused() ? 1.5f : 1.f);
 
-  std::wstring label = L"（未选择）";
-  if (selected_ >= 0 && selected_ < static_cast<int>(items_.size())) {
-    label = items_[static_cast<size_t>(selected_)];
+  std::wstring label;
+  ColorF color = th.text;
+  if (editable_ && (focused() || open_) && !filter_.empty()) {
+    label = filter_;
+  } else {
+    label = SummaryLabel();
+    if (label == L"（未选择）" || label == L"输入筛选…") {
+      color = th.text_muted;
+    }
+    if (editable_ && selected_ < 0 && selected_indices_.empty() &&
+        filter_.empty()) {
+      label = L"输入筛选…";
+      color = th.text_muted;
+    }
   }
+
   const RectF text_rect{bounds_.x + 10.f, bounds_.y,
                         std::max(0.f, bounds_.w - 36.f), bounds_.h};
-  canvas.DrawText(label, text_rect, ColorF::FromRgb(25, 35, 50), font_size_,
-                  L"Microsoft YaHei UI", auralite::TextHAlign::Left);
+  canvas.DrawText(label, text_rect, color, ResolveFontSize(font_size_),
+                  th.font_ui.c_str(), auralite::TextHAlign::Left);
 
-  // Chevron
   const float cx = bounds_.x + bounds_.w - 18.f;
   const float cy = bounds_.y + bounds_.h * 0.5f;
-  canvas.DrawLine(cx - 5.f, cy - 2.f, cx, cy + 3.f, ColorF::FromRgb(80, 90, 110),
-                  1.5f);
-  canvas.DrawLine(cx, cy + 3.f, cx + 5.f, cy - 2.f, ColorF::FromRgb(80, 90, 110),
-                  1.5f);
+  if (open_) {
+    canvas.DrawLine(cx - 5.f, cy + 2.f, cx, cy - 3.f, th.glyph, 1.5f);
+    canvas.DrawLine(cx, cy - 3.f, cx + 5.f, cy + 2.f, th.glyph, 1.5f);
+  } else {
+    canvas.DrawLine(cx - 5.f, cy - 2.f, cx, cy + 3.f, th.glyph, 1.5f);
+    canvas.DrawLine(cx, cy + 3.f, cx + 5.f, cy - 2.f, th.glyph, 1.5f);
+  }
 }
 
 void Combo::OnMouseDown(const MouseEvent& e) {
@@ -140,17 +397,100 @@ void Combo::OnKey(const KeyEvent& e) {
     return;
   }
   if (e.vk == VK_ESCAPE && open_) {
+    filter_.clear();
     ClosePopup();
     return;
   }
+  if (open_) {
+    if (e.vk == VK_RETURN) {
+      if (multi_) {
+        ClosePopup();
+      } else {
+        CommitPopupSelection();
+      }
+      return;
+    }
+    if (e.vk == VK_SPACE && multi_) {
+      CommitPopupSelection();
+      return;
+    }
+    if (e.vk == VK_DOWN) {
+      NavigatePopup(1);
+      return;
+    }
+    if (e.vk == VK_UP) {
+      NavigatePopup(-1);
+      return;
+    }
+    if (e.vk == VK_HOME) {
+      if (ListView* list = PopupList()) {
+        list->set_selected_index(0, false);
+        if (window_) {
+          window_->Invalidate();
+        }
+      }
+      return;
+    }
+    if (e.vk == VK_END) {
+      if (ListView* list = PopupList()) {
+        list->set_selected_index(list->item_count() - 1, false);
+        if (window_) {
+          window_->Invalidate();
+        }
+      }
+      return;
+    }
+    if (editable_ && e.vk == VK_BACK && !filter_.empty()) {
+      filter_.pop_back();
+      ClosePopup();
+      OpenPopup();
+      return;
+    }
+    return;
+  }
+
   if (e.vk == VK_RETURN || e.vk == VK_SPACE) {
     OpenPopup();
     return;
   }
-  if (e.vk == VK_DOWN) {
-    SelectIndex(selected_ < 0 ? 0 : selected_ + 1, true);
-  } else if (e.vk == VK_UP) {
-    SelectIndex(selected_ < 0 ? 0 : selected_ - 1, true);
+  if (editable_ && e.vk == VK_BACK && !filter_.empty()) {
+    filter_.pop_back();
+    if (window_) {
+      window_->Invalidate();
+    }
+    return;
+  }
+  if (!multi_) {
+    if (e.vk == VK_DOWN) {
+      SelectIndex(selected_ < 0 ? 0 : selected_ + 1, true);
+    } else if (e.vk == VK_UP) {
+      SelectIndex(selected_ < 0 ? 0 : selected_ - 1, true);
+    }
+  }
+}
+
+void Combo::OnChar(wchar_t ch) {
+  if (!editable_ || items_.empty()) {
+    return;
+  }
+  if (ch < 32 && ch != L'\t') {
+    return;
+  }
+  if (ch == L'\t') {
+    return;
+  }
+  filter_.push_back(ch);
+  if (open_) {
+    // Rebuild without committing multi selection wipe.
+    open_ = false;
+    popup_index_map_.clear();
+    if (window_ && window_->popup()) {
+      window_->ClearPopup();
+    }
+  }
+  OpenPopup();
+  if (window_) {
+    window_->Invalidate();
   }
 }
 

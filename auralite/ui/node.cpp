@@ -185,6 +185,33 @@ Node* Node::HitTest(float x, float y) {
   return this;
 }
 
+Node& Node::set_name(std::string name) {
+  name_ = std::move(name);
+  return *this;
+}
+
+Node* Node::FindByName(const std::string& name) {
+  if (name.empty()) {
+    return nullptr;
+  }
+  if (name_ == name) {
+    return this;
+  }
+  for (auto& child : children_) {
+    if (!child) {
+      continue;
+    }
+    if (Node* hit = child->FindByName(name)) {
+      return hit;
+    }
+  }
+  return nullptr;
+}
+
+const Node* Node::FindByName(const std::string& name) const {
+  return const_cast<Node*>(this)->FindByName(name);
+}
+
 void Node::set_on_context_menu(ContextMenuHandler handler) {
   on_context_menu_ = std::move(handler);
 }

@@ -1,3 +1,4 @@
+theme: light
 ScrollView:
   width: fill
   height: fill
@@ -7,6 +8,11 @@ ScrollView:
       spacing: 10
       children:
         - Label: { text: "AuraLite UI Gallery", font_size: 22 }
+        - Row:
+            spacing: 8
+            children:
+              - Button: { text: "Light", width: hug, height: 32 }
+              - Button: { text: "Dark", width: hug, height: 32 }
         - Label: { text: "拖拽分割 · 右键菜单 · 滚动列表", font_size: 13, preferred_height: 22 }
         - SplitView:
             width: fill
@@ -92,16 +98,92 @@ ScrollView:
               - Button: { text: "RB", right: 8, bottom: 8, width: 72, height: 28 }
         - Label: { text: "ProgressBar / Slider", font_size: 13, preferred_height: 18 }
         - ProgressBar: { value: 0.45, height: 12 }
-        - Slider: { value: 0.45, height: 28 }
+        - Slider: { value: 0.45, height: 36, step: 0.05, tick_count: 5 }
+        - Label: { text: "ProgressBar indeterminate", font_size: 13, preferred_height: 18 }
+        - ProgressBar: { indeterminate: true, height: 12 }
+        - Label: { text: "Vertical Slider", font_size: 13, preferred_height: 18 }
+        - Row:
+            spacing: 12
+            height: 100
+            children:
+              - Slider: { value: 0.6, orientation: vertical, width: 28, height: fill }
+              - Label: { text: "↑ 键盘 / 拖动", font_size: 12, preferred_height: 20, width: hug }
         - Label: { text: "Combo", font_size: 13, preferred_height: 18 }
         - Combo:
             selected: 0
-            items: ["选项一", "选项二", "选项三"]
-        - Label: { text: "TextArea（多行）", font_size: 13, preferred_height: 18 }
+            items: ["选项一", "选项二", "选项三", "选项四", "选项五"]
+        - Label: { text: "Combo（可筛选）", font_size: 13, preferred_height: 18 }
+        - Combo:
+            editable: true
+            selected: 0
+            items: ["北京", "上海", "广州", "深圳", "杭州", "成都"]
+        - Label: { text: "Combo（多选）", font_size: 13, preferred_height: 18 }
+        - Combo:
+            multi: true
+            selected: [0, 2]
+            items: ["红", "橙", "黄", "绿", "蓝"]
+        - Label: { text: "TextArea（软换行）", font_size: 13, preferred_height: 18 }
         - TextArea:
-            placeholder: "多行输入（Enter 换行）"
+            placeholder: "多行输入（软换行 / Enter 硬换行）"
             height: 100
-            text: "第一行\n第二行"
+            wrap: true
+            text: "这是一段较长的文本，用来演示按控件宽度自动软换行；也可以按 Enter 插入硬换行。\n第二段。"
+        - Label: { text: "VirtualList（多列表头）", font_size: 13, preferred_height: 18 }
+        - VirtualList:
+            count: 50000
+            height: 180
+            show_header: true
+            frozen_count: 1
+            columns:
+              - { title: "名称", width: 140 }
+              - { title: "状态", width: 160 }
+              - { title: "详情", width: 180 }
+              - { title: "编号", width: 100, align: right }
+        - Label: { text: "TreeView（勾选 + 懒加载）", font_size: 13, preferred_height: 18 }
+        - TreeView:
+            height: 180
+            checkable: true
+            nodes:
+              - text: "智能家庭"
+                expanded: true
+                checked: true
+                children:
+                  - text: "房间"
+                    expanded: true
+                    children: ["客厅", "主卧", "次卧"]
+                  - text: "设备"
+                    expanded: true
+                    children:
+                      - text: "灯光"
+                        children: ["吊灯", "筒灯"]
+                      - "空调"
+                      - "窗帘"
+                  - text: "情景"
+                    children: ["回家", "离家"]
+                  - text: "云端设备"
+                    lazy: true
+        - Label: { text: "ItemList（模板 + 表头）", font_size: 13, preferred_height: 18 }
+        - ItemList:
+            count: 100
+            row_height: 40
+            height: 180
+            show_header: true
+            header_height: 28
+            frozen_count: 1
+            columns:
+              - { title: "任务", width: 140 }
+              - { title: "进度", width: 280 }
+              - { title: "操作", width: 64, sortable: false }
+            item_template:
+              Row:
+                spacing: 8
+                width: fill
+                height: fill
+                child_align: center
+                children:
+                  - Label: { name: title, width: 140, font_size: 13 }
+                  - ProgressBar: { name: progress, weight: 1, height: 10 }
+                  - Button: { name: action, text: "详情", width: 64, height: 28 }
         - Label: { text: "ScrollView + ListView", font_size: 13, preferred_height: 18 }
         - ScrollView:
             width: fill
