@@ -92,6 +92,11 @@ TextField& TextField::on_change(ChangeHandler handler) {
   return *this;
 }
 
+TextField& TextField::on_submit(std::function<void()> handler) {
+  on_submit_ = std::move(handler);
+  return *this;
+}
+
 void TextField::set_text(const std::wstring& t) {
   if (text_ == t) {
     return;
@@ -413,6 +418,11 @@ void TextField::OnKey(const KeyEvent& e) {
   }
 
   switch (e.vk) {
+    case VK_RETURN:
+      if (on_submit_) {
+        on_submit_();
+      }
+      break;
     case VK_BACK:
       if (!composition_.empty()) {
         composition_.clear();

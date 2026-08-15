@@ -20,6 +20,7 @@ class TextField : public Node {
   TextField& font_size(float size);
   TextField& preferred_size(float w, float h);
   TextField& on_change(ChangeHandler handler);
+  TextField& on_submit(std::function<void()> handler);
 
   const std::wstring& text() const { return text_; }
   void set_text(const std::wstring& t);
@@ -73,6 +74,7 @@ class TextField : public Node {
   size_t caret_ = 0;      // active end
   bool selecting_ = false;
   ChangeHandler on_change_;
+  std::function<void()> on_submit_;
 };
 
 }  // namespace auralite::ui
