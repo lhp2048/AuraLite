@@ -176,6 +176,9 @@ void Node::Paint(auralite::Canvas& canvas) {
   if (!visible_) {
     return;
   }
+  if (bg_) {
+    canvas.FillRect(bounds_, *bg_);
+  }
   for (auto& child : children_) {
     if (child && child->visible()) {
       child->Paint(canvas);
@@ -200,6 +203,11 @@ Node* Node::HitTest(float x, float y) {
     }
   }
   return this;
+}
+
+Node& Node::bg(const ColorF& c) {
+  bg_ = c;
+  return *this;
 }
 
 Node& Node::set_visible(bool v) {

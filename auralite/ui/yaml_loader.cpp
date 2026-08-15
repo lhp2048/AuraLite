@@ -5,6 +5,7 @@
 #include "auralite/ui/split_view.h"
 #include "auralite/ui/submenu.h"
 #include "auralite/ui/theme.h"
+#include "auralite/ui/theme_yaml.h"
 
 #include <yaml-cpp/yaml.h>
 
@@ -135,6 +136,13 @@ std::unique_ptr<Node> LoadYamlNode(const YAML::Node& node,
 
   if (props["name"]) {
     built->set_name(props["name"].as<std::string>());
+  }
+
+  if (props["bg"]) {
+    ColorF c;
+    if (ParseColorHex(props["bg"].as<std::string>(), &c)) {
+      built->bg(c);
+    }
   }
 
   // Absolute placement: anchors preferred; x/y as fallback origin.

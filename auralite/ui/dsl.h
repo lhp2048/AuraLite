@@ -52,6 +52,11 @@ class BuilderBase {
 template <typename Self, typename T>
 class ChildHost : public BuilderBase<T> {
  public:
+  Self& bg(const ColorF& c) {
+    this->get()->bg(c);
+    return static_cast<Self&>(*this);
+  }
+
   Self& child(std::unique_ptr<Node> n) {
     this->node_->AddChild(std::move(n));
     return static_cast<Self&>(*this);

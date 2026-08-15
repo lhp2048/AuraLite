@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -121,6 +122,10 @@ class Node {
   bool visible() const { return visible_; }
   Node& set_visible(bool v);
 
+  Node& bg(const ColorF& c);
+  bool has_bg() const { return bg_.has_value(); }
+  ColorF bg_color() const { return bg_.value_or(ColorF{}); }
+
   // Keep subscription alive for this node's lifetime (unbind on destroy).
   void OwnSubscription(auralite::reactive::Subscription sub);
 
@@ -171,6 +176,7 @@ class Node {
   bool has_top_ = false;
   bool has_right_ = false;
   bool has_bottom_ = false;
+  std::optional<ColorF> bg_;
 };
 
 }  // namespace auralite::ui
