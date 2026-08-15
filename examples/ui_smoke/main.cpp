@@ -4,29 +4,30 @@
 #include <memory>
 
 #include "auralite/ui/application.h"
+#include "auralite/ui/column.h"
 #include "auralite/ui/node.h"
 #include "auralite/ui/window.h"
 
 namespace {
 
-class SmokeRoot : public auralite::ui::Node {
+// Fixed preferred size; Column stretches width on the cross axis.
+class ColorBlock : public auralite::ui::Node {
  public:
-  void Paint(auralite::Canvas& canvas) override {
-    using auralite::ColorF;
-    using auralite::ui::RectF;
+  ColorBlock(auralite::ColorF color, float pref_w, float pref_h)
+      : color_(color), pref_w_(pref_w), pref_h_(pref_h) {}
 
-    canvas.FillRect(bounds_, ColorF::FromRgb(245, 248, 252));
-
-    const RectF card{40.f, 40.f, bounds_.w - 80.f, 120.f};
-    canvas.FillRoundedRect(card, 12.f, 12.f, ColorF::FromRgb(40, 110, 200));
-    canvas.DrawText(L"ui smoke",
-                    {card.x + 20.f, card.y + 36.f, card.w - 40.f, 48.f},
-                    ColorF::FromRgb(255, 255, 255), 28.f);
-
-    canvas.DrawText(L"AuraLite::UINext frame loop",
-                    {40.f, 190.f, bounds_.w - 80.f, 32.f},
-                    ColorF::FromRgb(30, 40, 55), 16.f);
+  auralite::ui::SizeF Measure(float /*max_w*/, float /*max_h*/) override {
+    return auralite::ui::SizeF{pref_w_, pref_h_};
   }
+
+  void Paint(auralite::Canvas& canvas) override {
+    canvas.FillRect(bounds_, color_);
+  }
+
+ private:
+  auralite::ColorF color_;
+  float pref_w_ = 0.f;
+  float pref_h_ = 0.f;
 };
 
 }  // namespace
@@ -43,7 +44,16 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
     return 1;
   }
 
-  window.SetRoot(std::make_unique<SmokeRoot>());
+  auto root = std::make_unique<auralite::ui::Column>();
+  root->padding(24.f).spacing(12.f);
+  root->AddChild(std::make_unique<ColorBlock>(
+      auralite::ColorF::FromRgb(220, 70, 70), 200.f, 64.f));
+  root->AddChild(std::make_unique<ColorBlock>(
+      auralite::ColorF::FromRgb(50, 160, 90), 200.f, 64.f));
+  root->AddChild(std::make_unique<ColorBlock>(
+      auralite::ColorF::FromRgb(40, 110, 200), 200.f, 64.f));
+
+  window.SetRoot(std::move(root));
   ShowWindow(window.hwnd(), show);
   UpdateWindow(window.hwnd());
 

@@ -132,6 +132,8 @@ endif()
 # ---- Next-gen declarative UI (auralite::ui) ----
 add_library(auralite_ui STATIC
   auralite/ui/node.cpp
+  auralite/ui/column.cpp
+  auralite/ui/row.cpp
   auralite/ui/window.cpp
   auralite/ui/application.cpp
 )
