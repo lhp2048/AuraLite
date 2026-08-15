@@ -5,7 +5,7 @@ Column:
     - Label: { text: "AuraLite UI Gallery", font_size: 22 }
     - Label: { text: "拖拽分割 · 右键菜单 · 滚动列表", font_size: 13, preferred_height: 22 }
     - SplitView:
-        width: 560
+        width: fill
         height: 100
         ratio: 0.42
         leading:
@@ -23,10 +23,10 @@ Column:
           - Radio: { text: "选项 A", group_id: 1, checked: true }
           - Radio: { text: "选项 B", group_id: 1, checked: false }
     - Label: { text: "TextField", font_size: 13, preferred_height: 18 }
-    - TextField: { placeholder: "输入文字（支持 IME）", width: 360, height: 36 }
+    - TextField: { placeholder: "输入文字（支持 IME）", width: fill, height: 36 }
     - Label: { text: "Password", font_size: 13, preferred_height: 18 }
-    - TextField: { placeholder: "密码（不复制明文）", password: true, width: 360, height: 36 }
-    - Button: { text: "Button", width: 140, height: 40, on_click: gallery_click }
+    - TextField: { placeholder: "密码（不复制明文）", password: true, width: fill, height: 36 }
+    - Button: { text: "Button", width: fill, height: 40, on_click: gallery_click }
     - Row:
         spacing: 12
         children:
@@ -34,7 +34,7 @@ Column:
           - ImageButton: { width: 56, height: 56, on_click: image_btn_click }
     - Label: { text: "ScrollView + ListView", font_size: 13, preferred_height: 18 }
     - ScrollView:
-        width: 420
+        width: fill
         height: 160
         content:
           ListView:

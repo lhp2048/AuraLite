@@ -39,13 +39,14 @@ RectF Switch::TrackRect() const {
   return RectF{bounds_.x, y, kTrackWidth, kTrackHeight};
 }
 
-SizeF Switch::Measure(float /*max_w*/, float /*max_h*/) {
+SizeF Switch::Measure(float max_w, float max_h) {
   const float text_w =
       text_.empty() ? 0.f
                     : auralite::MeasureUiTextWidth(text_, font_size_);
-  const float w = kTrackWidth + (text_.empty() ? 0.f : kLabelGap + text_w);
-  const float h = std::max(kTrackHeight, font_size_ + 6.f);
-  return SizeF{w, h};
+  const float hug_w =
+      kTrackWidth + (text_.empty() ? 0.f : kLabelGap + text_w);
+  const float hug_h = std::max(kTrackHeight, font_size_ + 6.f);
+  return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 void Switch::Paint(auralite::Canvas& canvas) {

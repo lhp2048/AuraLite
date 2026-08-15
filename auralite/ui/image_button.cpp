@@ -4,6 +4,12 @@
 
 namespace auralite::ui {
 
+ImageButton::ImageButton() {
+  set_focusable(true);
+  fixed_width(48.f);
+  fixed_height(48.f);
+}
+
 ImageButton& ImageButton::SetPixels(UINT width, UINT height,
                                     const uint8_t* bgra, UINT stride) {
   image_.Reset();
@@ -15,8 +21,8 @@ ImageButton& ImageButton::SetPixels(UINT width, UINT height,
 }
 
 ImageButton& ImageButton::preferred_size(float w, float h) {
-  pref_w_ = w;
-  pref_h_ = h;
+  fixed_width(w);
+  fixed_height(h);
   return *this;
 }
 
@@ -25,8 +31,10 @@ ImageButton& ImageButton::on_click(ClickHandler handler) {
   return *this;
 }
 
-SizeF ImageButton::Measure(float /*max_w*/, float /*max_h*/) {
-  return SizeF{pref_w_, pref_h_};
+SizeF ImageButton::Measure(float max_w, float max_h) {
+  const float hug_w = preferred_width() > 0.f ? preferred_width() : 48.f;
+  const float hug_h = preferred_height() > 0.f ? preferred_height() : 48.f;
+  return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 void ImageButton::EnsureImage(auralite::Canvas& canvas) {

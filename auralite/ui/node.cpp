@@ -1,5 +1,7 @@
 #include "auralite/ui/node.h"
 
+#include <algorithm>
+
 namespace auralite::ui {
 
 bool Node::ContainsPoint(const RectF& r, float x, float y) {
@@ -14,8 +16,98 @@ void Node::AddChild(std::unique_ptr<Node> child) {
   children_.push_back(std::move(child));
 }
 
+Node& Node::set_width_policy(SizePolicy p) {
+  width_policy_ = p;
+  return *this;
+}
+
+Node& Node::set_height_policy(SizePolicy p) {
+  height_policy_ = p;
+  return *this;
+}
+
+Node& Node::set_preferred_width(float w) {
+  preferred_w_ = w;
+  return *this;
+}
+
+Node& Node::set_preferred_height(float h) {
+  preferred_h_ = h;
+  return *this;
+}
+
+Node& Node::fixed_width(float w) {
+  width_policy_ = SizePolicy::Fixed;
+  preferred_w_ = w;
+  return *this;
+}
+
+Node& Node::fixed_height(float h) {
+  height_policy_ = SizePolicy::Fixed;
+  preferred_h_ = h;
+  return *this;
+}
+
+Node& Node::fill_width() {
+  width_policy_ = SizePolicy::Fill;
+  return *this;
+}
+
+Node& Node::fill_height() {
+  height_policy_ = SizePolicy::Fill;
+  return *this;
+}
+
+Node& Node::hug_width() {
+  width_policy_ = SizePolicy::Hug;
+  return *this;
+}
+
+Node& Node::hug_height() {
+  height_policy_ = SizePolicy::Hug;
+  return *this;
+}
+
+SizeF Node::ResolveSize(float max_w, float max_h, float hug_w,
+                        float hug_h) const {
+  float w = hug_w;
+  float h = hug_h;
+
+  switch (width_policy_) {
+    case SizePolicy::Fixed:
+      w = preferred_w_ > 0.f ? preferred_w_ : hug_w;
+      break;
+    case SizePolicy::Hug:
+      w = hug_w;
+      break;
+    case SizePolicy::Fill:
+      w = max_w > 0.f ? max_w : (preferred_w_ > 0.f ? preferred_w_ : hug_w);
+      break;
+  }
+
+  switch (height_policy_) {
+    case SizePolicy::Fixed:
+      h = preferred_h_ > 0.f ? preferred_h_ : hug_h;
+      break;
+    case SizePolicy::Hug:
+      h = hug_h;
+      break;
+    case SizePolicy::Fill:
+      h = max_h > 0.f ? max_h : (preferred_h_ > 0.f ? preferred_h_ : hug_h);
+      break;
+  }
+
+  if (max_w > 0.f) {
+    w = std::min(w, max_w);
+  }
+  if (max_h > 0.f) {
+    h = std::min(h, max_h);
+  }
+  return SizeF{std::max(0.f, w), std::max(0.f, h)};
+}
+
 SizeF Node::Measure(float max_w, float max_h) {
-  return SizeF{max_w, max_h};
+  return ResolveSize(max_w, max_h, max_w, max_h);
 }
 
 void Node::Layout(const RectF& final_rect) {

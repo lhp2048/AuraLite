@@ -68,8 +68,6 @@ class TextField : public Node {
   std::wstring composition_;
   bool password_ = false;
   float font_size_ = 15.f;
-  float pref_w_ = 280.f;
-  float pref_h_ = 36.f;
   size_t sel_start_ = 0;  // anchor
   size_t caret_ = 0;      // active end
   bool selecting_ = false;

@@ -42,7 +42,9 @@ SizeF Column::Measure(float max_w, float max_h) {
     }
   }
 
-  return SizeF{max_child_w + pad_l_ + pad_r_, y + pad_t_ + pad_b_};
+  const float hug_w = max_child_w + pad_l_ + pad_r_;
+  const float hug_h = y + pad_t_ + pad_b_;
+  return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 void Column::Layout(const RectF& final_rect) {
@@ -58,15 +60,22 @@ void Column::Layout(const RectF& final_rect) {
     if (!children_[i]) {
       continue;
     }
-    const SizeF s = children_[i]->Measure(inner_w, remaining_h);
-    // Cross-axis: stretch only when the child asked for the full inner width
-    // (e.g. Label). Fixed preferred widths (TextField/Button) stay start-aligned
-    // so left/right padding stay visually balanced.
-    const float child_w =
-        (s.w >= inner_w - 0.5f) ? inner_w : std::min(s.w, inner_w);
-    children_[i]->Layout(RectF{inner_x, y, child_w, s.h});
-    y += s.h;
-    remaining_h = std::max(0.f, remaining_h - s.h);
+    Node* child = children_[i].get();
+    const SizeF s = child->Measure(inner_w, remaining_h);
+
+    float child_w = s.w;
+    float child_h = s.h;
+    if (child->width_policy() == SizePolicy::Fill) {
+      child_w = inner_w;
+    } else {
+      child_w = std::min(s.w, inner_w);
+    }
+    // Height Fill already claimed remaining via Measure; keep measured h.
+    // Non-fill heights stay intrinsic/fixed.
+
+    child->Layout(RectF{inner_x, y, child_w, child_h});
+    y += child_h;
+    remaining_h = std::max(0.f, remaining_h - child_h);
     if (i + 1 < children_.size()) {
       y += spacing_;
       remaining_h = std::max(0.f, remaining_h - spacing_);

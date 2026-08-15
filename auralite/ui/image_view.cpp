@@ -2,6 +2,11 @@
 
 namespace auralite::ui {
 
+ImageView::ImageView() {
+  fixed_width(64.f);
+  fixed_height(64.f);
+}
+
 ImageView& ImageView::SetPixels(UINT width, UINT height, const uint8_t* bgra,
                                 UINT stride) {
   image_.Reset();
@@ -10,9 +15,9 @@ ImageView& ImageView::SetPixels(UINT width, UINT height, const uint8_t* bgra,
   pixel_h_ = height;
   stride_ = stride;
   pixels_.assign(bgra, bgra + stride * height);
-  if (pref_w_ <= 0.f || pref_h_ <= 0.f) {
-    pref_w_ = static_cast<float>(width);
-    pref_h_ = static_cast<float>(height);
+  if (preferred_width() <= 0.f || preferred_height() <= 0.f) {
+    fixed_width(static_cast<float>(width));
+    fixed_height(static_cast<float>(height));
   }
   return *this;
 }
@@ -27,13 +32,15 @@ ImageView& ImageView::LoadFromFile(const std::wstring& path) {
 }
 
 ImageView& ImageView::preferred_size(float w, float h) {
-  pref_w_ = w;
-  pref_h_ = h;
+  fixed_width(w);
+  fixed_height(h);
   return *this;
 }
 
-SizeF ImageView::Measure(float /*max_w*/, float /*max_h*/) {
-  return SizeF{pref_w_, pref_h_};
+SizeF ImageView::Measure(float max_w, float max_h) {
+  const float hug_w = preferred_width() > 0.f ? preferred_width() : 64.f;
+  const float hug_h = preferred_height() > 0.f ? preferred_height() : 64.f;
+  return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 void ImageView::EnsureImage(auralite::Canvas& canvas) {

@@ -6,6 +6,8 @@ namespace auralite::ui {
 
 ListView::ListView() {
   set_focusable(true);
+  fill_width();
+  hug_height();
 }
 
 ListView& ListView::font_size(float size) {
@@ -60,16 +62,15 @@ int ListView::IndexAtY(float y) const {
   return idx;
 }
 
-SizeF ListView::Measure(float max_w, float /*max_h*/) {
-  const float h = ItemHeight() * static_cast<float>(items_.size());
-  // Approximate width from longest string; Layout stretches in Column/ScrollView.
+SizeF ListView::Measure(float max_w, float max_h) {
+  const float hug_h = ItemHeight() * static_cast<float>(items_.size());
   float max_text_w = 40.f;
   for (const auto& t : items_) {
-    max_text_w = std::max(
-        max_text_w, font_size_ * 0.55f * static_cast<float>(t.size()));
+    max_text_w = std::max(max_text_w,
+                          auralite::MeasureUiTextWidth(t, font_size_));
   }
-  const float w = std::min(max_w, max_text_w + kItemPaddingX * 2.f);
-  return SizeF{w > 0.f ? w : max_w, h};
+  const float hug_w = max_text_w + kItemPaddingX * 2.f;
+  return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 void ListView::Paint(auralite::Canvas& canvas) {

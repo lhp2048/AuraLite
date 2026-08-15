@@ -5,8 +5,16 @@
 namespace auralite::ui {
 
 ScrollView& ScrollView::preferred_size(float w, float h) {
-  preferred_w_ = w;
-  preferred_h_ = h;
+  if (w > 0.f) {
+    fixed_width(w);
+  } else {
+    fill_width();
+  }
+  if (h > 0.f) {
+    fixed_height(h);
+  } else {
+    hug_height();
+  }
   return *this;
 }
 
@@ -39,24 +47,25 @@ void ScrollView::set_scroll_offset(float offset) {
 }
 
 SizeF ScrollView::Measure(float max_w, float max_h) {
-  float w = preferred_w_ > 0.f ? preferred_w_ : max_w;
-  float h = preferred_h_ > 0.f ? preferred_h_ : std::min(200.f, max_h);
+  float hug_w = preferred_width() > 0.f ? preferred_width() : max_w;
+  float hug_h = preferred_height() > 0.f ? preferred_height()
+                                         : std::min(200.f, max_h);
 
   if (Node* c = content()) {
-    const SizeF cs =
-        c->Measure(std::max(0.f, w - kScrollbarWidth), 1.0e6f);
+    const float cw = std::max(0.f, hug_w - kScrollbarWidth);
+    const SizeF cs = c->Measure(cw, 1.0e6f);
     content_h_ = cs.h;
-    if (preferred_w_ <= 0.f) {
-      if (content_h_ > h) {
-        w = std::max(w, cs.w + kScrollbarWidth);
+    if (width_policy() != SizePolicy::Fixed) {
+      if (content_h_ > hug_h) {
+        hug_w = std::max(hug_w, cs.w + kScrollbarWidth);
       } else {
-        w = std::max(w, cs.w);
+        hug_w = std::max(hug_w, cs.w);
       }
     }
   } else {
     content_h_ = 0.f;
   }
-  return SizeF{w, h};
+  return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 void ScrollView::Layout(const RectF& final_rect) {
@@ -174,7 +183,7 @@ bool ScrollView::NeedsScrollbar() const {
   // During Measure, bounds may be empty — use preferred height when set.
   const float vh = bounds_.h > 0.f
                        ? bounds_.h
-                       : (preferred_h_ > 0.f ? preferred_h_ : 0.f);
+                       : (preferred_height() > 0.f ? preferred_height() : 0.f);
   return content_h_ > vh && vh > 0.f;
 }
 

@@ -14,6 +14,10 @@ struct SizeF {
 
 enum class TextAlign { Left, Center, Right };
 
+// Layout size along one axis:
+// Fixed = preferred_* ; Hug = intrinsic content ; Fill = take available max.
+enum class SizePolicy { Fixed, Hug, Fill };
+
 enum class MouseButton { Left, Right, Middle };
 
 struct MouseEvent {

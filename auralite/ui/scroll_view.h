@@ -43,8 +43,6 @@ class ScrollView : public Node {
   RectF ThumbBounds() const;
   float ScrollOffsetFromThumbY(float thumb_y) const;
 
-  float preferred_w_ = 0.f;
-  float preferred_h_ = 0.f;
   float scroll_offset_ = 0.f;
   float content_h_ = 0.f;
   bool dragging_thumb_ = false;

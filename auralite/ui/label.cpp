@@ -1,8 +1,13 @@
 #include "auralite/ui/label.h"
 
-#include <algorithm>
+#include "auralite/canvas.h"
 
 namespace auralite::ui {
+
+Label::Label() {
+  fill_width();
+  hug_height();
+}
 
 Label& Label::text(const std::wstring& t) {
   text_ = t;
@@ -25,7 +30,7 @@ Label& Label::align(TextAlign a) {
 }
 
 Label& Label::preferred_height(float h) {
-  preferred_h_ = h;
+  fixed_height(h);
   return *this;
 }
 
@@ -41,12 +46,12 @@ auralite::TextHAlign Label::ToCanvasAlign(TextAlign a) {
   }
 }
 
-SizeF Label::Measure(float max_w, float /*max_h*/) {
-  const float h =
-      preferred_h_ > 0.f ? preferred_h_ : (font_size_ + 8.f);
-  // Prefer full available width so align left/center/right is visible.
-  const float w = max_w > 0.f ? max_w : (font_size_ * 0.55f * text_.size() + 8.f);
-  return SizeF{w, h};
+SizeF Label::Measure(float max_w, float max_h) {
+  const float hug_w =
+      text_.empty() ? 0.f
+                    : (auralite::MeasureUiTextWidth(text_, font_size_) + 4.f);
+  const float hug_h = font_size_ + 8.f;
+  return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 void Label::Paint(auralite::Canvas& canvas) {

@@ -12,6 +12,8 @@ class ImageButton : public Node {
  public:
   using ClickHandler = std::function<void()>;
 
+  ImageButton();
+
   ImageButton& SetPixels(UINT width, UINT height, const uint8_t* bgra,
                          UINT stride);
   ImageButton& preferred_size(float w, float h);
@@ -30,8 +32,6 @@ class ImageButton : public Node {
   void EnsureImage(auralite::Canvas& canvas);
 
   ClickHandler on_click_;
-  float pref_w_ = 48.f;
-  float pref_h_ = 48.f;
   bool hovered_ = false;
   bool pressed_ = false;
 

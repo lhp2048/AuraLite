@@ -107,13 +107,10 @@ std::unique_ptr<auralite::ui::Node> BuildFluentLogin() {
       .spacing(12.f)
       .child(Label().text(L"Smart Family").font_size(20.f))
       .child(Label().text(L"账号").font_size(13.f).preferred_height(20.f))
-      .child(TextField().placeholder(L"账号").preferred_size(352.f, 36.f))
+      .child(TextField().placeholder(L"账号"))  // fill width, fixed height
       .child(Label().text(L"密码").font_size(13.f).preferred_height(20.f))
-      .child(TextField()
-                 .placeholder(L"密码")
-                 .password(true)
-                 .preferred_size(352.f, 36.f))
-      .child(Button().text(L"登录").preferred_size(352.f, 40.f))
+      .child(TextField().placeholder(L"密码").password(true))
+      .child(Button().text(L"登录"))
       .child(Label().text(L"状态：就绪").font_size(13.f).preferred_height(22.f))
       .Build();
 }

@@ -40,8 +40,6 @@ class Button : public Node {
   std::wstring text_;
   float font_size_ = 15.f;
   ClickHandler on_click_;
-  float pref_w_ = 140.f;
-  float pref_h_ = 40.f;
 
   bool hovered_ = false;
   bool pressed_ = false;

@@ -37,8 +37,6 @@ class SplitView : public Node {
   void ApplyRatioFromDividerOffset(float offset);
   void RelayoutChildren();
 
-  float preferred_w_ = 0.f;
-  float preferred_h_ = 0.f;
   float ratio_ = 0.5f;
   bool dragging_ = false;
 };

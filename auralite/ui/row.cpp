@@ -42,7 +42,9 @@ SizeF Row::Measure(float max_w, float max_h) {
     }
   }
 
-  return SizeF{x + pad_l_ + pad_r_, max_child_h + pad_t_ + pad_b_};
+  const float hug_w = x + pad_l_ + pad_r_;
+  const float hug_h = max_child_h + pad_t_ + pad_b_;
+  return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 void Row::Layout(const RectF& final_rect) {
@@ -58,13 +60,25 @@ void Row::Layout(const RectF& final_rect) {
     if (!children_[i]) {
       continue;
     }
-    const SizeF s = children_[i]->Measure(remaining_w, inner_h);
-    // Cross-axis: stretch only when child asked for full inner height.
-    const float child_h =
-        (s.h >= inner_h - 0.5f) ? inner_h : std::min(s.h, inner_h);
-    children_[i]->Layout(RectF{x, inner_y, s.w, child_h});
-    x += s.w;
-    remaining_w = std::max(0.f, remaining_w - s.w);
+    Node* child = children_[i].get();
+    const SizeF s = child->Measure(remaining_w, inner_h);
+
+    float child_w = s.w;
+    float child_h = s.h;
+    if (child->height_policy() == SizePolicy::Fill) {
+      child_h = inner_h;
+    } else {
+      child_h = std::min(s.h, inner_h);
+    }
+    if (child->width_policy() == SizePolicy::Fill) {
+      child_w = s.w;  // Measure already took remaining_w for Fill.
+    } else {
+      child_w = std::min(s.w, remaining_w);
+    }
+
+    child->Layout(RectF{x, inner_y, child_w, child_h});
+    x += child_w;
+    remaining_w = std::max(0.f, remaining_w - child_w);
     if (i + 1 < children_.size()) {
       x += spacing_;
       remaining_w = std::max(0.f, remaining_w - spacing_);

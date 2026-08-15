@@ -250,6 +250,14 @@ class ScrollViewBuilder : public detail::BuilderBase<ScrollView> {
     get()->preferred_size(w, h);
     return *this;
   }
+  ScrollViewBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  ScrollViewBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
   ScrollViewBuilder& content(std::unique_ptr<Node> n) {
     get()->set_content(std::move(n));
     return *this;
@@ -280,6 +288,14 @@ class SplitViewBuilder : public detail::BuilderBase<SplitView> {
  public:
   SplitViewBuilder& preferred_size(float w, float h) {
     get()->preferred_size(w, h);
+    return *this;
+  }
+  SplitViewBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  SplitViewBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
     return *this;
   }
   SplitViewBuilder& ratio(float r) {

@@ -21,7 +21,25 @@ class Node {
 
   Node* parent() const { return parent_; }
 
-  // Default: claim the full available size.
+  SizePolicy width_policy() const { return width_policy_; }
+  SizePolicy height_policy() const { return height_policy_; }
+  float preferred_width() const { return preferred_w_; }
+  float preferred_height() const { return preferred_h_; }
+
+  Node& set_width_policy(SizePolicy p);
+  Node& set_height_policy(SizePolicy p);
+  Node& set_preferred_width(float w);
+  Node& set_preferred_height(float h);
+
+  // Convenience: Fixed + value, or Fill / Hug.
+  Node& fixed_width(float w);
+  Node& fixed_height(float h);
+  Node& fill_width();
+  Node& fill_height();
+  Node& hug_width();
+  Node& hug_height();
+
+  // Default: claim the full available size (Fill/Fill).
   virtual SizeF Measure(float max_w, float max_h);
   // Default: set bounds and give each child the same rect.
   virtual void Layout(const RectF& final_rect);
@@ -70,12 +88,20 @@ class Node {
 
   static bool ContainsPoint(const RectF& r, float x, float y);
 
+  // Combine policy + preferred + intrinsic (hug) into a Measure result.
+  SizeF ResolveSize(float max_w, float max_h, float hug_w, float hug_h) const;
+
   RectF bounds_{};
   std::vector<std::unique_ptr<Node>> children_;
   Node* parent_ = nullptr;
   bool focusable_ = false;
   bool focused_ = false;
   ContextMenuHandler on_context_menu_;
+
+  SizePolicy width_policy_ = SizePolicy::Hug;
+  SizePolicy height_policy_ = SizePolicy::Hug;
+  float preferred_w_ = 0.f;
+  float preferred_h_ = 0.f;
 };
 
 }  // namespace auralite::ui

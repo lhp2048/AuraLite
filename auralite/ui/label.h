@@ -8,10 +8,13 @@ namespace auralite::ui {
 
 class Label : public Node {
  public:
+  Label();
+
   Label& text(const std::wstring& t);
   Label& font_size(float size);
   Label& color(const ColorF& c);
   Label& align(TextAlign a);
+  // Fixed height; width stays Fill by default.
   Label& preferred_height(float h);
 
   const std::wstring& text() const { return text_; }
@@ -28,7 +31,6 @@ class Label : public Node {
   float font_size_ = 16.f;
   ColorF color_ = ColorF::FromRgb(30, 40, 55);
   TextAlign align_ = TextAlign::Left;
-  float preferred_h_ = 0.f;  // 0 = font_size + padding
 };
 
 }  // namespace auralite::ui

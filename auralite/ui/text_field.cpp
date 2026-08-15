@@ -62,6 +62,9 @@ float MeasureWidth(const std::wstring& text, float font_size) {
 
 TextField::TextField() {
   set_focusable(true);
+  fill_width();
+  fixed_height(36.f);
+  set_preferred_width(280.f);
 }
 
 TextField& TextField::text(const std::wstring& t) {
@@ -85,8 +88,8 @@ TextField& TextField::font_size(float size) {
 }
 
 TextField& TextField::preferred_size(float w, float h) {
-  pref_w_ = w;
-  pref_h_ = h;
+  fixed_width(w);
+  fixed_height(h);
   return *this;
 }
 
@@ -119,8 +122,10 @@ bool TextField::HasSelection() const {
   return sel_start_ != caret_;
 }
 
-SizeF TextField::Measure(float /*max_w*/, float /*max_h*/) {
-  return SizeF{pref_w_, pref_h_};
+SizeF TextField::Measure(float max_w, float max_h) {
+  const float hug_w = preferred_width() > 0.f ? preferred_width() : 280.f;
+  const float hug_h = preferred_height() > 0.f ? preferred_height() : 36.f;
+  return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 std::wstring TextField::DisplayText() const {

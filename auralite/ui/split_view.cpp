@@ -13,8 +13,16 @@ std::unique_ptr<Node> OrEmpty(std::unique_ptr<Node> node) {
 }  // namespace
 
 SplitView& SplitView::preferred_size(float w, float h) {
-  preferred_w_ = w;
-  preferred_h_ = h;
+  if (w > 0.f) {
+    fixed_width(w);
+  } else {
+    fill_width();
+  }
+  if (h > 0.f) {
+    fixed_height(h);
+  } else {
+    fill_height();
+  }
   return *this;
 }
 
@@ -54,29 +62,29 @@ Node* SplitView::trailing() const {
 }
 
 SizeF SplitView::Measure(float max_w, float max_h) {
-  float w = preferred_w_ > 0.f ? preferred_w_ : max_w;
-  float h = preferred_h_ > 0.f ? preferred_h_ : max_h;
+  float hug_w = preferred_width() > 0.f ? preferred_width() : max_w;
+  float hug_h = preferred_height() > 0.f ? preferred_height() : max_h;
 
   float child_h = 0.f;
   float child_w = 0.f;
-  const float pane_w = std::max(0.f, (w - kDividerSize) * 0.5f);
+  const float pane_w = std::max(0.f, (hug_w - kDividerSize) * 0.5f);
   if (Node* L = leading()) {
-    const SizeF s = L->Measure(pane_w, h);
+    const SizeF s = L->Measure(pane_w, hug_h);
     child_w += s.w;
     child_h = std::max(child_h, s.h);
   }
   if (Node* R = trailing()) {
-    const SizeF s = R->Measure(pane_w, h);
+    const SizeF s = R->Measure(pane_w, hug_h);
     child_w += s.w;
     child_h = std::max(child_h, s.h);
   }
-  if (preferred_w_ <= 0.f) {
-    w = std::max(w, child_w + kDividerSize);
+  if (width_policy() != SizePolicy::Fixed) {
+    hug_w = std::max(hug_w, child_w + kDividerSize);
   }
-  if (preferred_h_ <= 0.f) {
-    h = std::max(h, child_h);
+  if (height_policy() != SizePolicy::Fixed) {
+    hug_h = std::max(hug_h, child_h);
   }
-  return SizeF{w, h};
+  return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 void SplitView::Layout(const RectF& final_rect) {

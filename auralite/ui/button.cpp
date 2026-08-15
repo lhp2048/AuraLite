@@ -6,6 +6,10 @@ namespace auralite::ui {
 
 Button::Button() {
   set_focusable(true);
+  // Typical form control: stretch horizontally, keep a fixed control height.
+  fill_width();
+  fixed_height(40.f);
+  set_preferred_width(140.f);
 }
 
 Button& Button::text(const std::wstring& t) {
@@ -24,8 +28,8 @@ Button& Button::on_click(ClickHandler handler) {
 }
 
 Button& Button::preferred_size(float w, float h) {
-  pref_w_ = w;
-  pref_h_ = h;
+  fixed_width(w);
+  fixed_height(h);
   return *this;
 }
 
@@ -39,8 +43,12 @@ Button& Button::icon_bgra(UINT width, UINT height, const uint8_t* bgra,
   return *this;
 }
 
-SizeF Button::Measure(float /*max_w*/, float /*max_h*/) {
-  return SizeF{pref_w_, pref_h_};
+SizeF Button::Measure(float max_w, float max_h) {
+  const float hug_w =
+      text_.empty() ? preferred_width()
+                    : (auralite::MeasureUiTextWidth(text_, font_size_) + 24.f);
+  const float hug_h = preferred_height() > 0.f ? preferred_height() : 40.f;
+  return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
 ColorF Button::BgColor() const {

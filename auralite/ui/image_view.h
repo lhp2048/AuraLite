@@ -9,6 +9,8 @@ namespace auralite::ui {
 
 class ImageView : public Node {
  public:
+  ImageView();
+
   // Copies premul BGRA; GPU bitmap is created/recreated on Paint.
   ImageView& SetPixels(UINT width, UINT height, const uint8_t* bgra,
                        UINT stride);
@@ -29,8 +31,6 @@ class ImageView : public Node {
   std::vector<uint8_t> pixels_;
   UINT stride_ = 0;
   std::wstring path_;
-  float pref_w_ = 64.f;
-  float pref_h_ = 64.f;
 };
 
 }  // namespace auralite::ui

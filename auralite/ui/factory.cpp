@@ -92,6 +92,47 @@ void BindOnClick(Button* btn, const YAML::Node& props,
   }
 }
 
+// width/height: number → Fixed; "fill"/"hug" → policy. Omitting keeps control defaults.
+void ApplySizeAxis(Node* node, const YAML::Node& props, const char* key,
+                   bool is_width) {
+  if (!node || !props[key]) {
+    return;
+  }
+  const YAML::Node& n = props[key];
+  if (!n.IsScalar()) {
+    return;
+  }
+  try {
+    const float v = n.as<float>();
+    if (is_width) {
+      node->fixed_width(v);
+    } else {
+      node->fixed_height(v);
+    }
+    return;
+  } catch (const YAML::Exception&) {
+  }
+  const std::string s = n.as<std::string>();
+  if (s == "fill" || s == "Fill") {
+    if (is_width) {
+      node->fill_width();
+    } else {
+      node->fill_height();
+    }
+  } else if (s == "hug" || s == "Hug") {
+    if (is_width) {
+      node->hug_width();
+    } else {
+      node->hug_height();
+    }
+  }
+}
+
+void ApplyWidthHeight(Node* node, const YAML::Node& props) {
+  ApplySizeAxis(node, props, "width", true);
+  ApplySizeAxis(node, props, "height", false);
+}
+
 void BindOnClick(ImageButton* btn, const YAML::Node& props,
                  const HandlerMap& handlers) {
   if (!btn || !props["on_click"]) {
@@ -249,6 +290,7 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["preferred_height"]) {
       label->preferred_height(props["preferred_height"].as<float>());
     }
+    ApplyWidthHeight(label.get(), props);
     return label;
   });
 
@@ -260,13 +302,7 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["font_size"]) {
       btn->font_size(props["font_size"].as<float>());
     }
-    if (props["width"] || props["height"]) {
-      const float w =
-          props["width"] ? props["width"].as<float>() : 140.f;
-      const float h =
-          props["height"] ? props["height"].as<float>() : 40.f;
-      btn->preferred_size(w, h);
-    }
+    ApplyWidthHeight(btn.get(), props);
     BindOnClick(btn.get(), props, handlers);
     return btn;
   });
@@ -285,13 +321,7 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["font_size"]) {
       field->font_size(props["font_size"].as<float>());
     }
-    if (props["width"] || props["height"]) {
-      const float w =
-          props["width"] ? props["width"].as<float>() : 280.f;
-      const float h =
-          props["height"] ? props["height"].as<float>() : 36.f;
-      field->preferred_size(w, h);
-    }
+    ApplyWidthHeight(field.get(), props);
     return field;
   });
 
@@ -300,24 +330,14 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["path"]) {
       image->LoadFromFile(Utf8ToWide(props["path"].as<std::string>()));
     }
-    if (props["width"] || props["height"]) {
-      const float w = props["width"] ? props["width"].as<float>() : 64.f;
-      const float h = props["height"] ? props["height"].as<float>() : 64.f;
-      image->preferred_size(w, h);
-    }
+    ApplyWidthHeight(image.get(), props);
     return image;
   });
 
   Register("ImageButton",
            [](const YAML::Node& props, const HandlerMap& handlers) {
              auto btn = std::make_unique<ImageButton>();
-             if (props["width"] || props["height"]) {
-               const float w =
-                   props["width"] ? props["width"].as<float>() : 48.f;
-               const float h =
-                   props["height"] ? props["height"].as<float>() : 48.f;
-               btn->preferred_size(w, h);
-             }
+             ApplyWidthHeight(btn.get(), props);
              BindOnClick(btn.get(), props, handlers);
              return btn;
            });
@@ -374,11 +394,8 @@ void ViewFactory::RegisterBuiltinTypes() {
 
   Register("ScrollView", [](const YAML::Node& props, const HandlerMap&) {
     auto scroll = std::make_unique<ScrollView>();
-    if (props["width"] || props["height"]) {
-      const float w = props["width"] ? props["width"].as<float>() : 0.f;
-      const float h = props["height"] ? props["height"].as<float>() : 0.f;
-      scroll->preferred_size(w, h);
-    }
+    scroll->fill_width();
+    ApplyWidthHeight(scroll.get(), props);
     return scroll;
   });
 
@@ -400,11 +417,8 @@ void ViewFactory::RegisterBuiltinTypes() {
 
   Register("SplitView", [](const YAML::Node& props, const HandlerMap&) {
     auto split = std::make_unique<SplitView>();
-    if (props["width"] || props["height"]) {
-      const float w = props["width"] ? props["width"].as<float>() : 0.f;
-      const float h = props["height"] ? props["height"].as<float>() : 0.f;
-      split->preferred_size(w, h);
-    }
+    split->fill_width();
+    ApplyWidthHeight(split.get(), props);
     if (props["ratio"]) {
       split->set_ratio(props["ratio"].as<float>());
     }

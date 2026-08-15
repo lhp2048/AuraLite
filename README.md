@@ -51,6 +51,7 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 - 2 空格缩进；`TypeName:` 作为唯一 map key（如 `Column:` / `Button:`）  
 - 容器：`children:` 列表；`ScrollView.content`；`SplitView.leading` / `trailing`  
 - `on_click: handler_name` → Demo 侧 `HandlerMap`  
+- 尺寸策略：`width` / `height` 可为数字（Fixed）、`fill`（吃满父布局可用轴）、`hug`（内容固有尺寸）。省略时控件有默认（如 TextField/Button：**宽 fill、高 fixed**；Checkbox：**hug×hug**；Label：**宽 fill、高 hug/preferred_height**）  
 - 无热重载、无完整 schema；`ContextMenu` 仍为代码 API（`TrackPopupMenu`）
 
 #### 阶段二入口
