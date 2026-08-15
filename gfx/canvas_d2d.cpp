@@ -63,6 +63,7 @@ namespace gfx
           wic_bitmap_(NULL),
           brush_(NULL),
           cached_bitmap_(NULL),
+          cached_pb_(NULL),
           cached_pixels_(NULL),
           cached_bw_(0),
           cached_bh_(0),
@@ -85,6 +86,7 @@ namespace gfx
           wic_bitmap_(NULL),
           brush_(NULL),
           cached_bitmap_(NULL),
+          cached_pb_(NULL),
           cached_pixels_(NULL),
           cached_bw_(0),
           cached_bh_(0),
@@ -678,12 +680,28 @@ namespace gfx
 
     void CanvasD2D::EndPlatformPaint(HDC /*dc*/)
     {
+        // Must finish any open BeginDraw before tearing down the RT. Mid-paint
+        // writeback used to leave drawing_=true with a fresh RT that never got
+        // BeginDraw, so all later FillRect/DrawString became no-ops.
+        const bool was_drawing = drawing_;
+        if(drawing_)
+        {
+            EndDraw();
+        }
+
         // GDI callers draw into the platform DIB; push those pixels back into
         // the WIC bitmap so subsequent D2D paints see them (FamilyShell icons).
         if(platform_bits_ && wic_bitmap_)
         {
             CopyPlatformDcToBitmap();
             RecreateRenderTargetFromBitmap();
+            if(was_drawing && rt_)
+            {
+                // Resume drawing on the recreated target. Callers that used
+                // BeginPlatformPaint outside of an active draw still finish
+                // with drawing_ == false (was_drawing was false).
+                BeginDraw();
+            }
         }
         ReleasePlatformDc();
     }
@@ -864,8 +882,17 @@ namespace gfx
         const size_t row_bytes = static_cast<size_t>(width_)*4;
         for(int row=0; row<height_; ++row)
         {
-            memcpy(data + static_cast<size_t>(row)*stride,
-                src + static_cast<size_t>(row)*row_bytes, row_bytes);
+            BYTE* dst_row = data + static_cast<size_t>(row)*stride;
+            memcpy(dst_row, src + static_cast<size_t>(row)*row_bytes, row_bytes);
+            // GDI FillRect/BitBlt leaves alpha=0 on BI_RGB DIBs; opaque canvases
+            // need solid alpha or layered/composited output vanishes.
+            if(is_opaque_)
+            {
+                for(int col=0; col<width_; ++col)
+                {
+                    dst_row[col*4 + 3] = 0xFF;
+                }
+            }
         }
         lock->Release();
         return true;
@@ -908,6 +935,7 @@ namespace gfx
     void CanvasD2D::InvalidateBitmapCache()
     {
         SafeRelease(cached_bitmap_);
+        cached_pb_ = NULL;
         cached_pixels_ = NULL;
         cached_bw_ = 0;
         cached_bh_ = 0;
@@ -929,8 +957,13 @@ namespace gfx
             return NULL;
         }
 
-        if(cached_bitmap_ && cached_pixels_==pixels &&
-            cached_bw_==bw && cached_bh_==bh && cached_stride_==stride)
+        // Single-slot GPU bitmap cache is only safe while the same PlatformBitmap
+        // object stays alive. Heap address reuse of freed CPU buffers used to
+        // make subsequent icons paint with the previous image.
+        PlatformBitmap* pb = bitmap.platform_bitmap();
+        if(cached_bitmap_ && cached_pb_==pb && pb!=NULL &&
+            cached_bw_==bw && cached_bh_==bh && cached_stride_==stride &&
+            cached_pixels_==pixels)
         {
             return cached_bitmap_;
         }
@@ -951,6 +984,7 @@ namespace gfx
             return NULL;
         }
         cached_bitmap_ = d2d_bitmap;
+        cached_pb_ = pb;
         cached_pixels_ = pixels;
         cached_bw_ = bw;
         cached_bh_ = bh;
