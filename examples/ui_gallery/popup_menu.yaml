@@ -1,4 +1,5 @@
 Column:
+  bg: "#F5F7FAE6"
   padding: [6, 4, 6, 4]
   spacing: 2
   children:
@@ -8,6 +9,7 @@ Column:
         text: "More"
         content:
           Column:
+            bg: "#F5F7FAE6"
             padding: 4
             spacing: 2
             children:
