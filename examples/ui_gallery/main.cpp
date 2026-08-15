@@ -116,32 +116,142 @@ std::string ResolveGalleryYaml() {
   return {};
 }
 
-std::string ResolvePopupMenuYaml() {
+std::string ResolveGalleryFile(const char* filename) {
   namespace fs = std::filesystem;
-  // Prefer classic menu chrome; fall back to widget-tree demo yaml.
-  const wchar_t* beside_names[] = {L"\\menu_classic.yaml", L"\\popup_menu.yaml"};
-  for (const wchar_t* name : beside_names) {
-    const std::wstring beside = ExeDir() + name;
-    if (fs::exists(beside)) {
-      return NarrowPath(beside);
-    }
+  if (!filename || !*filename) {
+    return {};
   }
-  const char* candidates[] = {
-      "menu_classic.yaml",
-      "examples/ui_gallery/menu_classic.yaml",
-      "../examples/ui_gallery/menu_classic.yaml",
-      "../../examples/ui_gallery/menu_classic.yaml",
-      "popup_menu.yaml",
-      "examples/ui_gallery/popup_menu.yaml",
-      "../examples/ui_gallery/popup_menu.yaml",
-      "../../examples/ui_gallery/popup_menu.yaml",
+  const std::wstring wide = [&] {
+    std::wstring out;
+    for (const char* p = filename; *p; ++p) {
+      out.push_back(static_cast<wchar_t>(static_cast<unsigned char>(*p)));
+    }
+    return out;
+  }();
+  const std::wstring beside = ExeDir() + L"\\" + wide;
+  if (fs::exists(beside)) {
+    return NarrowPath(beside);
+  }
+  const std::string rels[] = {
+      std::string(filename),
+      std::string("examples/ui_gallery/") + filename,
+      std::string("../examples/ui_gallery/") + filename,
+      std::string("../../examples/ui_gallery/") + filename,
   };
-  for (const char* c : candidates) {
+  for (const auto& c : rels) {
     if (fs::exists(c)) {
       return c;
     }
   }
   return {};
+}
+
+std::string ResolvePopupMenuYaml() {
+  std::string path = ResolveGalleryFile("menu_classic.yaml");
+  if (!path.empty()) {
+    return path;
+  }
+  return ResolveGalleryFile("popup_menu.yaml");
+}
+
+POINT ScreenPointBelowNode(auralite::ui::Node* node,
+                           auralite::ui::Window* window) {
+  POINT pt = {0, 0};
+  if (!node || !window || !window->hwnd()) {
+    GetCursorPos(&pt);
+    return pt;
+  }
+  const auralite::RectF b = node->bounds();
+  pt.x = static_cast<LONG>(b.x);
+  pt.y = static_cast<LONG>(b.y + b.h + 4.f);
+  ClientToScreen(window->hwnd(), &pt);
+  return pt;
+}
+
+auralite::ui::HandlerMap MakePopupMenuHandlers(
+    auralite::ui::PopupHost* host, auralite::ui::Window* window,
+    auralite::ui::Label* status, auralite::ui::SplitView* split_ptr) {
+  auralite::ui::HandlerMap handlers;
+  handlers["refresh"] = host->WrapDismiss([status, window] {
+    if (status) {
+      status->text(L"PopupHost: Refresh");
+    }
+    window->Invalidate();
+  });
+  handlers["about"] = host->WrapDismiss([status, window] {
+    if (status) {
+      status->text(L"PopupHost: About");
+    }
+    MessageBoxW(window->hwnd(),
+                L"AuraLite Phase 2 UI Gallery\n"
+                L"Label TextField Checkbox Radio Switch\n"
+                L"ImageView ImageButton Button\n"
+                L"ScrollView ListView SplitView PopupHost Column/Row",
+                L"About", MB_OK | MB_ICONINFORMATION);
+    window->Invalidate();
+  });
+  handlers["split_reset"] = host->WrapDismiss([status, window, split_ptr] {
+    if (split_ptr) {
+      split_ptr->set_ratio(0.5f);
+      split_ptr->Layout(split_ptr->bounds());
+    }
+    if (status) {
+      status->text(L"PopupHost: split reset");
+    }
+    window->Invalidate();
+  });
+  return handlers;
+}
+
+void ShowMenuYaml(auralite::ui::PopupHost* host, auralite::ui::Window* window,
+                  auralite::ui::Label* status, auralite::ui::SplitView* split,
+                  const std::string& yaml_path, POINT screen,
+                  const wchar_t* style_label) {
+  if (!host || !window) {
+    return;
+  }
+  if (yaml_path.empty()) {
+    if (status) {
+      status->text(L"菜单 YAML 未找到");
+      window->Invalidate();
+    }
+    return;
+  }
+  if (status && style_label) {
+    status->text(std::wstring(L"打开菜单样式: ") + style_label);
+    window->Invalidate();
+  }
+  auto handlers = MakePopupMenuHandlers(host, window, status, split);
+  host->ShowFromYaml(window->hwnd(), screen, yaml_path, handlers);
+}
+
+void WireMenuStyleButtons(auralite::ui::Node* root, auralite::ui::PopupHost* host,
+                          auralite::ui::Window* window, auralite::ui::Label* status,
+                          auralite::ui::SplitView* split) {
+  if (!root || !host || !window) {
+    return;
+  }
+  struct StyleBind {
+    const char* name;
+    const char* file;
+    const wchar_t* label;
+  };
+  const StyleBind binds[] = {
+      {"menu_style_classic", "menu_classic.yaml", L"经典扁平"},
+      {"menu_style_buttons", "popup_menu.yaml", L"按钮风"},
+      {"menu_style_dark", "menu_dark.yaml", L"深色"},
+  };
+  for (const StyleBind& b : binds) {
+    auto* btn = dynamic_cast<auralite::ui::Button*>(root->FindByName(b.name));
+    if (!btn) {
+      continue;
+    }
+    const std::string path = ResolveGalleryFile(b.file);
+    btn->on_click([host, window, status, split, path, btn, label = b.label] {
+      ShowMenuYaml(host, window, status, split, path,
+                   ScreenPointBelowNode(btn, window), label);
+    });
+  }
 }
 
 std::vector<uint8_t> MakeCheckerBgra(UINT size, UINT cell) {
@@ -904,7 +1014,28 @@ std::unique_ptr<auralite::ui::Node> BuildFluentGallery() {
                               .content(std::unique_ptr<auralite::ui::Node>(
                                   std::move(list))))
                    .child(Label()
-                              .text(L"在空白处右键打开经典菜单（menu_classic.yaml）")
+                              .text(L"Popup 菜单样式（点按钮试开）")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(Row()
+                              .spacing(8.f)
+                              .child(Button()
+                                         .name("menu_style_classic")
+                                         .text(L"经典扁平")
+                                         .hug_width()
+                                         .fixed_height(32.f))
+                              .child(Button()
+                                         .name("menu_style_buttons")
+                                         .text(L"按钮风")
+                                         .hug_width()
+                                         .fixed_height(32.f))
+                              .child(Button()
+                                         .name("menu_style_dark")
+                                         .text(L"深色")
+                                         .hug_width()
+                                         .fixed_height(32.f)))
+                   .child(Label()
+                              .text(L"空白处右键 = 经典菜单（menu_classic.yaml）")
                               .font_size(12.f)
                               .preferred_height(20.f)))
       .Build();
@@ -981,51 +1112,16 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
   auralite::ui::PopupHost popup_host;
   const std::string popup_yaml = ResolvePopupMenuYaml();
 
+  WireMenuStyleButtons(root.get(), &popup_host, &window, status, split_ptr);
+
   root->set_on_context_menu(
       [&popup_host, &window, &popup_yaml, status, split_ptr](int sx, int sy) {
-        if (popup_yaml.empty()) {
-          if (status) {
-            status->text(L"menu_classic.yaml / popup_menu.yaml not found");
-            window.Invalidate();
-          }
-          return;
-        }
-        auralite::ui::HandlerMap handlers;
-        handlers["refresh"] = popup_host.WrapDismiss([status, &window] {
-          if (status) {
-            status->text(L"PopupHost: Refresh");
-          }
-          window.Invalidate();
-        });
-        handlers["about"] = popup_host.WrapDismiss([status, &window] {
-          if (status) {
-            status->text(L"PopupHost: About");
-          }
-          MessageBoxW(window.hwnd(),
-                      L"AuraLite Phase 2 UI Gallery\n"
-                      L"Label TextField Checkbox Radio Switch\n"
-                      L"ImageView ImageButton Button\n"
-                      L"ScrollView ListView SplitView PopupHost Column/Row",
-                      L"About", MB_OK | MB_ICONINFORMATION);
-          window.Invalidate();
-        });
-        handlers["split_reset"] =
-            popup_host.WrapDismiss([status, &window, split_ptr] {
-              if (split_ptr) {
-                split_ptr->set_ratio(0.5f);
-                split_ptr->Layout(split_ptr->bounds());
-              }
-              if (status) {
-                status->text(L"PopupHost: split reset");
-              }
-              window.Invalidate();
-            });
-        popup_host.ShowFromYaml(window.hwnd(), POINT{sx, sy}, popup_yaml,
-                                handlers);
+        ShowMenuYaml(&popup_host, &window, status, split_ptr, popup_yaml,
+                     POINT{sx, sy}, L"经典扁平");
       });
 
   if (status && !fluent) {
-    status->text(L"YAML 模式 · 拖拽分割 · 右键 PopupHost · 滚动列表");
+    status->text(L"YAML 模式 · 点菜单样式按钮或右键经典菜单");
   }
 
   window.SetRoot(std::move(root));

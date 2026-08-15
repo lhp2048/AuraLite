@@ -312,6 +312,12 @@ if(AURALITE_BUILD_UI_DEMOS)
     COMMENT "Copy menu_classic.yaml next to ui_gallery"
   )
   add_custom_command(TARGET ui_gallery POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${AURALITE_ROOT}/examples/ui_gallery/menu_dark.yaml"
+      "$<TARGET_FILE_DIR:ui_gallery>/menu_dark.yaml"
+    COMMENT "Copy menu_dark.yaml next to ui_gallery"
+  )
+  add_custom_command(TARGET ui_gallery POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
       "${AURALITE_ROOT}/examples/ui_gallery/themes"
       "$<TARGET_FILE_DIR:ui_gallery>/themes"

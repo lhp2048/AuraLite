@@ -1,16 +1,18 @@
+# Primary-button menu chrome (accent fills) — contrast with classic flat rows.
 Column:
-  bg: "#F5F7FAE6"
+  bg: "#F5F7FAF2"
   padding: [6, 4, 6, 4]
-  spacing: 2
+  spacing: 4
   children:
-    - Button: { text: "Refresh status", width: hug, on_click: refresh }
-    - Button: { text: "About gallery", width: hug, on_click: about }
+    - Button: { text: "Refresh status", width: hug, height: 32, on_click: refresh }
+    - Button: { text: "About gallery", width: hug, height: 32, on_click: about }
     - Submenu:
         text: "More"
+        width: fill
         content:
           Column:
-            bg: "#F5F7FAE6"
+            bg: "#F5F7FAF2"
             padding: 4
-            spacing: 2
+            spacing: 4
             children:
-              - Button: { text: "Reset split ratio", width: hug, on_click: split_reset }
+              - Button: { text: "Reset split ratio", width: hug, height: 32, on_click: split_reset }

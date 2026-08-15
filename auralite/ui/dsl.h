@@ -260,6 +260,10 @@ class ButtonBuilder : public detail::BuilderBase<Button> {
     get()->text(t);
     return *this;
   }
+  ButtonBuilder& name(std::string n) {
+    get()->set_name(std::move(n));
+    return *this;
+  }
   ButtonBuilder& font_size(float size) {
     get()->font_size(size);
     return *this;

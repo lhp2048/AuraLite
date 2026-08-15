@@ -147,7 +147,7 @@ cmake --build build --config Debug --target login_demo ui_gallery auralite_ui ui
 - 控件未调用 `font_size(...)` 时回落 `fonts.size`（`ResolveFontSize`）；颜色等同理可稀疏覆盖
 - 控制台冒烟：`theme_test`（`examples/theme_test`）
 
-`ui_gallery` 示例：`examples/ui_gallery/themes/` 下 YAML 与 Light/Dark 按钮（手测换肤）；右键空白处打开 `popup_menu.yaml`（两层：Button + Submenu）。
+`ui_gallery` 示例：`examples/ui_gallery/themes/` 下 YAML 与 Light/Dark 按钮（手测换肤）；底部 **Popup 菜单样式** 三个按钮试开 `menu_classic` / `popup_menu`（按钮风）/ `menu_dark`；空白处右键默认经典菜单。
 
 #### PopupHost / 自绘弹出菜单
 

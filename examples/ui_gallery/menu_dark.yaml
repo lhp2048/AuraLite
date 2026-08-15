@@ -1,0 +1,53 @@
+# Dark / elevated menu chrome (gallery style switcher).
+Column:
+  bg: "#2B303AF5"
+  width: 200
+  padding: [4, 4, 4, 4]
+  spacing: 0
+  children:
+    - Button:
+        text: "Refresh status"
+        width: fill
+        height: 28
+        corner_radius: 4
+        text_align: left
+        font_size: 13
+        bg: "#2B303AF5"
+        bg_hover: "#3D4656"
+        bg_pressed: "#1F242D"
+        text_color: "#E8ECF2"
+        on_click: refresh
+    - Button:
+        text: "About gallery"
+        width: fill
+        height: 28
+        corner_radius: 4
+        text_align: left
+        font_size: 13
+        bg: "#2B303AF5"
+        bg_hover: "#3D4656"
+        bg_pressed: "#1F242D"
+        text_color: "#E8ECF2"
+        on_click: about
+    - Submenu:
+        text: "More"
+        width: fill
+        content:
+          Column:
+            bg: "#2B303AF5"
+            width: 200
+            padding: 4
+            spacing: 0
+            children:
+              - Button:
+                  text: "Reset split ratio"
+                  width: fill
+                  height: 28
+                  corner_radius: 4
+                  text_align: left
+                  font_size: 13
+                  bg: "#2B303AF5"
+                  bg_hover: "#3D4656"
+                  bg_pressed: "#1F242D"
+                  text_color: "#E8ECF2"
+                  on_click: split_reset

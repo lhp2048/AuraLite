@@ -207,4 +207,11 @@ ScrollView:
                   - "Item 13 — Gallery"
                   - "Item 14 — Gallery"
                   - "Item 15 — Gallery"
-        - Label: { text: "在空白处右键打开经典菜单（menu_classic.yaml）", font_size: 12, preferred_height: 20 }
+        - Label: { text: "Popup 菜单样式（点按钮试开）", font_size: 13, preferred_height: 18 }
+        - Row:
+            spacing: 8
+            children:
+              - Button: { name: menu_style_classic, text: "经典扁平", width: hug, height: 32 }
+              - Button: { name: menu_style_buttons, text: "按钮风", width: hug, height: 32 }
+              - Button: { name: menu_style_dark, text: "深色", width: hug, height: 32 }
+        - Label: { text: "空白处右键 = 经典菜单（menu_classic.yaml）", font_size: 12, preferred_height: 20 }
