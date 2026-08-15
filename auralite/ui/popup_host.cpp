@@ -3,6 +3,7 @@
 #include "auralite/ui/submenu.h"
 
 #include <cmath>
+#include <optional>
 
 namespace auralite::ui {
 namespace {
@@ -72,7 +73,7 @@ void PopupHost::Show(HWND owner, POINT screen, std::unique_ptr<Node> root) {
   g_current = this;
   InstallOwnerHook();
   InstallMouseHook();
-  ShowLayer(std::move(root), screen, nullptr);
+  (void)ShowLayer(std::move(root), screen, nullptr);
   // CreatePopup failed (or ShowLayer no-op): do not leave TLS / hooks dangling.
   if (stack_.empty()) {
     ClearOpenState();
@@ -91,25 +92,38 @@ void PopupHost::ShowFromYaml(HWND owner, POINT screen,
 
 void PopupHost::Push(const RectF& anchor_screen, std::unique_ptr<Node> root,
                      Submenu* return_to) {
-  if (stack_.empty() || !root) {
+  if (!root) {
+    return;
+  }
+  if (stack_.empty()) {
+    // Do not destroy Submenu content on early Push failure.
+    if (return_to) {
+      return_to->content(std::move(root));
+    }
     return;
   }
   g_current = this;
   InstallMouseHook();
   const size_t before = stack_.size();
-  ShowLayer(std::move(root), POINT{}, &anchor_screen);
+  auto leftover = ShowLayer(std::move(root), POINT{}, &anchor_screen);
+  if (leftover) {
+    if (return_to) {
+      return_to->content(std::move(leftover));
+    }
+    return;
+  }
   if (stack_.size() > before) {
     stack_.back().return_to = return_to;
   }
 }
 
-size_t PopupHost::LevelOf(const Window* window) const {
+std::optional<size_t> PopupHost::LevelOf(const Window* window) const {
   for (size_t i = 0; i < stack_.size(); ++i) {
     if (stack_[i].window.get() == window) {
       return i;
     }
   }
-  return 0;
+  return std::nullopt;
 }
 
 void PopupHost::DismissFrom(size_t level) {
@@ -187,10 +201,11 @@ void PopupHost::PlaceChild(Window* w, const RectF& anchor, SizeF content) {
                static_cast<int>(std::ceil(content.h)), SWP_SHOWWINDOW);
 }
 
-void PopupHost::ShowLayer(std::unique_ptr<Node> root, POINT screen_or_ignored,
-                          const RectF* anchor_opt) {
+std::unique_ptr<Node> PopupHost::ShowLayer(std::unique_ptr<Node> root,
+                                           POINT screen_or_ignored,
+                                           const RectF* anchor_opt) {
   if (!root || !owner_) {
-    return;
+    return root;
   }
 
   SizeF content = MeasureFit(root.get());
@@ -199,7 +214,7 @@ void PopupHost::ShowLayer(std::unique_ptr<Node> root, POINT screen_or_ignored,
 
   auto window = std::make_unique<Window>();
   if (!window->CreatePopup(owner_, cw, ch)) {
-    return;
+    return root;
   }
 
   Window* raw = window.get();
@@ -228,6 +243,7 @@ void PopupHost::ShowLayer(std::unique_ptr<Node> root, POINT screen_or_ignored,
   ShowWindow(raw->hwnd(), SW_SHOW);
   SetForegroundWindow(raw->hwnd());
   SetFocus(raw->hwnd());
+  return nullptr;
 }
 
 bool PopupHost::HitAnyPopup(POINT screen) const {

@@ -6,6 +6,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -34,8 +35,8 @@ class PopupHost {
   void DismissFrom(size_t level);
   bool is_open() const { return !stack_.empty(); }
   size_t depth() const { return stack_.size(); }
-  // Index of |window| in the stack, or 0 if not found.
-  size_t LevelOf(const Window* window) const;
+  // Index of |window| in the stack; nullopt if not found (never 0 for miss).
+  std::optional<size_t> LevelOf(const Window* window) const;
 
   // TLS: set for duration of Show/Push; Submenu uses Current().
   static PopupHost* Current();
@@ -57,8 +58,11 @@ class PopupHost {
   void PlaceRoot(Window* w, POINT screen, SizeF content);
   void PlaceChild(Window* w, const RectF& anchor_screen, SizeF content);
   SizeF MeasureFit(Node* root);
-  void ShowLayer(std::unique_ptr<Node> root, POINT screen_or_ignored,
-                 const RectF* anchor_opt);
+  // On success ownership is in the new stack layer and returns nullptr.
+  // On failure returns |root| so callers (Push/Submenu) can restore it.
+  std::unique_ptr<Node> ShowLayer(std::unique_ptr<Node> root,
+                                  POINT screen_or_ignored,
+                                  const RectF* anchor_opt);
   bool HitAnyPopup(POINT screen) const;
   bool IsHwndInStack(HWND hwnd) const;
   void InstallOwnerHook();

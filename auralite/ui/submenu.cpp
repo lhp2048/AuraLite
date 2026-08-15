@@ -89,8 +89,9 @@ void Submenu::OpenIfNeeded() {
   }
   Window* win = host_window();
   if (win) {
-    const size_t level = host->LevelOf(win);
-    host->DismissFrom(level + 1);
+    if (const std::optional<size_t> level = host->LevelOf(win)) {
+      host->DismissFrom(*level + 1);
+    }
   }
   if (!content_) {
     return;
