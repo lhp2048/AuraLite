@@ -129,6 +129,17 @@ if(AURALITE_BUILD_LEGACY)
   endif()
 endif()
 
+# ---- yaml-cpp (declarative UI loader) ----
+include(FetchContent)
+set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(YAML_CPP_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(yaml-cpp
+  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+  GIT_TAG 0.8.0
+)
+FetchContent_MakeAvailable(yaml-cpp)
+
 # ---- Next-gen declarative UI (auralite::ui) ----
 add_library(auralite_ui STATIC
   auralite/ui/node.cpp
@@ -148,6 +159,8 @@ add_library(auralite_ui STATIC
   auralite/ui/context_menu.cpp
   auralite/ui/window.cpp
   auralite/ui/application.cpp
+  auralite/ui/factory.cpp
+  auralite/ui/yaml_loader.cpp
 )
 add_library(AuraLite::UINext ALIAS auralite_ui)
 target_include_directories(auralite_ui PUBLIC "${AURALITE_ROOT}")
@@ -163,6 +176,7 @@ target_compile_definitions(auralite_ui
 target_link_libraries(auralite_ui
   PUBLIC
     AuraLite::D2D
+    yaml-cpp
     imm32
   PRIVATE
     user32

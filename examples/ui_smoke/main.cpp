@@ -4,12 +4,15 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <exception>
 
 #include "auralite/ui/application.h"
 #include "auralite/ui/button.h"
 #include "auralite/ui/checkbox.h"
 #include "auralite/ui/column.h"
 #include "auralite/ui/context_menu.h"
+#include "auralite/ui/dsl.h"
+#include "auralite/ui/factory.h"
 #include "auralite/ui/image_button.h"
 #include "auralite/ui/image_view.h"
 #include "auralite/ui/label.h"
@@ -76,7 +79,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
 
   {
     auto title = std::make_unique<auralite::ui::Label>();
-    title->text(L"AuraLite Phase 2 — SplitView / ContextMenu")
+    title->text(L"AuraLite Phase 2 — ViewFactory / YAML / DSL")
         .font_size(20.f)
         .align(auralite::ui::TextAlign::Left);
     root->AddChild(std::move(title));
@@ -89,6 +92,57 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
       .color(auralite::ColorF::FromRgb(90, 100, 120))
       .align(auralite::ui::TextAlign::Left);
   root->AddChild(std::move(status));
+
+  // Mini YAML vs DSL tree smoke (same shape + key props: Column → Label + Button).
+  {
+    using namespace auralite::ui::dsl;
+    auto dsl_tree =
+        Column()
+            .padding(8.f)
+            .spacing(6.f)
+            .child(Label().text(L"YAML+DSL mini").font_size(14.f))
+            .child(Button().text(L"Mini Button").preferred_size(140.f, 36.f))
+            .Build();
+
+    constexpr const char* kMiniYaml = R"(
+Column:
+  padding: 8
+  spacing: 6
+  children:
+    - Label: { text: "YAML+DSL mini", font_size: 14 }
+    - Button: { text: "Mini Button", width: 140, height: 36, on_click: yaml_click }
+)";
+
+    auralite::ui::HandlerMap handlers;
+    handlers["yaml_click"] = [status_ptr, &window]() {
+      if (status_ptr) {
+        status_ptr->text(L"YAML Button clicked (HandlerMap)");
+      }
+      window.Invalidate();
+    };
+
+    auralite::ui::ViewFactory factory;
+    std::unique_ptr<auralite::ui::Node> yaml_tree;
+    try {
+      yaml_tree = factory.CreateFromYamlString(kMiniYaml, handlers);
+    } catch (const std::exception& ex) {
+      MessageBoxA(nullptr, ex.what(), "YAML load failed", MB_ICONERROR);
+    }
+
+    if (yaml_tree) {
+      const std::string dsl_dump =
+          auralite::ui::ViewFactory::DumpTree(dsl_tree.get());
+      const std::string yaml_dump =
+          auralite::ui::ViewFactory::DumpTree(yaml_tree.get());
+      const bool same_tree = (dsl_dump == yaml_dump);
+      if (status_ptr) {
+        status_ptr->text(same_tree
+                             ? L"YAML↔DSL dump OK · click Mini Button below"
+                             : L"YAML↔DSL dump MISMATCH");
+      }
+      root->AddChild(std::move(yaml_tree));
+    }
+  }
 
   auralite::ui::SplitView* split_ptr = nullptr;
   {
