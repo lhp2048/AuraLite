@@ -1,5 +1,6 @@
 #include "auralite/ui/popup_host.h"
 
+#include "auralite/async/task_lambda.h"
 #include "auralite/ui/submenu.h"
 
 #include <cmath>
@@ -51,11 +52,19 @@ POINT ClampTopLeft(POINT desired, SizeF size, const RectF& work) {
 
 PopupHost::PopupHost() = default;
 
-PopupHost::~PopupHost() { Dismiss(); }
+PopupHost::~PopupHost() {
+  if (alive_) {
+    *alive_ = false;
+  }
+  dismiss_posted_ = false;
+  Dismiss();
+}
 
 PopupHost* PopupHost::Current() { return g_current; }
 
 void PopupHost::ClearOpenState() {
+  dismiss_posted_ = false;
+  dismiss_posted_level_ = 0;
   UninstallMouseHook();
   UninstallOwnerHook();
   owner_ = nullptr;
@@ -168,12 +177,42 @@ void PopupHost::DismissFrom(size_t level) {
 
 void PopupHost::Dismiss() { DismissFrom(0); }
 
+void PopupHost::RequestDismiss() { RequestDismissFrom(0); }
+
+void PopupHost::RequestDismissFrom(size_t level) {
+  if (dismiss_posted_) {
+    if (level < dismiss_posted_level_) {
+      dismiss_posted_level_ = level;
+    }
+    return;
+  }
+  dismiss_posted_ = true;
+  dismiss_posted_level_ = level;
+  MessageLoop* loop = MessageLoop::current();
+  if (!loop) {
+    dismiss_posted_ = false;
+    DismissFrom(level);
+    return;
+  }
+  // Non-nestable: do not run during MessageBox / nested pumps (about dialog).
+  auto alive = alive_;
+  loop->PostNonNestableTask(new auralite::async::LambdaTask([this, alive] {
+    if (!alive || !*alive) {
+      return;
+    }
+    const size_t lvl = dismiss_posted_level_;
+    dismiss_posted_ = false;
+    dismiss_posted_level_ = 0;
+    DismissFrom(lvl);
+  }));
+}
+
 std::function<void()> PopupHost::WrapDismiss(std::function<void()> fn) {
   return [this, fn = std::move(fn)] {
     if (fn) {
       fn();
     }
-    Dismiss();
+    RequestDismiss();
   };
 }
 
@@ -246,7 +285,7 @@ std::unique_ptr<Node> PopupHost::ShowLayer(std::unique_ptr<Node> root,
     if (!activating || IsHwndInStack(activating)) {
       return;
     }
-    Dismiss();
+    RequestDismiss();
   });
 
   raw->SetRoot(std::move(root));
@@ -364,7 +403,7 @@ LRESULT CALLBACK PopupHost::MouseHookProc(int code, WPARAM wparam,
     if (info && !g_mouse_hook_host->HitAnyPopup(info->pt)) {
       // Keep activate path; this covers cases activate misses.
       // May UnhookWindowsHookEx — CallNextHookEx(nullptr) is still valid.
-      g_mouse_hook_host->Dismiss();
+      g_mouse_hook_host->RequestDismiss();
     }
   }
   return CallNextHookEx(nullptr, code, wparam, lparam);

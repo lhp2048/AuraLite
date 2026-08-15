@@ -860,7 +860,7 @@ void Window::DispatchKey(UINT msg, WPARAM wparam) {
     if (PopupHost* host = PopupHost::Current()) {
       const size_t d = host->depth();
       if (d >= 1) {
-        host->DismissFrom(d - 1);
+        host->RequestDismissFrom(d - 1);
       }
       // |this| may be destroyed; return without touching members.
       return;
