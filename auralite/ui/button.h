@@ -23,7 +23,7 @@ class Button : public Node {
   Button& bg(const ColorF& c);
   Button& bg_hover(const ColorF& c);
   Button& bg_pressed(const ColorF& c);
-  // Optional label color; unset → text_on_accent, or text if custom bg set.
+  // Optional label color; unset → text_on_accent (white on filled buttons).
   Button& text_color(const ColorF& c);
   // Optional icon: premul BGRA; uploaded to GPU on first paint.
   Button& icon_bgra(UINT width, UINT height, const uint8_t* bgra, UINT stride);

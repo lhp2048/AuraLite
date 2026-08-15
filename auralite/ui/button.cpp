@@ -108,9 +108,6 @@ ColorF Button::LabelColor() const {
   if (text_color_) {
     return *text_color_;
   }
-  if (bg_ || bg_hover_ || bg_pressed_) {
-    return th.text;
-  }
   return th.text_on_accent;
 }
 
