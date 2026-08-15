@@ -86,6 +86,9 @@ bool Window::Create(const wchar_t* title, int w, int h) {
     return false;
   }
 
+  // Detach default IME until a WantsIme() node receives focus.
+  ImmAssociateContextEx(hwnd_, NULL, 0);
+
   layout_dirty_ = true;
   return true;
 }
@@ -131,6 +134,7 @@ void Window::SetFocusNode(Node* node) {
     focused_->OnBlur();
   }
   focused_ = node;
+  ime_char_suppress_ = 0;
   if (focused_) {
     focused_->set_focused(true);
     focused_->OnFocus();
@@ -138,7 +142,7 @@ void Window::SetFocusNode(Node* node) {
       ::SetFocus(hwnd_);
     }
   }
-  UpdateImeCandidatePos();
+  UpdateImeAssociation();
   Invalidate();
 }
 
@@ -197,6 +201,18 @@ void Window::EnsureMouseLeaveTracking() {
   tme.hwndTrack = hwnd_;
   if (TrackMouseEvent(&tme)) {
     tracking_mouse_leave_ = true;
+  }
+}
+
+void Window::UpdateImeAssociation() {
+  if (!hwnd_) {
+    return;
+  }
+  if (focused_ && focused_->WantsIme()) {
+    ImmAssociateContextEx(hwnd_, NULL, IACE_DEFAULT);
+    UpdateImeCandidatePos();
+  } else {
+    ImmAssociateContextEx(hwnd_, NULL, 0);
   }
 }
 
@@ -307,6 +323,10 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         focused_->OnImeEnd();
         Invalidate();
       }
+      return 0;
+
+    case WM_IME_CHAR:
+      DispatchImeChar(wparam);
       return 0;
 
     case WM_SETFOCUS:
@@ -542,6 +562,19 @@ void Window::DispatchChar(WPARAM wparam) {
     return;
   }
   // Swallow WM_CHAR duplicates after Imm GCS_RESULTSTR.
+  if (ime_char_suppress_ > 0) {
+    --ime_char_suppress_;
+    return;
+  }
+  focused_->OnChar(static_cast<wchar_t>(wparam));
+  Invalidate();
+}
+
+void Window::DispatchImeChar(WPARAM wparam) {
+  if (!focused_ || !focused_->WantsIme()) {
+    return;
+  }
+  // Swallow duplicates already committed via WM_IME_COMPOSITION / GCS_RESULTSTR.
   if (ime_char_suppress_ > 0) {
     --ime_char_suppress_;
     return;

@@ -42,6 +42,8 @@ class Window {
   void DispatchKey(UINT msg, WPARAM wparam);
   void DispatchChar(WPARAM wparam);
   void HandleImeComposition(LPARAM lparam);
+  void DispatchImeChar(WPARAM wparam);
+  void UpdateImeAssociation();
   void UpdateImeCandidatePos();
 
   static MouseButton ButtonFromMsg(UINT msg, WPARAM wparam);
