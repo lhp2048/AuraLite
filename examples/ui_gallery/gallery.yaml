@@ -1,0 +1,58 @@
+Column:
+  padding: 20
+  spacing: 10
+  children:
+    - Label: { text: "AuraLite UI Gallery", font_size: 22 }
+    - Label: { text: "拖拽分割 · 右键菜单 · 滚动列表", font_size: 13, preferred_height: 22 }
+    - SplitView:
+        width: 560
+        height: 100
+        ratio: 0.42
+        leading:
+          Label: { text: "SplitView 左", font_size: 14, align: center }
+        trailing:
+          Label: { text: "SplitView 右", font_size: 14, align: center }
+    - Row:
+        spacing: 16
+        children:
+          - Checkbox: { text: "记住选项", checked: false }
+          - Switch: { text: "通知", value: false }
+    - Row:
+        spacing: 16
+        children:
+          - Radio: { text: "选项 A", group_id: 1, checked: true }
+          - Radio: { text: "选项 B", group_id: 1, checked: false }
+    - Label: { text: "TextField", font_size: 13, preferred_height: 18 }
+    - TextField: { placeholder: "输入文字（支持 IME）", width: 360, height: 36 }
+    - Label: { text: "Password", font_size: 13, preferred_height: 18 }
+    - TextField: { placeholder: "密码（不复制明文）", password: true, width: 360, height: 36 }
+    - Button: { text: "Button", width: 140, height: 40, on_click: gallery_click }
+    - Row:
+        spacing: 12
+        children:
+          - ImageView: { width: 72, height: 72 }
+          - ImageButton: { width: 56, height: 56, on_click: image_btn_click }
+    - Label: { text: "ScrollView + ListView", font_size: 13, preferred_height: 18 }
+    - ScrollView:
+        width: 420
+        height: 160
+        content:
+          ListView:
+            selected: 0
+            items:
+              - "Item 01 — Gallery"
+              - "Item 02 — Gallery"
+              - "Item 03 — Gallery"
+              - "Item 04 — Gallery"
+              - "Item 05 — Gallery"
+              - "Item 06 — Gallery"
+              - "Item 07 — Gallery"
+              - "Item 08 — Gallery"
+              - "Item 09 — Gallery"
+              - "Item 10 — Gallery"
+              - "Item 11 — Gallery"
+              - "Item 12 — Gallery"
+              - "Item 13 — Gallery"
+              - "Item 14 — Gallery"
+              - "Item 15 — Gallery"
+    - Label: { text: "在空白处右键打开 ContextMenu", font_size: 12, preferred_height: 20 }

@@ -213,6 +213,41 @@ if(AURALITE_BUILD_UI_SMOKE)
   endif()
 endif()
 
+option(AURALITE_BUILD_UI_DEMOS "Build Phase-2 login_demo + ui_gallery" ON)
+if(AURALITE_BUILD_UI_DEMOS)
+  add_executable(login_demo WIN32 examples/login/main.cpp)
+  target_link_libraries(login_demo PRIVATE AuraLite::UINext)
+  target_compile_definitions(login_demo PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(login_demo PRIVATE /W3 /utf-8 /permissive-)
+  endif()
+  add_custom_command(TARGET login_demo POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${AURALITE_ROOT}/examples/login/login_window.yaml"
+      "$<TARGET_FILE_DIR:login_demo>/login_window.yaml"
+    COMMENT "Copy login_window.yaml next to login_demo"
+  )
+
+  add_executable(ui_gallery WIN32 examples/ui_gallery/main.cpp)
+  target_link_libraries(ui_gallery PRIVATE AuraLite::UINext)
+  target_compile_definitions(ui_gallery PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(ui_gallery PRIVATE /W3 /utf-8 /permissive-)
+  endif()
+  add_custom_command(TARGET ui_gallery POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${AURALITE_ROOT}/examples/ui_gallery/gallery.yaml"
+      "$<TARGET_FILE_DIR:ui_gallery>/gallery.yaml"
+    COMMENT "Copy gallery.yaml next to ui_gallery"
+  )
+endif()
+
 option(AURALITE_BUILD_TESTS "Build test_base / test_view" ON)
 if(AURALITE_BUILD_TESTS AND AURALITE_BUILD_LEGACY)
   add_executable(test_base test_base/main.cpp)

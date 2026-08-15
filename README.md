@@ -27,32 +27,45 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 | `NativeButton` / `NativeControlWin` / `NativeViewHost` | 嵌原生 HWND，系统自绘 |
 | `TrackPopupMenu`（`MenuModel` / `MenuRunner`） | Win32 系统弹出菜单 |
 
-### master 阶段二（进行中 — `auralite::ui`）
+### master 阶段二（`auralite::ui` 声明式 UI）
 
-在 `auralite::Canvas` 上新建声明式控件树（非 `view::` 外壳）。设计见：
+在 `auralite::Canvas` 上新建控件树与声明式双轨（**YAML + C++ fluent DSL**），**不**依赖 `view::` / `AuraLite.UI`。设计见：
 
 [`family_win_desktop/docs/superpowers/specs/2026-08-15-auralite-phase2-declarative-ui-design.md`](../../docs/superpowers/specs/2026-08-15-auralite-phase2-declarative-ui-design.md)
 
-CMake 同时构建：
-
 | 目标 | 说明 |
 |------|------|
-| `auralite_d2d` | 下一代 `auralite::Canvas` / `Image`（D2D + DirectWrite + WIC） |
-| `AuraLite.Base` / `AuraLite.UI` | Views 静态库（源列表由 `cmake/LegacySources.cmake` 生成；自绘走 Direct2D） |
-| `d2d_demo` | HWND 冒烟：圆角/矩形/文字/位图 |
-| `test_base` / `test_view` | 与 `library.sln` 相同冒烟程序 |
+| `auralite_d2d` (`AuraLite::D2D`) | `auralite::Canvas` / `Image`（D2D + DirectWrite + WIC） |
+| `auralite_ui` (`AuraLite::UINext`) | `auralite::ui` 控件树 + `ViewFactory` + yaml-cpp + `dsl::*` |
+| `login_demo` | 登录窗：默认读 `login_window.yaml`；`--fluent` 用链式等价树 |
+| `ui_gallery` | 全控件面画廊（YAML 默认 / `--fluent`）；含 ContextMenu |
+| `ui_smoke` | 早期冒烟（可选保留） |
+| `AuraLite.Base` / `AuraLite.UI` | 旧 Views 静态库（对照 / `1.x`·`2.x`）；**新 Demo 不链接** |
+| `d2d_demo` / `test_view` | 阶段一 / Views 冒烟 |
 
-产物统一到与 VS 相同目录：`bin|lib/<Platform>/<Config>/`（例如 `bin\x64\Debug\`）。
+**与分支关系：** `1.x` = Views+GDI+；`2.x` = Views+D2D 冻结线；`master` = 阶段二 `auralite::ui`。阶段二 Demo **只**链 `AuraLite::UINext`（传递依赖 D2D + yaml-cpp）。
+
+#### Mini YAML 子集（Spec §3.4）
+
+- UTF-8 文件；UI 字符串宽字符  
+- 2 空格缩进；`TypeName:` 作为唯一 map key（如 `Column:` / `Button:`）  
+- 容器：`children:` 列表；`ScrollView.content`；`SplitView.leading` / `trailing`  
+- `on_click: handler_name` → Demo 侧 `HandlerMap`  
+- 无热重载、无完整 schema；`ContextMenu` 仍为代码 API（`TrackPopupMenu`）
+
+#### 阶段二入口
 
 ```powershell
 cd family_win_desktop\3rd-party\AuraLite
-python scripts\gen_cmake_sources.py   # vcxproj 变更后重跑
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Debug
-.\bin\x64\Debug\d2d_demo.exe
-.\bin\x64\Debug\test_view.exe
-.\bin\x64\Debug\test_base.exe
+cmake --build build --config Debug --target login_demo ui_gallery auralite_ui
+.\bin\x64\Debug\login_demo.exe
+.\bin\x64\Debug\login_demo.exe --fluent
+.\bin\x64\Debug\ui_gallery.exe
+.\bin\x64\Debug\ui_gallery.exe --fluent
 ```
+
+产物目录：`bin|lib/<Platform>/<Config>/`（YAML 会复制到 exe 旁）。
 
 关闭旧库：`-DAURALITE_BUILD_LEGACY=OFF`。旧 `library.sln` 仍可并行使用。
 

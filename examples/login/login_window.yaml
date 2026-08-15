@@ -1,0 +1,11 @@
+Column:
+  padding: 24
+  spacing: 12
+  children:
+    - Label: { text: "Smart Family", font_size: 20 }
+    - Label: { text: "账号", font_size: 13, preferred_height: 20 }
+    - TextField: { placeholder: "账号", width: 320, height: 36 }
+    - Label: { text: "密码", font_size: 13, preferred_height: 20 }
+    - TextField: { placeholder: "密码", password: true, width: 320, height: 36 }
+    - Button: { text: "登录", width: 120, height: 40, on_click: handle_login }
+    - Label: { text: "状态：就绪", font_size: 13, preferred_height: 22 }
