@@ -486,11 +486,15 @@ void TextField::OnBlur() {
 }
 
 bool TextField::WantsIme() const {
-  return focused() && !password_;
+  // Password fields still need an IME association. Detaching IME (old behavior)
+  // breaks WM_CHAR under Chinese IMEs — caret shows but typing does nothing.
+  return focused();
 }
 
 void TextField::OnImeComposition(const std::wstring& composition) {
+  // Do not mirror composition plaintext into a password field.
   if (password_) {
+    composition_.clear();
     return;
   }
   composition_ = composition;
