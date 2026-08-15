@@ -144,7 +144,7 @@ bool Window::CreatePopup(HWND owner, int w, int h) {
   quit_on_close_ = false;
 
   hwnd_ = CreateWindowExW(
-      WS_EX_TOOLWINDOW | WS_EX_TOPMOST, kWindowClassName, L"",
+      WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED, kWindowClassName, L"",
       WS_POPUP | WS_CLIPCHILDREN, 0, 0, w, h, owner, nullptr, instance,
       this);
   if (!hwnd_) {
@@ -153,7 +153,7 @@ bool Window::CreatePopup(HWND owner, int w, int h) {
     return false;
   }
 
-  if (!canvas_.Init(hwnd_)) {
+  if (!canvas_.InitLayered(hwnd_)) {
     DestroyWindow(hwnd_);
     hwnd_ = nullptr;
     popup_mode_ = false;
@@ -622,8 +622,12 @@ void Window::OnPaint() {
   }
 
   const bool need_init = !canvas_.is_valid();
-  if (need_init && !canvas_.Init(hwnd_)) {
-    return;
+  if (need_init) {
+    const bool ok =
+        popup_mode_ ? canvas_.InitLayered(hwnd_) : canvas_.Init(hwnd_);
+    if (!ok) {
+      return;
+    }
   }
   if (need_init) {
     NotifyDeviceLost();
@@ -633,9 +637,11 @@ void Window::OnPaint() {
     return;
   }
 
-  const ColorF& clear =
-      popup_mode_ ? Theme::Active().surface : Theme::Active().window_bg;
-  canvas_.Clear(clear);
+  if (popup_mode_) {
+    canvas_.Clear(ColorF(0.f, 0.f, 0.f, 0.f));
+  } else {
+    canvas_.Clear(Theme::Active().window_bg);
+  }
 
   if (root_) {
     const RectF client = ClientRectF();
@@ -651,7 +657,9 @@ void Window::OnPaint() {
   }
 
   if (!canvas_.EndDraw()) {
-    if (canvas_.Init(hwnd_)) {
+    const bool ok =
+        popup_mode_ ? canvas_.InitLayered(hwnd_) : canvas_.Init(hwnd_);
+    if (ok) {
       NotifyDeviceLost();
     }
     layout_dirty_ = true;
