@@ -6,10 +6,14 @@
 
 #include "auralite/ui/application.h"
 #include "auralite/ui/button.h"
+#include "auralite/ui/checkbox.h"
 #include "auralite/ui/column.h"
 #include "auralite/ui/image_button.h"
 #include "auralite/ui/image_view.h"
 #include "auralite/ui/label.h"
+#include "auralite/ui/radio.h"
+#include "auralite/ui/row.h"
+#include "auralite/ui/switch_control.h"
 #include "auralite/ui/text_field.h"
 #include "auralite/ui/window.h"
 
@@ -48,7 +52,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   auralite::ui::Window window;
-  if (!window.Create(L"AuraLite UI Smoke", 720, 640)) {
+  if (!window.Create(L"AuraLite UI Smoke", 720, 780)) {
     MessageBoxW(nullptr, L"Window / Canvas init failed", L"ui_smoke",
                 MB_ICONERROR);
     CoUninitialize();
@@ -60,7 +64,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
 
   {
     auto title = std::make_unique<auralite::ui::Label>();
-    title->text(L"AuraLite Phase 2 — TextField / Focus / IME")
+    title->text(L"AuraLite Phase 2 — Checkbox / Radio / Switch")
         .font_size(20.f)
         .align(auralite::ui::TextAlign::Left);
     root->AddChild(std::move(title));
@@ -68,7 +72,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
 
   auto status = std::make_unique<auralite::ui::Label>();
   auralite::ui::Label* status_ptr = status.get();
-  status->text(L"Tab cycles focus · type in fields · Ctrl+A/C/X/V")
+  status->text(L"Tab focus · click toggles · radios share group 1")
       .font_size(14.f)
       .color(auralite::ColorF::FromRgb(90, 100, 120))
       .align(auralite::ui::TextAlign::Left);
@@ -109,6 +113,61 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
         .placeholder(L"Password (no copy)")
         .preferred_size(320.f, 36.f);
     root->AddChild(std::move(field));
+  }
+
+  {
+    auto check = std::make_unique<auralite::ui::Checkbox>();
+    check->text(L"Enable option")
+        .on_changed([status_ptr, &window](bool checked) {
+          if (status_ptr) {
+            status_ptr->text(checked ? L"Checkbox: on" : L"Checkbox: off");
+          }
+          window.Invalidate();
+        });
+    root->AddChild(std::move(check));
+  }
+
+  {
+    auto radio_row = std::make_unique<auralite::ui::Row>();
+    radio_row->spacing(16.f);
+    {
+      auto radio_a = std::make_unique<auralite::ui::Radio>();
+      radio_a->text(L"Option A")
+          .group_id(1)
+          .checked(true)
+          .on_changed([status_ptr, &window](bool checked) {
+            if (checked && status_ptr) {
+              status_ptr->text(L"Radio: A");
+            }
+            window.Invalidate();
+          });
+      radio_row->AddChild(std::move(radio_a));
+    }
+    {
+      auto radio_b = std::make_unique<auralite::ui::Radio>();
+      radio_b->text(L"Option B")
+          .group_id(1)
+          .on_changed([status_ptr, &window](bool checked) {
+            if (checked && status_ptr) {
+              status_ptr->text(L"Radio: B");
+            }
+            window.Invalidate();
+          });
+      radio_row->AddChild(std::move(radio_b));
+    }
+    root->AddChild(std::move(radio_row));
+  }
+
+  {
+    auto sw = std::make_unique<auralite::ui::Switch>();
+    sw->text(L"Notifications")
+        .on_changed([status_ptr, &window](bool on) {
+          if (status_ptr) {
+            status_ptr->text(on ? L"Switch: on" : L"Switch: off");
+          }
+          window.Invalidate();
+        });
+    root->AddChild(std::move(sw));
   }
 
   {

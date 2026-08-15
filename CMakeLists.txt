@@ -139,6 +139,9 @@ add_library(auralite_ui STATIC
   auralite/ui/image_view.cpp
   auralite/ui/image_button.cpp
   auralite/ui/text_field.cpp
+  auralite/ui/checkbox.cpp
+  auralite/ui/radio.cpp
+  auralite/ui/switch_control.cpp
   auralite/ui/window.cpp
   auralite/ui/application.cpp
 )

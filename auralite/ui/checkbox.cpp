@@ -1,0 +1,118 @@
+#include "auralite/ui/checkbox.h"
+
+#include <algorithm>
+
+namespace auralite::ui {
+
+Checkbox::Checkbox() {
+  set_focusable(true);
+}
+
+Checkbox& Checkbox::text(const std::wstring& t) {
+  text_ = t;
+  return *this;
+}
+
+Checkbox& Checkbox::font_size(float size) {
+  font_size_ = size;
+  return *this;
+}
+
+Checkbox& Checkbox::checked(bool v) {
+  if (checked_ == v) {
+    return *this;
+  }
+  checked_ = v;
+  if (on_changed_) {
+    on_changed_(checked_);
+  }
+  return *this;
+}
+
+Checkbox& Checkbox::on_changed(ChangedHandler handler) {
+  on_changed_ = std::move(handler);
+  return *this;
+}
+
+RectF Checkbox::BoxRect() const {
+  const float y = bounds_.y + (bounds_.h - kBoxSize) * 0.5f;
+  return RectF{bounds_.x, y, kBoxSize, kBoxSize};
+}
+
+SizeF Checkbox::Measure(float /*max_w*/, float /*max_h*/) {
+  float text_w = 0.f;
+  // Measure without a Canvas: approximate; Layout uses preferred height.
+  if (!text_.empty()) {
+    text_w = font_size_ * 0.55f * static_cast<float>(text_.size());
+  }
+  const float w = kBoxSize + (text_.empty() ? 0.f : kLabelGap + text_w);
+  const float h = std::max(kBoxSize, font_size_ + 6.f);
+  return SizeF{w, h};
+}
+
+void Checkbox::Paint(auralite::Canvas& canvas) {
+  const RectF box = BoxRect();
+  const ColorF border = ColorF::FromRgb(60, 60, 60);
+  canvas.DrawRect(box, border, 1.5f);
+
+  if (checked_) {
+    const ColorF mark = ColorF::FromRgb(20, 120, 60);
+    const float x0 = box.x + 3.f;
+    const float y0 = box.y + 8.f;
+    const float x1 = box.x + 7.f;
+    const float y1 = box.y + 12.f;
+    const float x2 = box.x + 13.f;
+    const float y2 = box.y + 4.f;
+    canvas.DrawLine(x0, y0, x1, y1, mark, 2.f);
+    canvas.DrawLine(x1, y1, x2, y2, mark, 2.f);
+  }
+
+  if (!text_.empty()) {
+    const float text_x = box.x + kBoxSize + kLabelGap;
+    const RectF text_rect{text_x, bounds_.y,
+                          std::max(0.f, bounds_.x + bounds_.w - text_x),
+                          bounds_.h};
+    canvas.DrawText(text_, text_rect, ColorF::FromRgb(30, 40, 55), font_size_,
+                    L"Microsoft YaHei UI", auralite::TextHAlign::Left);
+  }
+
+  if (focused()) {
+    canvas.DrawRect(bounds_, ColorF::FromRgb(40, 110, 200), 1.5f);
+  }
+}
+
+void Checkbox::Toggle() {
+  checked_ = !checked_;
+  if (on_changed_) {
+    on_changed_(checked_);
+  }
+}
+
+void Checkbox::OnMouseDown(const MouseEvent& e) {
+  if (e.button != MouseButton::Left) {
+    return;
+  }
+  pressed_ = true;
+}
+
+void Checkbox::OnMouseUp(const MouseEvent& e) {
+  if (e.button != MouseButton::Left) {
+    return;
+  }
+  const bool was_pressed = pressed_;
+  pressed_ = false;
+  if (was_pressed && ContainsPoint(bounds_, e.x, e.y)) {
+    Toggle();
+  }
+}
+
+void Checkbox::OnKey(const KeyEvent& e) {
+  if (!e.down) {
+    return;
+  }
+  if (e.vk == VK_SPACE || e.vk == VK_RETURN) {
+    Toggle();
+  }
+}
+
+}  // namespace auralite::ui

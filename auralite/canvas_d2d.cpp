@@ -288,6 +288,48 @@ void Canvas::DrawRect(const RectF& rect, const ColorF& color,
   render_target_->DrawRectangle(ToD2D(rect), brush, stroke_width);
 }
 
+void Canvas::FillEllipse(const RectF& rect, const ColorF& color) {
+  if (!render_target_ || rect.w <= 0.f || rect.h <= 0.f) {
+    return;
+  }
+  ID2D1SolidColorBrush* brush = BrushFor(color);
+  if (!brush) {
+    return;
+  }
+  const D2D1_ELLIPSE ellipse = D2D1::Ellipse(
+      D2D1::Point2F(rect.x + rect.w * 0.5f, rect.y + rect.h * 0.5f),
+      rect.w * 0.5f, rect.h * 0.5f);
+  render_target_->FillEllipse(ellipse, brush);
+}
+
+void Canvas::DrawEllipse(const RectF& rect, const ColorF& color,
+                         float stroke_width) {
+  if (!render_target_ || rect.w <= 0.f || rect.h <= 0.f) {
+    return;
+  }
+  ID2D1SolidColorBrush* brush = BrushFor(color);
+  if (!brush) {
+    return;
+  }
+  const D2D1_ELLIPSE ellipse = D2D1::Ellipse(
+      D2D1::Point2F(rect.x + rect.w * 0.5f, rect.y + rect.h * 0.5f),
+      rect.w * 0.5f, rect.h * 0.5f);
+  render_target_->DrawEllipse(ellipse, brush, stroke_width);
+}
+
+void Canvas::DrawLine(float x0, float y0, float x1, float y1,
+                      const ColorF& color, float stroke_width) {
+  if (!render_target_) {
+    return;
+  }
+  ID2D1SolidColorBrush* brush = BrushFor(color);
+  if (!brush) {
+    return;
+  }
+  render_target_->DrawLine(D2D1::Point2F(x0, y0), D2D1::Point2F(x1, y1), brush,
+                           stroke_width);
+}
+
 void Canvas::DrawText(const std::wstring& text, const RectF& layout_rect,
                       const ColorF& color, float font_size,
                       const wchar_t* font_family, TextHAlign align) {

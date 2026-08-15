@@ -92,6 +92,11 @@ class Canvas {
   void FillRoundedRect(const RectF& rect, float radius_x, float radius_y,
                        const ColorF& color);
   void DrawRect(const RectF& rect, const ColorF& color, float stroke_width = 1.f);
+  void FillEllipse(const RectF& rect, const ColorF& color);
+  void DrawEllipse(const RectF& rect, const ColorF& color,
+                   float stroke_width = 1.f);
+  void DrawLine(float x0, float y0, float x1, float y1, const ColorF& color,
+                float stroke_width = 1.f);
 
   // Draws UTF-16 text with DirectWrite (ClearType / grayscale via D2D).
   void DrawText(const std::wstring& text, const RectF& layout_rect,
