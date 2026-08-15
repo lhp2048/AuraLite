@@ -8,14 +8,15 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 
 | 分支 | 用途 |
 |------|------|
-| **`1.x`** | 当前方案维护线：Chromium Views + GDI+、VS2022 静态库、C++14 / Win7+。Family Shell 等业务优先跟此分支。 |
-| **`master`** | 下一代迭代线：按《AuraLite 项目开发计划书》推进（Direct2D、CMake、声明式 UI 等）。 |
+| **`1.x`** | 业务维护线：Chromium Views + GDI+、VS2022 静态库、C++14 / Win7+。Family Shell 等优先跟此分支。 |
+| **`2.x`** | 过渡维护线：Chromium Views + Direct2D（阶段一完成态）。从 `master@acc1dab` 切出；Views/D2D 缺陷修复与兼容合入此线。 |
+| **`master`** | 下一代开发线：**阶段二起**主做 `auralite::ui`（声明式 UI / YAML / 新控件树）。不以 `view::` 兼容为验收目标。 |
 
-`1.x` 从提交 `534701a`（基础控件与菜单就绪）切出；其后 bugfix / 小功能合入 `1.x`，架构级改造在 `master`。
+`1.x` 从 `534701a` 切出；`2.x` 从阶段一完成提交 `acc1dab` 切出。架构级新能力优先在 `master`，稳定后再视需要回港或另开大版本。
 
-### master 阶段一（**已完成** — D2D 唯一渲染）
+### 2.x / 阶段一遗产（**已完成** — Views + D2D）
 
-**完成定义（2026-08-14）：** Views 自绘路径仅 Direct2D + DirectWrite + WIC；`CreateCanvas` / `WidgetWin` 回屏均为 D2D；**GDI+ 已从 master 移除**（无 `gdiplus.lib`、无 `canvas_gdiplus`）；`test_view` 与 `d2d_demo` 文字观感同一档。详见修订计划：
+**完成定义（2026-08-14）：** Views 自绘路径仅 Direct2D + DirectWrite + WIC；`CreateCanvas` / `WidgetWin` 回屏均为 D2D；**GDI+ 已移除**；`test_view` 与 `d2d_demo` 文字观感同一档。详见：
 
 [`family_win_desktop/docs/superpowers/plans/2026-08-14-auralite-d2d-only-roadmap.md`](../../docs/superpowers/plans/2026-08-14-auralite-d2d-only-roadmap.md)
 
@@ -26,11 +27,11 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 | `NativeButton` / `NativeControlWin` / `NativeViewHost` | 嵌原生 HWND，系统自绘 |
 | `TrackPopupMenu`（`MenuModel` / `MenuRunner`） | Win32 系统弹出菜单 |
 
-默认 demo 主路径不依赖上述例外完成验收。
+### master 阶段二（进行中 — `auralite::ui`）
 
-### master 阶段二（下一步 — 声明式 UI）
+在 `auralite::Canvas` 上新建声明式控件树（非 `view::` 外壳）。设计见：
 
-渲染已在 D2D 上稳定，**无需再迁画布**。阶段二入口：`ViewFactory` + yaml-cpp 属性注入、`Column` / `Row` 布局，以及 YAML 与 C++ 链式双轨 Demo（如 `login_window.yaml`）。实施时另开 plan，摘要见上述路线图 §3。
+[`family_win_desktop/docs/superpowers/specs/2026-08-15-auralite-phase2-declarative-ui-design.md`](../../docs/superpowers/specs/2026-08-15-auralite-phase2-declarative-ui-design.md)
 
 CMake 同时构建：
 
