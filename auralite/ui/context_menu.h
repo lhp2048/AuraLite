@@ -7,7 +7,7 @@
 
 namespace auralite::ui {
 
-// Win32 TrackPopupMenu wrapper (system-menu exception for phase 2).
+// Legacy: Win32 TrackPopupMenu wrapper. Prefer PopupHost + YAML/DSL menus.
 class ContextMenu {
  public:
   using CommandHandler = std::function<void(int id)>;

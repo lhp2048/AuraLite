@@ -14,9 +14,9 @@
 #include "auralite/ui/button.h"
 #include "auralite/ui/checkbox.h"
 #include "auralite/ui/column.h"
-#include "auralite/ui/context_menu.h"
 #include "auralite/ui/dsl.h"
 #include "auralite/ui/factory.h"
+#include "auralite/ui/popup_host.h"
 #include "auralite/ui/image_button.h"
 #include "auralite/ui/image_view.h"
 #include "auralite/ui/label.h"
@@ -107,6 +107,26 @@ std::string ResolveGalleryYaml() {
       "examples/ui_gallery/gallery.yaml",
       "../examples/ui_gallery/gallery.yaml",
       "../../examples/ui_gallery/gallery.yaml",
+  };
+  for (const char* c : candidates) {
+    if (fs::exists(c)) {
+      return c;
+    }
+  }
+  return {};
+}
+
+std::string ResolvePopupMenuYaml() {
+  namespace fs = std::filesystem;
+  const std::wstring beside = ExeDir() + L"\\popup_menu.yaml";
+  if (fs::exists(beside)) {
+    return NarrowPath(beside);
+  }
+  const char* candidates[] = {
+      "popup_menu.yaml",
+      "examples/ui_gallery/popup_menu.yaml",
+      "../examples/ui_gallery/popup_menu.yaml",
+      "../../examples/ui_gallery/popup_menu.yaml",
   };
   for (const char* c : candidates) {
     if (fs::exists(c)) {
@@ -876,7 +896,7 @@ std::unique_ptr<auralite::ui::Node> BuildFluentGallery() {
                               .content(std::unique_ptr<auralite::ui::Node>(
                                   std::move(list))))
                    .child(Label()
-                              .text(L"在空白处右键打开 ContextMenu")
+                              .text(L"在空白处右键打开 PopupHost 菜单")
                               .font_size(12.f)
                               .preferred_height(20.f)))
       .Build();
@@ -950,49 +970,54 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
   WireInteractive(root.get(), status, &window);
 
   auralite::ui::SplitView* split_ptr = FindSplit(root.get());
-  auralite::ui::ContextMenu context_menu;
-  context_menu.AddItem(1, L"Refresh status")
-      .AddSeparator()
-      .AddItem(2, L"About gallery")
-      .AddItem(3, L"Reset split ratio");
-  context_menu.on_command([status, &window, split_ptr](int id) {
-    if (!status) {
-      return;
-    }
-    switch (id) {
-      case 1:
-        status->text(L"ContextMenu: Refresh");
-        break;
-      case 2:
-        status->text(L"ContextMenu: About");
-        MessageBoxW(window.hwnd(),
-                    L"AuraLite Phase 2 UI Gallery\n"
-                    L"Label TextField Checkbox Radio Switch\n"
-                    L"ImageView ImageButton Button\n"
-                    L"ScrollView ListView SplitView ContextMenu Column/Row",
-                    L"About", MB_OK | MB_ICONINFORMATION);
-        break;
-      case 3:
-        if (split_ptr) {
-          split_ptr->set_ratio(0.5f);
-          split_ptr->Layout(split_ptr->bounds());
-        }
-        status->text(L"ContextMenu: split reset");
-        break;
-      default:
-        status->text(L"ContextMenu id=" + std::to_wstring(id));
-        break;
-    }
-    window.Invalidate();
-  });
+  auralite::ui::PopupHost popup_host;
+  const std::string popup_yaml = ResolvePopupMenuYaml();
 
   root->set_on_context_menu(
-      [&context_menu, &window](int screen_x, int screen_y) {
-        context_menu.Show(window.hwnd(), screen_x, screen_y);
+      [&popup_host, &window, &popup_yaml, status, split_ptr](int sx, int sy) {
+        if (popup_yaml.empty()) {
+          if (status) {
+            status->text(L"popup_menu.yaml not found");
+            window.Invalidate();
+          }
+          return;
+        }
+        auralite::ui::HandlerMap handlers;
+        handlers["refresh"] = popup_host.WrapDismiss([status, &window] {
+          if (status) {
+            status->text(L"PopupHost: Refresh");
+          }
+          window.Invalidate();
+        });
+        handlers["about"] = popup_host.WrapDismiss([status, &window] {
+          if (status) {
+            status->text(L"PopupHost: About");
+          }
+          MessageBoxW(window.hwnd(),
+                      L"AuraLite Phase 2 UI Gallery\n"
+                      L"Label TextField Checkbox Radio Switch\n"
+                      L"ImageView ImageButton Button\n"
+                      L"ScrollView ListView SplitView PopupHost Column/Row",
+                      L"About", MB_OK | MB_ICONINFORMATION);
+          window.Invalidate();
+        });
+        handlers["split_reset"] =
+            popup_host.WrapDismiss([status, &window, split_ptr] {
+              if (split_ptr) {
+                split_ptr->set_ratio(0.5f);
+                split_ptr->Layout(split_ptr->bounds());
+              }
+              if (status) {
+                status->text(L"PopupHost: split reset");
+              }
+              window.Invalidate();
+            });
+        popup_host.ShowFromYaml(window.hwnd(), POINT{sx, sy}, popup_yaml,
+                                handlers);
       });
 
   if (status && !fluent) {
-    status->text(L"YAML 模式 · 拖拽分割 · 右键菜单 · 滚动列表");
+    status->text(L"YAML 模式 · 拖拽分割 · 右键 PopupHost · 滚动列表");
   }
 
   window.SetRoot(std::move(root));

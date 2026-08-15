@@ -1,0 +1,14 @@
+Column:
+  padding: [6, 4, 6, 4]
+  spacing: 2
+  children:
+    - Button: { text: "Refresh status", width: hug, on_click: refresh }
+    - Button: { text: "About gallery", width: hug, on_click: about }
+    - Submenu:
+        text: "More"
+        content:
+          Column:
+            padding: 4
+            spacing: 2
+            children:
+              - Button: { text: "Reset split ratio", width: hug, on_click: split_reset }

@@ -40,7 +40,7 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 | `auralite_d2d` (`AuraLite::D2D`) | `auralite::Canvas` / `Image`（D2D + DirectWrite + WIC） |
 | `auralite_ui` (`AuraLite::UI`，产物 `AuraLite.UI.lib`) | `auralite::ui` 控件树 + `ViewFactory` + yaml-cpp + `dsl::*` + reactive/async |
 | `login_demo` | 登录窗：默认读 `login_window.yaml`；`--fluent` 用链式等价树 |
-| `ui_gallery` | 全控件面画廊（YAML 默认 / `--fluent`）；含 ContextMenu |
+| `ui_gallery` | 全控件面画廊（YAML 默认 / `--fluent`）；右键 `PopupHost` YAML 菜单 |
 | `ui_smoke` | 早期冒烟（可选保留） |
 | `AuraLite.Base` / `AuraLite.UILegacy` | 旧 Views 静态库（对照 / Shell 迁移前）；**新 Demo 不链接** |
 | `d2d_demo` / `test_view` | 阶段一 / Views 冒烟 |
@@ -108,7 +108,9 @@ FireAndForget Load(std::shared_ptr<std::atomic_bool> alive) {
 - `Tile`：`columns` / `item_size` / `spacing`  
 - 新增控件：`ProgressBar`（`value` / `indeterminate`，不确定态需 `BindWindow`）、`Slider`（`orientation` / `step` / `tick_count`）、`Combo`（单选/多选 `multi`、可筛选 `editable`，需 `BindWindow`）、`TextArea`（多行，`wrap` 软换行）、`VirtualList` / `ItemList`（`columns` + `show_header`；排序 / 拖列宽 / `frozen_count`；Shift+滚轮横滑）、`TreeView`（展开折叠；`checkable` 三态勾选；`lazy` + `on_load_children` / `NotifyChildrenLoaded`）
 - **富文本**：本阶段不做，业务可自行集成
-- 无热重载、无完整 schema；`ContextMenu` 仍为代码 API（`TrackPopupMenu`）
+- 无热重载、无完整 schema
+- **弹出菜单（推荐）：** `PopupHost` + `Window::CreatePopup` 承载任意 YAML/DSL 控件树；`Submenu` 为薄触发行，通过 `PopupHost::Push` 叠层。Esc 先关最上层，再关根层；点菜单外关闭整栈。项回调可用 `WrapDismiss` 在执行后 `Dismiss()`。Demo：`examples/ui_gallery/popup_menu.yaml`（构建时复制到 exe 旁）
+- **Legacy：** `ContextMenu` 仍为代码 API（`TrackPopupMenu`），暂不删除；新代码请用 `PopupHost`
 
 #### 与 DuiLib 对照（布局）
 
@@ -145,7 +147,17 @@ cmake --build build --config Debug --target login_demo ui_gallery auralite_ui ui
 - 控件未调用 `font_size(...)` 时回落 `fonts.size`（`ResolveFontSize`）；颜色等同理可稀疏覆盖
 - 控制台冒烟：`theme_test`（`examples/theme_test`）
 
-`ui_gallery` 示例：`examples/ui_gallery/themes/` 下 YAML 与 Light/Dark 按钮（手测换肤）。
+`ui_gallery` 示例：`examples/ui_gallery/themes/` 下 YAML 与 Light/Dark 按钮（手测换肤）；右键空白处打开 `popup_menu.yaml`（两层：Button + Submenu）。
+
+#### PopupHost / 自绘弹出菜单
+
+| API | 说明 |
+|-----|------|
+| `PopupHost::Show` / `ShowFromYaml` | 根层弹出；内容为任意 `Node` 树 |
+| `Window::CreatePopup` | `WS_POPUP` 承载层（由 host 使用） |
+| `Submenu` | 菜单行；hover/click → `Push` 子层；dismiss 后 content 归还 |
+| `WrapDismiss` | 包装 `on_click`：执行后关闭整栈 |
+| `ContextMenu` | **Legacy** `TrackPopupMenu`；勿作为新菜单路径 |
 
 关闭旧库：`-DAURALITE_BUILD_LEGACY=OFF`。旧 `library.sln` 仍可并行使用。
 
