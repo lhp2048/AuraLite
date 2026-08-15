@@ -20,6 +20,8 @@ struct IWICBitmap;
 namespace gfx
 {
 
+    class PlatformBitmap;
+
     // gfx::Canvas Direct2D offscreen backend (WIC bitmap + ID2D1RenderTarget).
     class CanvasD2D : public Canvas
     {
@@ -114,6 +116,7 @@ namespace gfx
         IWICBitmap* wic_bitmap_;
         ID2D1SolidColorBrush* brush_;
         ID2D1Bitmap* cached_bitmap_;
+        PlatformBitmap* cached_pb_;
         const uint8* cached_pixels_;
         int cached_bw_;
         int cached_bh_;
