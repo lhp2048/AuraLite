@@ -135,4 +135,8 @@ class Canvas {
   ID2D1SolidColorBrush* brush_ = nullptr;
 };
 
+// DirectWrite text width; safe during Measure (no Canvas / BeginDraw needed).
+float MeasureUiTextWidth(const std::wstring& text, float font_size = 16.f,
+                         const wchar_t* font_family = L"Microsoft YaHei UI");
+
 }  // namespace auralite

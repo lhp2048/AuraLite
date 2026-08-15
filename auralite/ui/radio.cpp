@@ -74,10 +74,9 @@ RectF Radio::DotRect() const {
 }
 
 SizeF Radio::Measure(float /*max_w*/, float /*max_h*/) {
-  float text_w = 0.f;
-  if (!text_.empty()) {
-    text_w = font_size_ * 0.55f * static_cast<float>(text_.size());
-  }
+  const float text_w =
+      text_.empty() ? 0.f
+                    : auralite::MeasureUiTextWidth(text_, font_size_);
   const float w = kDotSize + (text_.empty() ? 0.f : kLabelGap + text_w);
   const float h = std::max(kDotSize, font_size_ + 6.f);
   return SizeF{w, h};

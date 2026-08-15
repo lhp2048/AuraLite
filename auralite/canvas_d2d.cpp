@@ -398,33 +398,64 @@ void Canvas::DrawText(const std::wstring& text, const RectF& layout_rect,
 
 float Canvas::MeasureTextWidth(const std::wstring& text, float font_size,
                                const wchar_t* font_family) {
-  if (!dwrite_factory_ || text.empty()) {
+  return MeasureUiTextWidth(text, font_size, font_family);
+}
+
+float MeasureUiTextWidth(const std::wstring& text, float font_size,
+                         const wchar_t* font_family) {
+  if (text.empty()) {
     return 0.f;
   }
 
+  static IDWriteFactory* factory = nullptr;
+  if (!factory) {
+    DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+                        reinterpret_cast<IUnknown**>(&factory));
+  }
+  if (!factory) {
+    // Fallback: CJK ≈ em square; Latin ≈ 0.55em (old Latin-only heuristic).
+    float w = 0.f;
+    for (wchar_t ch : text) {
+      w += (ch > 0x7F) ? font_size : (font_size * 0.55f);
+    }
+    return w;
+  }
+
   IDWriteTextFormat* format = nullptr;
-  HRESULT hr = dwrite_factory_->CreateTextFormat(
+  HRESULT hr = factory->CreateTextFormat(
       font_family ? font_family : L"Microsoft YaHei UI", nullptr,
       DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL,
       DWRITE_FONT_STRETCH_NORMAL, font_size, L"zh-cn", &format);
   if (FAILED(hr) || !format) {
-    return 0.f;
+    float w = 0.f;
+    for (wchar_t ch : text) {
+      w += (ch > 0x7F) ? font_size : (font_size * 0.55f);
+    }
+    return w;
   }
 
   IDWriteTextLayout* layout = nullptr;
-  hr = dwrite_factory_->CreateTextLayout(
-      text.c_str(), static_cast<UINT32>(text.size()), format, 100000.f,
-      font_size * 2.f, &layout);
+  hr = factory->CreateTextLayout(text.c_str(),
+                                 static_cast<UINT32>(text.size()), format,
+                                 100000.f, font_size * 2.f, &layout);
   format->Release();
   if (FAILED(hr) || !layout) {
-    return 0.f;
+    float w = 0.f;
+    for (wchar_t ch : text) {
+      w += (ch > 0x7F) ? font_size : (font_size * 0.55f);
+    }
+    return w;
   }
 
   DWRITE_TEXT_METRICS metrics = {};
   hr = layout->GetMetrics(&metrics);
   layout->Release();
   if (FAILED(hr)) {
-    return 0.f;
+    float w = 0.f;
+    for (wchar_t ch : text) {
+      w += (ch > 0x7F) ? font_size : (font_size * 0.55f);
+    }
+    return w;
   }
   return metrics.widthIncludingTrailingWhitespace;
 }

@@ -278,12 +278,21 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
     case WM_RBUTTONDOWN:
     case WM_MBUTTONDOWN:
     case WM_LBUTTONUP:
-    case WM_RBUTTONUP:
     case WM_MBUTTONUP:
     case WM_MOUSEMOVE:
     case WM_MOUSEWHEEL:
       DispatchMouse(msg, wparam, lparam);
       return 0;
+
+    case WM_RBUTTONUP: {
+      // We consume mouse messages (no DefWindowProc), so WM_CONTEXTMENU is
+      // never synthesized — fire it ourselves from the click point.
+      DispatchMouse(msg, wparam, lparam);
+      POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+      ClientToScreen(hwnd_, &pt);
+      DispatchContextMenu(0, MAKELPARAM(pt.x, pt.y));
+      return 0;
+    }
 
     case WM_MOUSELEAVE:
       tracking_mouse_leave_ = false;
