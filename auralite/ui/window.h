@@ -25,6 +25,8 @@ class Window {
                 std::function<void()> on_dismiss = {},
                 Node* anchor = nullptr);
   void ClearPopup();
+  // Safe while handling popup mouse events: runs ClearPopup after dispatch returns.
+  void RequestClearPopup();
   Node* popup() const { return popup_.get(); }
 
   void Invalidate();
@@ -66,6 +68,7 @@ class Window {
   std::unique_ptr<Node> popup_;
   std::function<void()> popup_dismiss_;
   Node* popup_anchor_ = nullptr;
+  bool clear_popup_pending_ = false;
   bool layout_dirty_ = true;
   Node* mouse_capture_ = nullptr;
   Node* hovered_ = nullptr;

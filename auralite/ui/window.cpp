@@ -112,6 +112,21 @@ void Window::SetPopup(std::unique_ptr<Node> popup,
 }
 
 void Window::ClearPopup() {
+  clear_popup_pending_ = false;
+  if (popup_) {
+    if (focused_ == popup_.get()) {
+      SetFocusNode(nullptr);
+    }
+    if (hovered_ == popup_.get()) {
+      hovered_ = nullptr;
+    }
+    if (mouse_capture_ == popup_.get()) {
+      mouse_capture_ = nullptr;
+      if (hwnd_ && GetCapture() == hwnd_) {
+        ReleaseCapture();
+      }
+    }
+  }
   popup_.reset();
   popup_anchor_ = nullptr;
   if (popup_dismiss_) {
@@ -120,6 +135,12 @@ void Window::ClearPopup() {
     dismiss();
   }
   Invalidate();
+}
+
+void Window::RequestClearPopup() {
+  if (popup_ || popup_dismiss_) {
+    clear_popup_pending_ = true;
+  }
 }
 
 void Window::SyncPopupLayout() {
@@ -611,6 +632,10 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
     }
     default:
       break;
+  }
+
+  if (clear_popup_pending_) {
+    ClearPopup();
   }
 
   Invalidate();

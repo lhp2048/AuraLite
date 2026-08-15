@@ -101,9 +101,17 @@ void ListView::OnMouseDown(const MouseEvent& e) {
     return;
   }
   const int idx = IndexAtY(e.y);
-  if (idx >= 0) {
-    set_selected_index(idx);
+  if (idx < 0) {
+    return;
   }
+  // Re-clicking the current item still notifies (Combo needs to dismiss).
+  if (idx == selected_index_) {
+    if (on_selection_) {
+      on_selection_(selected_index_);
+    }
+    return;
+  }
+  set_selected_index(idx);
 }
 
 void ListView::OnKey(const KeyEvent& e) {

@@ -85,7 +85,8 @@ void Combo::OpenPopup() {
     SelectIndex(index, true);
     open_ = false;
     if (window_) {
-      window_->ClearPopup();
+      // Defer destroy: ListView is still on the mouse-down stack.
+      window_->RequestClearPopup();
     }
   });
 
