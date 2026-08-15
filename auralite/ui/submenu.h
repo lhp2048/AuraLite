@@ -7,8 +7,9 @@
 
 namespace auralite::ui {
 
-// Menu-row trigger that Push()es owned |content_| into PopupHost; host returns
-// the tree via content() on DismissFrom of that layer.
+// Menu-row trigger that Push()es owned |content_| into PopupHost; leftover on
+// Push failure is returned to the caller. Host returns the tree via content()
+// on DismissFrom of that layer.
 class Submenu : public Node {
  public:
   Submenu();

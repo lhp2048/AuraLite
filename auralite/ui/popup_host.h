@@ -27,16 +27,22 @@ class PopupHost {
   void Show(HWND owner, POINT screen, std::unique_ptr<Node> root);
   void ShowFromYaml(HWND owner, POINT screen, const std::string& path_or_yaml,
                     const HandlerMap& handlers);
-  // |return_to|: on DismissFrom popping this layer, ReleaseRoot() and give
-  // the node back via Submenu::content(...).
-  void Push(const RectF& anchor_screen, std::unique_ptr<Node> root,
-            Submenu* return_to = nullptr);
+  // |return_to|: opener for sibling-dismiss; on DismissFrom of this layer,
+  // ReleaseRoot() and give the node back via Submenu::content(...).
+  // Returns leftover |root| on failure (caller must retain); nullptr on success.
+  std::unique_ptr<Node> Push(const RectF& anchor_screen,
+                             std::unique_ptr<Node> root,
+                             Submenu* return_to = nullptr);
   void Dismiss();
   void DismissFrom(size_t level);
   bool is_open() const { return !stack_.empty(); }
   size_t depth() const { return stack_.size(); }
   // Index of |window| in the stack; nullopt if not found (never 0 for miss).
   std::optional<size_t> LevelOf(const Window* window) const;
+
+  // Spec §4.3: while a child layer is open, hover/click on a non-opener
+  // control in the parent popup dismisses from that child level.
+  void OnPopupHit(Window* window, Node* hit);
 
   // TLS: set for duration of Show/Push; Submenu uses Current().
   static PopupHost* Current();
@@ -47,6 +53,7 @@ class PopupHost {
  private:
   struct Layer {
     std::unique_ptr<Window> window;
+    // Submenu that opened this layer (opened_from); also content return target.
     Submenu* return_to = nullptr;
   };
   std::vector<Layer> stack_;

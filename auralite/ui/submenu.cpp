@@ -96,7 +96,11 @@ void Submenu::OpenIfNeeded() {
   if (!content_) {
     return;
   }
-  host->Push(AnchorScreenRect(), std::move(content_), this);
+  auto leftover =
+      host->Push(AnchorScreenRect(), std::move(content_), this);
+  if (leftover) {
+    content_ = std::move(leftover);
+  }
 }
 
 void Submenu::OnMouseEnter(const MouseEvent&) {

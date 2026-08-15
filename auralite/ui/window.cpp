@@ -722,6 +722,16 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
 
   Node* hit = popup_hit ? popup_hit : root_hit;
 
+  // PopupHost §4.3: hover/click a non-opener sibling while a child submenu
+  // is open → dismiss child layers (before enter so Submenu can re-Push).
+  if (popup_mode_ && hit &&
+      (msg == WM_MOUSEMOVE || msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN ||
+       msg == WM_MBUTTONDOWN)) {
+    if (PopupHost* host = PopupHost::Current()) {
+      host->OnPopupHit(this, hit);
+    }
+  }
+
   if (msg == WM_MOUSEMOVE && !mouse_capture_) {
     if (hovered_ != hit) {
       if (hovered_) {

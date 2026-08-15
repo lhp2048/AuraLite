@@ -90,31 +90,27 @@ void PopupHost::ShowFromYaml(HWND owner, POINT screen,
   }
 }
 
-void PopupHost::Push(const RectF& anchor_screen, std::unique_ptr<Node> root,
-                     Submenu* return_to) {
+std::unique_ptr<Node> PopupHost::Push(const RectF& anchor_screen,
+                                      std::unique_ptr<Node> root,
+                                      Submenu* return_to) {
   if (!root) {
-    return;
+    return nullptr;
   }
   if (stack_.empty()) {
-    // Do not destroy Submenu content on early Push failure.
-    if (return_to) {
-      return_to->content(std::move(root));
-    }
-    return;
+    // Caller (Submenu) must retain leftover; do not destroy.
+    return root;
   }
   g_current = this;
   InstallMouseHook();
   const size_t before = stack_.size();
   auto leftover = ShowLayer(std::move(root), POINT{}, &anchor_screen);
   if (leftover) {
-    if (return_to) {
-      return_to->content(std::move(leftover));
-    }
-    return;
+    return leftover;
   }
   if (stack_.size() > before) {
     stack_.back().return_to = return_to;
   }
+  return nullptr;
 }
 
 std::optional<size_t> PopupHost::LevelOf(const Window* window) const {
@@ -124,6 +120,30 @@ std::optional<size_t> PopupHost::LevelOf(const Window* window) const {
     }
   }
   return std::nullopt;
+}
+
+void PopupHost::OnPopupHit(Window* window, Node* hit) {
+  if (!window || !hit || stack_.size() < 2) {
+    return;
+  }
+  const std::optional<size_t> level = LevelOf(window);
+  if (!level) {
+    return;
+  }
+  const size_t child = *level + 1;
+  if (child >= stack_.size()) {
+    return;
+  }
+  Submenu* opened_from = stack_[child].return_to;
+  if (!opened_from) {
+    return;
+  }
+  for (Node* n = hit; n; n = n->parent()) {
+    if (n == opened_from) {
+      return;
+    }
+  }
+  DismissFrom(child);
 }
 
 void PopupHost::DismissFrom(size_t level) {
