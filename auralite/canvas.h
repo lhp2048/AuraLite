@@ -76,6 +76,8 @@ class Canvas {
 
   // Create factories and HWND render target. Safe to call again after device loss.
   bool Init(HWND hwnd);
+  // Popup: DC render target + DIB present via UpdateLayeredWindow.
+  bool InitLayered(HWND hwnd);
   void Shutdown();
 
   // Recreate HWND target if missing (after EndDraw device loss).
@@ -119,7 +121,8 @@ class Canvas {
   void PopAxisAlignedClip();
 
   bool is_valid() const { return render_target_ != nullptr; }
-  ID2D1HwndRenderTarget* render_target() const { return render_target_; }
+  bool is_layered() const { return layered_; }
+  ID2D1RenderTarget* render_target() const { return render_target_; }
   ID2D1Factory* d2d_factory() const { return d2d_factory_; }
 
   // UI layout / hit-test / paint all use physical pixels (see CreateDeviceResources).
@@ -129,12 +132,21 @@ class Canvas {
   friend class Image;
   bool CreateDeviceResources();
   void DiscardDeviceResources();
+  bool CreateLayeredSurface(UINT w, UINT h);
+  void DestroyLayeredSurface();
   ID2D1SolidColorBrush* BrushFor(const ColorF& color);
 
   HWND hwnd_ = nullptr;
+  bool layered_ = false;
+  HDC dib_dc_ = nullptr;
+  HBITMAP dib_bitmap_ = nullptr;
+  HBITMAP dib_old_ = nullptr;
+  void* dib_bits_ = nullptr;
+  UINT dib_w_ = 0;
+  UINT dib_h_ = 0;
   ID2D1Factory* d2d_factory_ = nullptr;
   IDWriteFactory* dwrite_factory_ = nullptr;
-  ID2D1HwndRenderTarget* render_target_ = nullptr;
+  ID2D1RenderTarget* render_target_ = nullptr;
   ID2D1SolidColorBrush* brush_ = nullptr;
 };
 

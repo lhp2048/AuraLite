@@ -133,6 +133,7 @@ bool Canvas::Init(HWND hwnd) {
     return false;
   }
   hwnd_ = hwnd;
+  layered_ = false;
 
   if (!d2d_factory_) {
     const HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,
@@ -155,11 +156,84 @@ bool Canvas::Init(HWND hwnd) {
   return CreateDeviceResources();
 }
 
+bool Canvas::InitLayered(HWND hwnd) {
+  if (!hwnd) {
+    return false;
+  }
+  Shutdown();
+  hwnd_ = hwnd;
+  layered_ = true;
+
+  if (!d2d_factory_) {
+    const HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,
+                                         &d2d_factory_);
+    if (FAILED(hr)) {
+      return false;
+    }
+  }
+
+  if (!dwrite_factory_) {
+    const HRESULT hr = DWriteCreateFactory(
+        DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+        reinterpret_cast<IUnknown**>(&dwrite_factory_));
+    if (FAILED(hr)) {
+      return false;
+    }
+  }
+
+  return CreateDeviceResources();
+}
+
 void Canvas::Shutdown() {
   DiscardDeviceResources();
   SafeRelease(dwrite_factory_);
   SafeRelease(d2d_factory_);
   hwnd_ = nullptr;
+  layered_ = false;
+}
+
+void Canvas::DestroyLayeredSurface() {
+  if (dib_dc_ && dib_old_) {
+    SelectObject(dib_dc_, dib_old_);
+    dib_old_ = nullptr;
+  }
+  if (dib_bitmap_) {
+    DeleteObject(dib_bitmap_);
+    dib_bitmap_ = nullptr;
+  }
+  if (dib_dc_) {
+    DeleteDC(dib_dc_);
+    dib_dc_ = nullptr;
+  }
+  dib_bits_ = nullptr;
+  dib_w_ = 0;
+  dib_h_ = 0;
+}
+
+bool Canvas::CreateLayeredSurface(UINT w, UINT h) {
+  DestroyLayeredSurface();
+  w = w ? w : 1;
+  h = h ? h : 1;
+  BITMAPINFO bmi = {};
+  bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bmi.bmiHeader.biWidth = static_cast<LONG>(w);
+  bmi.bmiHeader.biHeight = -static_cast<LONG>(h);
+  bmi.bmiHeader.biPlanes = 1;
+  bmi.bmiHeader.biBitCount = 32;
+  bmi.bmiHeader.biCompression = BI_RGB;
+  HDC screen = GetDC(nullptr);
+  dib_dc_ = CreateCompatibleDC(screen);
+  ReleaseDC(nullptr, screen);
+  dib_bitmap_ = CreateDIBSection(dib_dc_, &bmi, DIB_RGB_COLORS, &dib_bits_,
+                                 nullptr, 0);
+  if (!dib_dc_ || !dib_bitmap_ || !dib_bits_) {
+    DestroyLayeredSurface();
+    return false;
+  }
+  dib_old_ = static_cast<HBITMAP>(SelectObject(dib_dc_, dib_bitmap_));
+  dib_w_ = w;
+  dib_h_ = h;
+  return true;
 }
 
 bool Canvas::EnsureRenderTarget() {
@@ -179,6 +253,47 @@ bool Canvas::CreateDeviceResources() {
 
   RECT rc = {};
   GetClientRect(hwnd_, &rc);
+
+  if (layered_) {
+    if (!CreateLayeredSurface(static_cast<UINT>(rc.right),
+                              static_cast<UINT>(rc.bottom))) {
+      return false;
+    }
+
+    const D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
+        D2D1_RENDER_TARGET_TYPE_DEFAULT,
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,
+                          D2D1_ALPHA_MODE_PREMULTIPLIED),
+        kUiDpi, kUiDpi);
+    ID2D1DCRenderTarget* dc_render_target = nullptr;
+    HRESULT hr = d2d_factory_->CreateDCRenderTarget(&props, &dc_render_target);
+    if (FAILED(hr)) {
+      DestroyLayeredSurface();
+      return false;
+    }
+    render_target_ = dc_render_target;
+
+    const RECT bind = {0, 0, static_cast<LONG>(dib_w_),
+                       static_cast<LONG>(dib_h_)};
+    hr = dc_render_target->BindDC(dib_dc_, &bind);
+    if (FAILED(hr)) {
+      DiscardDeviceResources();
+      return false;
+    }
+
+    render_target_->SetDpi(kUiDpi, kUiDpi);
+    render_target_->SetTextAntialiasMode(
+        D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
+
+    hr = render_target_->CreateSolidColorBrush(
+        D2D1::ColorF(D2D1::ColorF::Black), &brush_);
+    if (FAILED(hr)) {
+      DiscardDeviceResources();
+      return false;
+    }
+    return true;
+  }
+
   const D2D1_SIZE_U size = D2D1::SizeU(
       static_cast<UINT32>(rc.right > 0 ? rc.right : 1),
       static_cast<UINT32>(rc.bottom > 0 ? rc.bottom : 1));
@@ -194,11 +309,13 @@ bool Canvas::CreateDeviceResources() {
   const D2D1_HWND_RENDER_TARGET_PROPERTIES hwnd_props =
       D2D1::HwndRenderTargetProperties(hwnd_, size);
 
+  ID2D1HwndRenderTarget* hwnd_render_target = nullptr;
   HRESULT hr = d2d_factory_->CreateHwndRenderTarget(rt_props, hwnd_props,
-                                                    &render_target_);
+                                                    &hwnd_render_target);
   if (FAILED(hr)) {
     return false;
   }
+  render_target_ = hwnd_render_target;
 
   // Belt-and-suspenders: keep pixel space after device recreate.
   render_target_->SetDpi(kUiDpi, kUiDpi);
@@ -215,14 +332,46 @@ bool Canvas::CreateDeviceResources() {
 void Canvas::DiscardDeviceResources() {
   SafeRelease(brush_);
   SafeRelease(render_target_);
+  if (layered_) {
+    DestroyLayeredSurface();
+  }
 }
 
 void Canvas::Resize(UINT width, UINT height) {
+  width = width > 0 ? width : 1;
+  height = height > 0 ? height : 1;
+
+  if (layered_) {
+    if (!EnsureRenderTarget()) {
+      return;
+    }
+    if (width == dib_w_ && height == dib_h_) {
+      return;
+    }
+    if (!CreateLayeredSurface(width, height)) {
+      return;
+    }
+    auto* dc_render_target =
+        static_cast<ID2D1DCRenderTarget*>(render_target_);
+    if (!dc_render_target) {
+      return;
+    }
+    const RECT bind = {0, 0, static_cast<LONG>(dib_w_),
+                       static_cast<LONG>(dib_h_)};
+    dc_render_target->BindDC(dib_dc_, &bind);
+    render_target_->SetDpi(kUiDpi, kUiDpi);
+    return;
+  }
+
   if (!EnsureRenderTarget()) {
     return;
   }
-  render_target_->Resize(D2D1::SizeU(width > 0 ? width : 1,
-                                     height > 0 ? height : 1));
+  auto* hwnd_render_target =
+      static_cast<ID2D1HwndRenderTarget*>(render_target_);
+  if (!hwnd_render_target) {
+    return;
+  }
+  hwnd_render_target->Resize(D2D1::SizeU(width, height));
   // Resize must not resurrect system DIP scaling.
   render_target_->SetDpi(kUiDpi, kUiDpi);
 }
@@ -230,6 +379,15 @@ void Canvas::Resize(UINT width, UINT height) {
 bool Canvas::BeginDraw() {
   if (!EnsureRenderTarget()) {
     return false;
+  }
+  if (layered_) {
+    auto* dc_render_target =
+        static_cast<ID2D1DCRenderTarget*>(render_target_);
+    if (dc_render_target && dib_dc_) {
+      const RECT bind = {0, 0, static_cast<LONG>(dib_w_),
+                         static_cast<LONG>(dib_h_)};
+      dc_render_target->BindDC(dib_dc_, &bind);
+    }
   }
   render_target_->BeginDraw();
   return true;
@@ -243,6 +401,21 @@ bool Canvas::EndDraw() {
   if (hr == D2DERR_RECREATE_TARGET) {
     DiscardDeviceResources();
     return false;
+  }
+  if (layered_ && SUCCEEDED(hr) && hwnd_) {
+    POINT pt_src = {0, 0};
+    SIZE size = {static_cast<LONG>(dib_w_), static_cast<LONG>(dib_h_)};
+    POINT pt_dst = {};
+    RECT wr = {};
+    GetWindowRect(hwnd_, &wr);
+    pt_dst.x = wr.left;
+    pt_dst.y = wr.top;
+    BLENDFUNCTION blend = {};
+    blend.BlendOp = AC_SRC_OVER;
+    blend.SourceConstantAlpha = 255;
+    blend.AlphaFormat = AC_SRC_ALPHA;
+    UpdateLayeredWindow(hwnd_, nullptr, &pt_dst, &size, dib_dc_, &pt_src, 0,
+                        &blend, ULW_ALPHA);
   }
   return SUCCEEDED(hr);
 }
