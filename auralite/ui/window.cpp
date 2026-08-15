@@ -290,6 +290,10 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       ClearHover();
       return 0;
 
+    case WM_CONTEXTMENU:
+      DispatchContextMenu(wparam, lparam);
+      return 0;
+
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
       if (wparam == VK_TAB) {
@@ -544,6 +548,44 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
   }
 
   Invalidate();
+}
+
+void Window::DispatchContextMenu(WPARAM /*wparam*/, LPARAM lparam) {
+  if (!root_) {
+    return;
+  }
+
+  POINT screen = {};
+  POINT client = {};
+  if (lparam == static_cast<LPARAM>(-1)) {
+    // Keyboard invocation (Shift+F10 / VK_APPS): use focused node or client
+    // center.
+    if (focused_) {
+      const RectF b = focused_->bounds();
+      client.x = static_cast<LONG>(b.x + b.w * 0.5f);
+      client.y = static_cast<LONG>(b.y + b.h * 0.5f);
+    } else {
+      const RectF c = ClientRectF();
+      client.x = static_cast<LONG>(c.w * 0.5f);
+      client.y = static_cast<LONG>(c.h * 0.5f);
+    }
+    screen = client;
+    ClientToScreen(hwnd_, &screen);
+  } else {
+    screen.x = GET_X_LPARAM(lparam);
+    screen.y = GET_Y_LPARAM(lparam);
+    client = screen;
+    ScreenToClient(hwnd_, &client);
+  }
+
+  Node* hit = root_->HitTest(static_cast<float>(client.x),
+                             static_cast<float>(client.y));
+  if (!hit && focused_) {
+    hit = focused_;
+  }
+  if (hit) {
+    hit->OnContextMenu(screen.x, screen.y);
+  }
 }
 
 void Window::DispatchKey(UINT msg, WPARAM wparam) {

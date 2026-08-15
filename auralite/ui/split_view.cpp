@@ -1,0 +1,196 @@
+#include "auralite/ui/split_view.h"
+
+#include <algorithm>
+#include <windows.h>
+
+namespace auralite::ui {
+namespace {
+
+std::unique_ptr<Node> OrEmpty(std::unique_ptr<Node> node) {
+  return node ? std::move(node) : std::make_unique<Node>();
+}
+
+}  // namespace
+
+SplitView& SplitView::preferred_size(float w, float h) {
+  preferred_w_ = w;
+  preferred_h_ = h;
+  return *this;
+}
+
+SplitView& SplitView::set_leading(std::unique_ptr<Node> leading) {
+  std::unique_ptr<Node> trail;
+  if (children_.size() >= 2) {
+    trail = std::move(children_[1]);
+  }
+  children_.clear();
+  AddChild(OrEmpty(std::move(leading)));
+  AddChild(OrEmpty(std::move(trail)));
+  return *this;
+}
+
+SplitView& SplitView::set_trailing(std::unique_ptr<Node> trailing) {
+  std::unique_ptr<Node> lead;
+  if (!children_.empty()) {
+    lead = std::move(children_[0]);
+  }
+  children_.clear();
+  AddChild(OrEmpty(std::move(lead)));
+  AddChild(OrEmpty(std::move(trailing)));
+  return *this;
+}
+
+SplitView& SplitView::set_ratio(float ratio) {
+  ratio_ = std::clamp(ratio, 0.f, 1.f);
+  return *this;
+}
+
+Node* SplitView::leading() const {
+  return children_.empty() ? nullptr : children_[0].get();
+}
+
+Node* SplitView::trailing() const {
+  return children_.size() < 2 ? nullptr : children_[1].get();
+}
+
+SizeF SplitView::Measure(float max_w, float max_h) {
+  float w = preferred_w_ > 0.f ? preferred_w_ : max_w;
+  float h = preferred_h_ > 0.f ? preferred_h_ : max_h;
+
+  float child_h = 0.f;
+  float child_w = 0.f;
+  const float pane_w = std::max(0.f, (w - kDividerSize) * 0.5f);
+  if (Node* L = leading()) {
+    const SizeF s = L->Measure(pane_w, h);
+    child_w += s.w;
+    child_h = std::max(child_h, s.h);
+  }
+  if (Node* R = trailing()) {
+    const SizeF s = R->Measure(pane_w, h);
+    child_w += s.w;
+    child_h = std::max(child_h, s.h);
+  }
+  if (preferred_w_ <= 0.f) {
+    w = std::max(w, child_w + kDividerSize);
+  }
+  if (preferred_h_ <= 0.f) {
+    h = std::max(h, child_h);
+  }
+  return SizeF{w, h};
+}
+
+void SplitView::Layout(const RectF& final_rect) {
+  bounds_ = final_rect;
+  RelayoutChildren();
+}
+
+void SplitView::RelayoutChildren() {
+  Node* L = leading();
+  Node* R = trailing();
+  if (!L || !R) {
+    return;
+  }
+
+  const float avail = std::max(0.f, bounds_.w - kDividerSize);
+  float lead_w = avail * ratio_;
+  if (avail >= kMinPane * 2.f) {
+    lead_w = std::clamp(lead_w, kMinPane, avail - kMinPane);
+  } else {
+    lead_w = avail * 0.5f;
+  }
+  ratio_ = (avail > 0.f) ? (lead_w / avail) : 0.5f;
+
+  const float trail_w = std::max(0.f, avail - lead_w);
+  L->Layout(RectF{bounds_.x, bounds_.y, lead_w, bounds_.h});
+  R->Layout(RectF{bounds_.x + lead_w + kDividerSize, bounds_.y, trail_w,
+                  bounds_.h});
+}
+
+RectF SplitView::DividerBounds() const {
+  Node* L = leading();
+  if (!L) {
+    return RectF{};
+  }
+  return RectF{L->bounds().x + L->bounds().w, bounds_.y, kDividerSize,
+               bounds_.h};
+}
+
+bool SplitView::IsPointInDivider(float x, float y) const {
+  return ContainsPoint(DividerBounds(), x, y);
+}
+
+void SplitView::ApplyRatioFromDividerOffset(float offset) {
+  const float avail = std::max(0.f, bounds_.w - kDividerSize);
+  if (avail <= 0.f) {
+    return;
+  }
+  float lead_w = offset - bounds_.x;
+  if (avail >= kMinPane * 2.f) {
+    lead_w = std::clamp(lead_w, kMinPane, avail - kMinPane);
+  } else {
+    lead_w = std::clamp(lead_w, 0.f, avail);
+  }
+  ratio_ = lead_w / avail;
+  RelayoutChildren();
+}
+
+void SplitView::Paint(auralite::Canvas& canvas) {
+  if (Node* L = leading()) {
+    canvas.FillRect(L->bounds(), ColorF::FromRgb(236, 242, 248));
+    L->Paint(canvas);
+  }
+  if (Node* R = trailing()) {
+    canvas.FillRect(R->bounds(), ColorF::FromRgb(248, 242, 236));
+    R->Paint(canvas);
+  }
+  const RectF div = DividerBounds();
+  canvas.FillRect(div, ColorF::FromRgb(180, 188, 200));
+  const float mid = div.x + div.w * 0.5f;
+  canvas.FillRect(RectF{mid - 0.5f, div.y + div.h * 0.35f, 1.f, div.h * 0.3f},
+                  ColorF::FromRgb(120, 130, 145));
+}
+
+Node* SplitView::HitTest(float x, float y) {
+  if (!ContainsPoint(bounds_, x, y)) {
+    return nullptr;
+  }
+  if (IsPointInDivider(x, y)) {
+    return this;
+  }
+  if (Node* L = leading()) {
+    if (Node* hit = L->HitTest(x, y)) {
+      return hit;
+    }
+  }
+  if (Node* R = trailing()) {
+    if (Node* hit = R->HitTest(x, y)) {
+      return hit;
+    }
+  }
+  return this;
+}
+
+void SplitView::OnMouseDown(const MouseEvent& e) {
+  if (e.button != MouseButton::Left || !IsPointInDivider(e.x, e.y)) {
+    return;
+  }
+  dragging_ = true;
+  SetCursor(LoadCursorW(nullptr, IDC_SIZEWE));
+}
+
+void SplitView::OnMouseMove(const MouseEvent& e) {
+  if (IsPointInDivider(e.x, e.y) || dragging_) {
+    SetCursor(LoadCursorW(nullptr, IDC_SIZEWE));
+  }
+  if (!dragging_) {
+    return;
+  }
+  ApplyRatioFromDividerOffset(e.x);
+}
+
+void SplitView::OnMouseUp(const MouseEvent& e) {
+  (void)e;
+  dragging_ = false;
+}
+
+}  // namespace auralite::ui

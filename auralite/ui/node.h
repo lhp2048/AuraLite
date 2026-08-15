@@ -2,6 +2,7 @@
 
 #include "auralite/ui/types.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -40,6 +41,13 @@ class Node {
   virtual void OnFocus() {}
   virtual void OnBlur() {}
 
+  // Right-click / WM_CONTEXTMENU. |screen_x/y| are screen coordinates for
+  // TrackPopupMenu. Default invokes the optional handler (walks parents if
+  // unset).
+  using ContextMenuHandler = std::function<void(int screen_x, int screen_y)>;
+  void set_on_context_menu(ContextMenuHandler handler);
+  virtual void OnContextMenu(int screen_x, int screen_y);
+
   // Wheel: Window walks from hit node up to first ancestor that returns true.
   virtual bool WantsMouseWheel() const { return false; }
 
@@ -67,6 +75,7 @@ class Node {
   Node* parent_ = nullptr;
   bool focusable_ = false;
   bool focused_ = false;
+  ContextMenuHandler on_context_menu_;
 };
 
 }  // namespace auralite::ui

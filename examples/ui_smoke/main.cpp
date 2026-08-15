@@ -9,6 +9,7 @@
 #include "auralite/ui/button.h"
 #include "auralite/ui/checkbox.h"
 #include "auralite/ui/column.h"
+#include "auralite/ui/context_menu.h"
 #include "auralite/ui/image_button.h"
 #include "auralite/ui/image_view.h"
 #include "auralite/ui/label.h"
@@ -16,6 +17,7 @@
 #include "auralite/ui/radio.h"
 #include "auralite/ui/row.h"
 #include "auralite/ui/scroll_view.h"
+#include "auralite/ui/split_view.h"
 #include "auralite/ui/switch_control.h"
 #include "auralite/ui/text_field.h"
 #include "auralite/ui/window.h"
@@ -55,19 +57,26 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   auralite::ui::Window window;
-  if (!window.Create(L"AuraLite UI Smoke", 720, 900)) {
+  if (!window.Create(L"AuraLite UI Smoke", 720, 980)) {
     MessageBoxW(nullptr, L"Window / Canvas init failed", L"ui_smoke",
                 MB_ICONERROR);
     CoUninitialize();
     return 1;
   }
 
+  auralite::ui::ContextMenu context_menu;
+  context_menu.AddItem(1, L"Refresh status")
+      .AddSeparator()
+      .AddItem(2, L"About AuraLite")
+      .AddItem(3, L"Reset split ratio");
+
   auto root = std::make_unique<auralite::ui::Column>();
+  auralite::ui::Column* root_ptr = root.get();
   root->padding(24.f).spacing(10.f);
 
   {
     auto title = std::make_unique<auralite::ui::Label>();
-    title->text(L"AuraLite Phase 2 — ScrollView / ListView")
+    title->text(L"AuraLite Phase 2 — SplitView / ContextMenu")
         .font_size(20.f)
         .align(auralite::ui::TextAlign::Left);
     root->AddChild(std::move(title));
@@ -75,11 +84,68 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
 
   auto status = std::make_unique<auralite::ui::Label>();
   auralite::ui::Label* status_ptr = status.get();
-  status->text(L"Wheel scrolls list · click to select · Tab focuses ListView")
+  status->text(L"Drag the split · right-click for ContextMenu")
       .font_size(14.f)
       .color(auralite::ColorF::FromRgb(90, 100, 120))
       .align(auralite::ui::TextAlign::Left);
   root->AddChild(std::move(status));
+
+  auralite::ui::SplitView* split_ptr = nullptr;
+  {
+    auto left = std::make_unique<auralite::ui::Label>();
+    left->text(L"Left pane\n(drag divider →)")
+        .font_size(14.f)
+        .align(auralite::ui::TextAlign::Center);
+
+    auto right = std::make_unique<auralite::ui::Label>();
+    right->text(L"Right pane")
+        .font_size(14.f)
+        .align(auralite::ui::TextAlign::Center);
+
+    auto split = std::make_unique<auralite::ui::SplitView>();
+    split_ptr = split.get();
+    split->preferred_size(480.f, 110.f)
+        .set_ratio(0.45f)
+        .set_leading(std::move(left))
+        .set_trailing(std::move(right));
+    root->AddChild(std::move(split));
+  }
+
+  context_menu.on_command(
+      [status_ptr, &window, split_ptr](int id) {
+        if (!status_ptr) {
+          return;
+        }
+        switch (id) {
+          case 1:
+            status_ptr->text(L"ContextMenu: Refresh");
+            break;
+          case 2:
+            status_ptr->text(L"ContextMenu: About AuraLite UI");
+            MessageBoxW(window.hwnd(),
+                        L"AuraLite Phase 2\nSplitView + ContextMenu",
+                        L"About", MB_OK | MB_ICONINFORMATION);
+            break;
+          case 3:
+            if (split_ptr) {
+              split_ptr->set_ratio(0.5f);
+              // Force re-layout on next paint via invalidate; Window re-layouts
+              // when size changes — nudge by re-applying current bounds.
+              split_ptr->Layout(split_ptr->bounds());
+            }
+            status_ptr->text(L"ContextMenu: split ratio reset to 50%");
+            break;
+          default:
+            status_ptr->text(L"ContextMenu id=" + std::to_wstring(id));
+            break;
+        }
+        window.Invalidate();
+      });
+
+  root_ptr->set_on_context_menu(
+      [&context_menu, &window](int screen_x, int screen_y) {
+        context_menu.Show(window.hwnd(), screen_x, screen_y);
+      });
 
   {
     auto label = std::make_unique<auralite::ui::Label>();

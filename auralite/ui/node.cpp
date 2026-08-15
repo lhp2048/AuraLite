@@ -51,6 +51,20 @@ Node* Node::HitTest(float x, float y) {
   return this;
 }
 
+void Node::set_on_context_menu(ContextMenuHandler handler) {
+  on_context_menu_ = std::move(handler);
+}
+
+void Node::OnContextMenu(int screen_x, int screen_y) {
+  if (on_context_menu_) {
+    on_context_menu_(screen_x, screen_y);
+    return;
+  }
+  if (parent_) {
+    parent_->OnContextMenu(screen_x, screen_y);
+  }
+}
+
 void Node::OnDeviceLost() {
   for (auto& child : children_) {
     if (child) {

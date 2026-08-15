@@ -39,6 +39,7 @@ class Window {
   void ClearHover();
   void EnsureMouseLeaveTracking();
   void DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam);
+  void DispatchContextMenu(WPARAM wparam, LPARAM lparam);
   void DispatchKey(UINT msg, WPARAM wparam);
   void DispatchChar(WPARAM wparam);
   void HandleImeComposition(LPARAM lparam);

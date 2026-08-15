@@ -144,6 +144,8 @@ add_library(auralite_ui STATIC
   auralite/ui/switch_control.cpp
   auralite/ui/scroll_view.cpp
   auralite/ui/list_view.cpp
+  auralite/ui/split_view.cpp
+  auralite/ui/context_menu.cpp
   auralite/ui/window.cpp
   auralite/ui/application.cpp
 )
