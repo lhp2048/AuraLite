@@ -3,6 +3,7 @@
 #include "auralite/ui/types.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace auralite::ui {
@@ -35,18 +36,34 @@ class Node {
   virtual void OnMouseLeave(const MouseEvent&) {}
   virtual void OnMouseWheel(const MouseEvent&) {}
   virtual void OnKey(const KeyEvent&) {}
+  virtual void OnChar(wchar_t /*ch*/) {}
   virtual void OnFocus() {}
   virtual void OnBlur() {}
+
+  // IME: composition is temporary underline text; result commits into the control.
+  virtual bool WantsIme() const { return false; }
+  virtual void OnImeComposition(const std::wstring& /*composition*/) {}
+  virtual void OnImeResult(const std::wstring& /*result*/) {}
+  virtual void OnImeEnd() {}
 
   // Drop GPU resources tied to the previous Canvas/device; default walks children.
   virtual void OnDeviceLost();
 
+  bool focusable() const { return focusable_; }
+  void set_focusable(bool v) { focusable_ = v; }
+  bool focused() const { return focused_; }
+
  protected:
+  friend class Window;
+  void set_focused(bool v) { focused_ = v; }
+
   static bool ContainsPoint(const RectF& r, float x, float y);
 
   RectF bounds_{};
   std::vector<std::unique_ptr<Node>> children_;
   Node* parent_ = nullptr;
+  bool focusable_ = false;
+  bool focused_ = false;
 };
 
 }  // namespace auralite::ui

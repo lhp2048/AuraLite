@@ -99,6 +99,10 @@ class Canvas {
                 const wchar_t* font_family = L"Microsoft YaHei UI",
                 TextHAlign align = TextHAlign::Left);
 
+  // Width of |text| at |font_size| (empty → 0). Does not require BeginDraw.
+  float MeasureTextWidth(const std::wstring& text, float font_size = 16.f,
+                         const wchar_t* font_family = L"Microsoft YaHei UI");
+
   void DrawImage(const Image& image, const RectF& dest);
   void DrawImage(const Image& image, const RectF& src, const RectF& dest);
 

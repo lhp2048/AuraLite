@@ -10,6 +10,7 @@
 #include "auralite/ui/image_button.h"
 #include "auralite/ui/image_view.h"
 #include "auralite/ui/label.h"
+#include "auralite/ui/text_field.h"
 #include "auralite/ui/window.h"
 
 namespace {
@@ -47,7 +48,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   auralite::ui::Window window;
-  if (!window.Create(L"AuraLite UI Smoke", 720, 560)) {
+  if (!window.Create(L"AuraLite UI Smoke", 720, 640)) {
     MessageBoxW(nullptr, L"Window / Canvas init failed", L"ui_smoke",
                 MB_ICONERROR);
     CoUninitialize();
@@ -59,7 +60,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
 
   {
     auto title = std::make_unique<auralite::ui::Label>();
-    title->text(L"AuraLite Phase 2 — Label / Button / Image")
+    title->text(L"AuraLite Phase 2 — TextField / Focus / IME")
         .font_size(20.f)
         .align(auralite::ui::TextAlign::Left);
     root->AddChild(std::move(title));
@@ -67,35 +68,47 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
 
   auto status = std::make_unique<auralite::ui::Label>();
   auralite::ui::Label* status_ptr = status.get();
-  status->text(L"Click the button…")
-      .font_size(15.f)
+  status->text(L"Tab cycles focus · type in fields · Ctrl+A/C/X/V")
+      .font_size(14.f)
       .color(auralite::ColorF::FromRgb(90, 100, 120))
-      .align(auralite::ui::TextAlign::Center);
+      .align(auralite::ui::TextAlign::Left);
   root->AddChild(std::move(status));
 
   {
-    auto left = std::make_unique<auralite::ui::Label>();
-    left->text(L"align: left")
-        .font_size(14.f)
-        .align(auralite::ui::TextAlign::Left)
-        .preferred_height(24.f);
-    root->AddChild(std::move(left));
+    auto label = std::make_unique<auralite::ui::Label>();
+    label->text(L"Username")
+        .font_size(13.f)
+        .color(auralite::ColorF::FromRgb(70, 80, 95))
+        .preferred_height(20.f);
+    root->AddChild(std::move(label));
   }
   {
-    auto center = std::make_unique<auralite::ui::Label>();
-    center->text(L"align: center")
-        .font_size(14.f)
-        .align(auralite::ui::TextAlign::Center)
-        .preferred_height(24.f);
-    root->AddChild(std::move(center));
+    auto field = std::make_unique<auralite::ui::TextField>();
+    field->placeholder(L"Type here (ASCII + IME)…")
+        .preferred_size(320.f, 36.f)
+        .on_change([status_ptr, &window](const std::wstring& t) {
+          if (status_ptr) {
+            status_ptr->text(L"Username: " + t);
+          }
+          window.Invalidate();
+        });
+    root->AddChild(std::move(field));
+  }
+
+  {
+    auto label = std::make_unique<auralite::ui::Label>();
+    label->text(L"Password")
+        .font_size(13.f)
+        .color(auralite::ColorF::FromRgb(70, 80, 95))
+        .preferred_height(20.f);
+    root->AddChild(std::move(label));
   }
   {
-    auto right = std::make_unique<auralite::ui::Label>();
-    right->text(L"align: right")
-        .font_size(14.f)
-        .align(auralite::ui::TextAlign::Right)
-        .preferred_height(24.f);
-    root->AddChild(std::move(right));
+    auto field = std::make_unique<auralite::ui::TextField>();
+    field->password(true)
+        .placeholder(L"Password (no copy)")
+        .preferred_size(320.f, 36.f);
+    root->AddChild(std::move(field));
   }
 
   {
@@ -144,6 +157,8 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
   }
 
   window.SetRoot(std::move(root));
+  window.FocusNext(false);  // first focusable = username TextField
+
   ShowWindow(window.hwnd(), show);
   UpdateWindow(window.hwnd());
 

@@ -4,6 +4,10 @@
 
 namespace auralite::ui {
 
+Button::Button() {
+  set_focusable(true);
+}
+
 Button& Button::text(const std::wstring& t) {
   text_ = t;
   return *this;
@@ -62,6 +66,9 @@ void Button::Paint(auralite::Canvas& canvas) {
 
   const float radius = 8.f;
   canvas.FillRoundedRect(bounds_, radius, radius, BgColor());
+  if (focused()) {
+    canvas.DrawRect(bounds_, ColorF::FromRgb(20, 60, 120), 2.f);
+  }
 
   float text_x = bounds_.x + 12.f;
 
@@ -108,6 +115,15 @@ void Button::OnMouseEnter(const MouseEvent&) {
 void Button::OnMouseLeave(const MouseEvent&) {
   hovered_ = false;
   pressed_ = false;
+}
+
+void Button::OnKey(const KeyEvent& e) {
+  if (!e.down) {
+    return;
+  }
+  if ((e.vk == VK_SPACE || e.vk == VK_RETURN) && on_click_) {
+    on_click_();
+  }
 }
 
 void Button::OnDeviceLost() {

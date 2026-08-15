@@ -12,6 +12,8 @@ class Button : public Node {
  public:
   using ClickHandler = std::function<void()>;
 
+  Button();
+
   Button& text(const std::wstring& t);
   Button& font_size(float size);
   Button& on_click(ClickHandler handler);
@@ -28,6 +30,7 @@ class Button : public Node {
   void OnMouseUp(const MouseEvent& e) override;
   void OnMouseEnter(const MouseEvent& e) override;
   void OnMouseLeave(const MouseEvent& e) override;
+  void OnKey(const KeyEvent& e) override;
   void OnDeviceLost() override;
 
  private:

@@ -1,11 +1,33 @@
 #include "auralite/ui/window.h"
 
+#include <imm.h>
 #include <windowsx.h>
+
+#include <string>
+#include <vector>
 
 namespace auralite::ui {
 namespace {
 
 constexpr wchar_t kWindowClassName[] = L"AuraLite.UI.Window";
+
+std::wstring ImmGetString(HIMC himc, DWORD index) {
+  if (!himc) {
+    return {};
+  }
+  const LONG bytes = ImmGetCompositionStringW(himc, index, nullptr, 0);
+  if (bytes <= 0) {
+    return {};
+  }
+  std::wstring out(static_cast<size_t>(bytes) / sizeof(wchar_t), L'\0');
+  ImmGetCompositionStringW(himc, index, out.data(),
+                           static_cast<DWORD>(bytes));
+  // Imm may not null-terminate; size already matches char count.
+  while (!out.empty() && out.back() == L'\0') {
+    out.pop_back();
+  }
+  return out;
+}
 
 }  // namespace
 
@@ -69,6 +91,7 @@ bool Window::Create(const wchar_t* title, int w, int h) {
 }
 
 void Window::SetRoot(std::unique_ptr<Node> root) {
+  SetFocusNode(nullptr);
   root_ = std::move(root);
   mouse_capture_ = nullptr;
   hovered_ = nullptr;
@@ -80,6 +103,72 @@ void Window::Invalidate() {
   if (hwnd_) {
     InvalidateRect(hwnd_, nullptr, FALSE);
   }
+}
+
+void Window::CollectFocusable(Node* node, std::vector<Node*>* out) {
+  if (!node || !out) {
+    return;
+  }
+  if (node->focusable()) {
+    out->push_back(node);
+  }
+  for (const auto& child : node->children()) {
+    if (child) {
+      CollectFocusable(child.get(), out);
+    }
+  }
+}
+
+void Window::SetFocusNode(Node* node) {
+  if (focused_ == node) {
+    return;
+  }
+  if (node && !node->focusable()) {
+    return;
+  }
+  if (focused_) {
+    focused_->set_focused(false);
+    focused_->OnBlur();
+  }
+  focused_ = node;
+  if (focused_) {
+    focused_->set_focused(true);
+    focused_->OnFocus();
+    if (hwnd_) {
+      ::SetFocus(hwnd_);
+    }
+  }
+  UpdateImeCandidatePos();
+  Invalidate();
+}
+
+void Window::FocusNext(bool reverse) {
+  if (!root_) {
+    return;
+  }
+  std::vector<Node*> list;
+  CollectFocusable(root_.get(), &list);
+  if (list.empty()) {
+    SetFocusNode(nullptr);
+    return;
+  }
+
+  int index = -1;
+  for (size_t i = 0; i < list.size(); ++i) {
+    if (list[i] == focused_) {
+      index = static_cast<int>(i);
+      break;
+    }
+  }
+
+  if (index < 0) {
+    SetFocusNode(reverse ? list.back() : list.front());
+    return;
+  }
+
+  const int n = static_cast<int>(list.size());
+  const int next = reverse ? (index - 1 + n) % n : (index + 1) % n;
+  SetFocusNode(list[static_cast<size_t>(next)]);
 }
 
 void Window::NotifyDeviceLost() {
@@ -109,6 +198,23 @@ void Window::EnsureMouseLeaveTracking() {
   if (TrackMouseEvent(&tme)) {
     tracking_mouse_leave_ = true;
   }
+}
+
+void Window::UpdateImeCandidatePos() {
+  if (!hwnd_ || !focused_ || !focused_->WantsIme()) {
+    return;
+  }
+  HIMC himc = ImmGetContext(hwnd_);
+  if (!himc) {
+    return;
+  }
+  const RectF b = focused_->bounds();
+  COMPOSITIONFORM form = {};
+  form.dwStyle = CFS_POINT;
+  form.ptCurrentPos.x = static_cast<LONG>(b.x + 10.f);
+  form.ptCurrentPos.y = static_cast<LONG>(b.y + b.h);
+  ImmSetCompositionWindow(himc, &form);
+  ImmReleaseContext(hwnd_, himc);
 }
 
 Window* Window::FromHwnd(HWND hwnd) {
@@ -169,10 +275,46 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       return 0;
 
     case WM_KEYDOWN:
-    case WM_KEYUP:
     case WM_SYSKEYDOWN:
+      if (wparam == VK_TAB) {
+        const bool reverse = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+        FocusNext(reverse);
+        return 0;
+      }
+      DispatchKey(msg, wparam);
+      return 0;
+
+    case WM_KEYUP:
     case WM_SYSKEYUP:
       DispatchKey(msg, wparam);
+      return 0;
+
+    case WM_CHAR:
+      DispatchChar(wparam);
+      return 0;
+
+    case WM_IME_STARTCOMPOSITION:
+      UpdateImeCandidatePos();
+      return 0;
+
+    case WM_IME_COMPOSITION:
+      HandleImeComposition(lparam);
+      // Let DefWindowProc also run when we want candidate UI; we consume string.
+      return 0;
+
+    case WM_IME_ENDCOMPOSITION:
+      if (focused_) {
+        focused_->OnImeEnd();
+        Invalidate();
+      }
+      return 0;
+
+    case WM_SETFOCUS:
+      Invalidate();
+      return 0;
+
+    case WM_KILLFOCUS:
+      Invalidate();
       return 0;
 
     case WM_DESTROY:
@@ -180,6 +322,7 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       hwnd_ = nullptr;
       mouse_capture_ = nullptr;
       hovered_ = nullptr;
+      focused_ = nullptr;
       tracking_mouse_leave_ = false;
       // Quit the app when the last UI window closes (Task 1 single-window).
       PostQuitMessage(0);
@@ -189,6 +332,31 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       break;
   }
   return DefWindowProcW(hwnd_, msg, wparam, lparam);
+}
+
+void Window::HandleImeComposition(LPARAM lparam) {
+  if (!focused_ || !focused_->WantsIme()) {
+    return;
+  }
+  HIMC himc = ImmGetContext(hwnd_);
+  if (!himc) {
+    return;
+  }
+
+  if (lparam & GCS_RESULTSTR) {
+    const std::wstring result = ImmGetString(himc, GCS_RESULTSTR);
+    if (!result.empty()) {
+      focused_->OnImeResult(result);
+      ime_char_suppress_ += result.size();
+    }
+  }
+  if (lparam & GCS_COMPSTR) {
+    focused_->OnImeComposition(ImmGetString(himc, GCS_COMPSTR));
+  }
+
+  ImmReleaseContext(hwnd_, himc);
+  UpdateImeCandidatePos();
+  Invalidate();
 }
 
 RectF Window::ClientRectF() const {
@@ -313,6 +481,9 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
     case WM_MBUTTONDOWN:
       mouse_capture_ = target;
       SetCapture(hwnd_);
+      if (target->focusable()) {
+        SetFocusNode(target);
+      }
       target->OnMouseDown(ev);
       break;
     case WM_LBUTTONUP:
@@ -348,7 +519,7 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
 }
 
 void Window::DispatchKey(UINT msg, WPARAM wparam) {
-  if (!root_) {
+  if (!focused_) {
     return;
   }
   KeyEvent ev;
@@ -357,8 +528,26 @@ void Window::DispatchKey(UINT msg, WPARAM wparam) {
   ev.ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
   ev.shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
   ev.alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
-  // Focus routing lands in a later task; broadcast to root for now.
-  root_->OnKey(ev);
+  focused_->OnKey(ev);
+  Invalidate();
+}
+
+void Window::DispatchChar(WPARAM wparam) {
+  if (!focused_) {
+    return;
+  }
+  // Skip Tab / Return / Esc / Backspace (handled via WM_KEYDOWN).
+  if (wparam == VK_TAB || wparam == VK_RETURN || wparam == VK_ESCAPE ||
+      wparam == VK_BACK) {
+    return;
+  }
+  // Swallow WM_CHAR duplicates after Imm GCS_RESULTSTR.
+  if (ime_char_suppress_ > 0) {
+    --ime_char_suppress_;
+    return;
+  }
+  focused_->OnChar(static_cast<wchar_t>(wparam));
+  Invalidate();
 }
 
 }  // namespace auralite::ui

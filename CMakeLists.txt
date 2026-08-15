@@ -138,6 +138,7 @@ add_library(auralite_ui STATIC
   auralite/ui/button.cpp
   auralite/ui/image_view.cpp
   auralite/ui/image_button.cpp
+  auralite/ui/text_field.cpp
   auralite/ui/window.cpp
   auralite/ui/application.cpp
 )
@@ -155,6 +156,7 @@ target_compile_definitions(auralite_ui
 target_link_libraries(auralite_ui
   PUBLIC
     AuraLite::D2D
+    imm32
   PRIVATE
     user32
     gdi32

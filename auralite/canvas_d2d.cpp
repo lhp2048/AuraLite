@@ -328,6 +328,39 @@ void Canvas::DrawText(const std::wstring& text, const RectF& layout_rect,
   format->Release();
 }
 
+float Canvas::MeasureTextWidth(const std::wstring& text, float font_size,
+                               const wchar_t* font_family) {
+  if (!dwrite_factory_ || text.empty()) {
+    return 0.f;
+  }
+
+  IDWriteTextFormat* format = nullptr;
+  HRESULT hr = dwrite_factory_->CreateTextFormat(
+      font_family ? font_family : L"Microsoft YaHei UI", nullptr,
+      DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL,
+      DWRITE_FONT_STRETCH_NORMAL, font_size, L"zh-cn", &format);
+  if (FAILED(hr) || !format) {
+    return 0.f;
+  }
+
+  IDWriteTextLayout* layout = nullptr;
+  hr = dwrite_factory_->CreateTextLayout(
+      text.c_str(), static_cast<UINT32>(text.size()), format, 100000.f,
+      font_size * 2.f, &layout);
+  format->Release();
+  if (FAILED(hr) || !layout) {
+    return 0.f;
+  }
+
+  DWRITE_TEXT_METRICS metrics = {};
+  hr = layout->GetMetrics(&metrics);
+  layout->Release();
+  if (FAILED(hr)) {
+    return 0.f;
+  }
+  return metrics.widthIncludingTrailingWhitespace;
+}
+
 void Canvas::DrawImage(const Image& image, const RectF& dest) {
   if (!render_target_ || image.empty()) {
     return;
