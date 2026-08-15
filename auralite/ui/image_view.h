@@ -18,6 +18,7 @@ class ImageView : public Node {
 
   SizeF Measure(float max_w, float max_h) override;
   void Paint(auralite::Canvas& canvas) override;
+  void OnDeviceLost() override;
 
  private:
   void EnsureImage(auralite::Canvas& canvas);

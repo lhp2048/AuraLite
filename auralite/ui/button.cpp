@@ -110,4 +110,9 @@ void Button::OnMouseLeave(const MouseEvent&) {
   pressed_ = false;
 }
 
+void Button::OnDeviceLost() {
+  icon_.Reset();
+  Node::OnDeviceLost();
+}
+
 }  // namespace auralite::ui

@@ -38,6 +38,9 @@ class Node {
   virtual void OnFocus() {}
   virtual void OnBlur() {}
 
+  // Drop GPU resources tied to the previous Canvas/device; default walks children.
+  virtual void OnDeviceLost();
+
  protected:
   static bool ContainsPoint(const RectF& r, float x, float y);
 

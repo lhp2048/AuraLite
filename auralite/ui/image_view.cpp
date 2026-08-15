@@ -58,4 +58,9 @@ void ImageView::Paint(auralite::Canvas& canvas) {
   canvas.DrawImage(image_, bounds_);
 }
 
+void ImageView::OnDeviceLost() {
+  image_.Reset();
+  Node::OnDeviceLost();
+}
+
 }  // namespace auralite::ui

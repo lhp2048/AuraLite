@@ -82,6 +82,35 @@ void Window::Invalidate() {
   }
 }
 
+void Window::NotifyDeviceLost() {
+  if (root_) {
+    root_->OnDeviceLost();
+  }
+}
+
+void Window::ClearHover() {
+  if (!hovered_) {
+    return;
+  }
+  MouseEvent ev;
+  hovered_->OnMouseLeave(ev);
+  hovered_ = nullptr;
+  Invalidate();
+}
+
+void Window::EnsureMouseLeaveTracking() {
+  if (tracking_mouse_leave_ || !hwnd_) {
+    return;
+  }
+  TRACKMOUSEEVENT tme = {};
+  tme.cbSize = sizeof(tme);
+  tme.dwFlags = TME_LEAVE;
+  tme.hwndTrack = hwnd_;
+  if (TrackMouseEvent(&tme)) {
+    tracking_mouse_leave_ = true;
+  }
+}
+
 Window* Window::FromHwnd(HWND hwnd) {
   return reinterpret_cast<Window*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
 }
@@ -134,6 +163,11 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       DispatchMouse(msg, wparam, lparam);
       return 0;
 
+    case WM_MOUSELEAVE:
+      tracking_mouse_leave_ = false;
+      ClearHover();
+      return 0;
+
     case WM_KEYDOWN:
     case WM_KEYUP:
     case WM_SYSKEYDOWN:
@@ -146,6 +180,7 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       hwnd_ = nullptr;
       mouse_capture_ = nullptr;
       hovered_ = nullptr;
+      tracking_mouse_leave_ = false;
       // Quit the app when the last UI window closes (Task 1 single-window).
       PostQuitMessage(0);
       return 0;
@@ -174,8 +209,12 @@ void Window::OnPaint() {
     return;
   }
 
-  if (!canvas_.is_valid() && !canvas_.Init(hwnd_)) {
+  const bool need_init = !canvas_.is_valid();
+  if (need_init && !canvas_.Init(hwnd_)) {
     return;
+  }
+  if (need_init) {
+    NotifyDeviceLost();
   }
 
   if (!canvas_.BeginDraw()) {
@@ -194,7 +233,9 @@ void Window::OnPaint() {
   }
 
   if (!canvas_.EndDraw()) {
-    canvas_.Init(hwnd_);
+    if (canvas_.Init(hwnd_)) {
+      NotifyDeviceLost();
+    }
     layout_dirty_ = true;
     Invalidate();
   }
@@ -224,6 +265,10 @@ MouseButton Window::ButtonFromMsg(UINT msg, WPARAM wparam) {
 void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
   if (!root_) {
     return;
+  }
+
+  if (msg == WM_MOUSEMOVE) {
+    EnsureMouseLeaveTracking();
   }
 
   MouseEvent ev;

@@ -83,4 +83,9 @@ void ImageButton::OnMouseLeave(const MouseEvent&) {
   pressed_ = false;
 }
 
+void ImageButton::OnDeviceLost() {
+  image_.Reset();
+  Node::OnDeviceLost();
+}
+
 }  // namespace auralite::ui

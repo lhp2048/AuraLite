@@ -29,6 +29,9 @@ class Window {
   LRESULT HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam);
   void OnPaint();
   void OnSize(UINT width, UINT height);
+  void NotifyDeviceLost();
+  void ClearHover();
+  void EnsureMouseLeaveTracking();
   void DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam);
   void DispatchKey(UINT msg, WPARAM wparam);
 
@@ -41,6 +44,7 @@ class Window {
   bool layout_dirty_ = true;
   Node* mouse_capture_ = nullptr;
   Node* hovered_ = nullptr;
+  bool tracking_mouse_leave_ = false;
 };
 
 }  // namespace auralite::ui

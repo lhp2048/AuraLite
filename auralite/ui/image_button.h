@@ -24,6 +24,7 @@ class ImageButton : public Node {
   void OnMouseUp(const MouseEvent& e) override;
   void OnMouseEnter(const MouseEvent& e) override;
   void OnMouseLeave(const MouseEvent& e) override;
+  void OnDeviceLost() override;
 
  private:
   void EnsureImage(auralite::Canvas& canvas);

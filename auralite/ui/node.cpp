@@ -51,4 +51,12 @@ Node* Node::HitTest(float x, float y) {
   return this;
 }
 
+void Node::OnDeviceLost() {
+  for (auto& child : children_) {
+    if (child) {
+      child->OnDeviceLost();
+    }
+  }
+}
+
 }  // namespace auralite::ui
