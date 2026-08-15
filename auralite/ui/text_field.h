@@ -2,6 +2,8 @@
 
 #include "auralite/ui/node.h"
 
+#include <windows.h>
+
 #include <functional>
 #include <optional>
 #include <string>
@@ -13,6 +15,7 @@ class TextField : public Node {
   using ChangeHandler = std::function<void(const std::wstring&)>;
 
   TextField();
+  ~TextField() override;
 
   TextField& text(const std::wstring& t);
   TextField& placeholder(const std::wstring& t);
@@ -49,6 +52,7 @@ class TextField : public Node {
  private:
   static constexpr float kPadX = 10.f;
   static constexpr wchar_t kPasswordChar = L'\x25CF';
+  static constexpr DWORD kCaretBlinkMs = 530;
 
   std::wstring DisplayText() const;
   std::wstring VisibleText() const;
@@ -64,6 +68,9 @@ class TextField : public Node {
   bool PasteFromClipboard();
   bool CutToClipboard();
   void HandleShortcut(UINT vk);
+  void ResetCaretBlink();
+  void SyncCaretAnim(bool on);
+  bool CaretVisible() const;
 
   std::wstring text_;
   std::wstring placeholder_;
@@ -73,6 +80,8 @@ class TextField : public Node {
   size_t sel_start_ = 0;  // anchor
   size_t caret_ = 0;      // active end
   bool selecting_ = false;
+  bool caret_anim_registered_ = false;
+  DWORD caret_blink_start_ = 0;
   ChangeHandler on_change_;
   std::function<void()> on_submit_;
 };

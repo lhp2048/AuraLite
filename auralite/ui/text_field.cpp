@@ -1,6 +1,7 @@
 #include "auralite/ui/text_field.h"
 
 #include "auralite/ui/theme.h"
+#include "auralite/ui/window.h"
 
 #include <dwrite.h>
 
@@ -59,6 +60,40 @@ TextField::TextField() {
   fill_width();
   fixed_height(36.f);
   set_preferred_width(280.f);
+}
+
+TextField::~TextField() {
+  SyncCaretAnim(false);
+}
+
+void TextField::ResetCaretBlink() {
+  caret_blink_start_ = GetTickCount();
+}
+
+void TextField::SyncCaretAnim(bool on) {
+  if (on == caret_anim_registered_) {
+    return;
+  }
+  Window* w = host_window();
+  if (!w) {
+    caret_anim_registered_ = false;
+    return;
+  }
+  if (on) {
+    w->RegisterAnimation();
+    caret_anim_registered_ = true;
+  } else {
+    w->UnregisterAnimation();
+    caret_anim_registered_ = false;
+  }
+}
+
+bool TextField::CaretVisible() const {
+  if (!focused() || HasSelection()) {
+    return false;
+  }
+  const DWORD elapsed = GetTickCount() - caret_blink_start_;
+  return ((elapsed / kCaretBlinkMs) % 2) == 0;
 }
 
 TextField& TextField::text(const std::wstring& t) {
@@ -162,6 +197,7 @@ void TextField::SetCursor(size_t pos, bool extend_selection) {
   if (!extend_selection) {
     sel_start_ = caret_;
   }
+  ResetCaretBlink();
 }
 
 size_t TextField::HitTestCursor(float window_x) const {
@@ -207,12 +243,14 @@ void TextField::InsertText(const std::wstring& text) {
   text_.insert(caret_, text);
   caret_ += text.size();
   sel_start_ = caret_;
+  ResetCaretBlink();
   NotifyChanged();
 }
 
 void TextField::DeleteSelectionOrChar(bool forward) {
   if (HasSelection()) {
     DeleteSelection();
+    ResetCaretBlink();
     return;
   }
   if (text_.empty()) {
@@ -222,12 +260,14 @@ void TextField::DeleteSelectionOrChar(bool forward) {
     if (caret_ < text_.size()) {
       text_.erase(caret_, 1);
       sel_start_ = caret_;
+      ResetCaretBlink();
       NotifyChanged();
     }
   } else if (caret_ > 0) {
     --caret_;
     text_.erase(caret_, 1);
     sel_start_ = caret_;
+    ResetCaretBlink();
     NotifyChanged();
   }
 }
@@ -375,7 +415,7 @@ void TextField::Paint(auralite::Canvas& canvas) {
     canvas.FillRect(RectF{x0, uy, (std::max)(1.f, cw), 2.f}, th.accent);
   }
 
-  if (focused() && !HasSelection()) {
+  if (CaretVisible()) {
     const std::wstring before = DisplayText().substr(0, caret_);
     float caret_x = text_rect.x + TextWidth(before);
     if (!composition_.empty() && !password_) {
@@ -478,9 +518,13 @@ void TextField::OnChar(wchar_t ch) {
   InsertText(std::wstring(1, ch));
 }
 
-void TextField::OnFocus() {}
+void TextField::OnFocus() {
+  ResetCaretBlink();
+  SyncCaretAnim(true);
+}
 
 void TextField::OnBlur() {
+  SyncCaretAnim(false);
   composition_.clear();
   selecting_ = false;
 }
