@@ -59,8 +59,12 @@ void Column::Layout(const RectF& final_rect) {
       continue;
     }
     const SizeF s = children_[i]->Measure(inner_w, remaining_h);
-    // Cross-axis stretch: child width fills column content width.
-    children_[i]->Layout(RectF{inner_x, y, inner_w, s.h});
+    // Cross-axis: stretch only when the child asked for the full inner width
+    // (e.g. Label). Fixed preferred widths (TextField/Button) stay start-aligned
+    // so left/right padding stay visually balanced.
+    const float child_w =
+        (s.w >= inner_w - 0.5f) ? inner_w : std::min(s.w, inner_w);
+    children_[i]->Layout(RectF{inner_x, y, child_w, s.h});
     y += s.h;
     remaining_h = std::max(0.f, remaining_h - s.h);
     if (i + 1 < children_.size()) {

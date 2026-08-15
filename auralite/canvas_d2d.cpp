@@ -194,6 +194,11 @@ bool Canvas::CreateDeviceResources() {
     return false;
   }
 
+  // Keep drawing units = physical pixels so layout / mouse hit-tests match paint.
+  // Default HWND RT inherits system DPI (DIPs), which shifts visuals vs GetClientRect
+  // and makes hover fire before the cursor reaches the drawn control.
+  render_target_->SetDpi(96.f, 96.f);
+
   hr = render_target_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black),
                                              &brush_);
   if (FAILED(hr)) {

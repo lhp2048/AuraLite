@@ -107,15 +107,27 @@ std::unique_ptr<auralite::ui::Node> BuildFluentLogin() {
       .spacing(12.f)
       .child(Label().text(L"Smart Family").font_size(20.f))
       .child(Label().text(L"账号").font_size(13.f).preferred_height(20.f))
-      .child(TextField().placeholder(L"账号").preferred_size(320.f, 36.f))
+      .child(TextField().placeholder(L"账号").preferred_size(352.f, 36.f))
       .child(Label().text(L"密码").font_size(13.f).preferred_height(20.f))
       .child(TextField()
                  .placeholder(L"密码")
                  .password(true)
-                 .preferred_size(320.f, 36.f))
-      .child(Button().text(L"登录").preferred_size(120.f, 40.f))
+                 .preferred_size(352.f, 36.f))
+      .child(Button().text(L"登录").preferred_size(352.f, 40.f))
       .child(Label().text(L"状态：就绪").font_size(13.f).preferred_height(22.f))
       .Build();
+}
+
+bool CreateLoginWindow(auralite::ui::Window* window, const wchar_t* title) {
+  if (!window) {
+    return false;
+  }
+  // Target client: padding 24*2 + field width 352.
+  RECT rc = {0, 0, 400, 360};
+  AdjustWindowRectEx(&rc, WS_OVERLAPPEDWINDOW, FALSE, 0);
+  const int outer_w = rc.right - rc.left;
+  const int outer_h = rc.bottom - rc.top;
+  return window->Create(title, outer_w, outer_h);
 }
 
 }  // namespace
@@ -129,7 +141,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
       fluent ? L"AuraLite Login (fluent)" : L"AuraLite Login (YAML)";
 
   auralite::ui::Window window;
-  if (!window.Create(title, 420, 340)) {
+  if (!CreateLoginWindow(&window, title)) {
     MessageBoxW(nullptr, L"Window / Canvas init failed", L"login_demo",
                 MB_ICONERROR);
     CoUninitialize();

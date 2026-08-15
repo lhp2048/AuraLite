@@ -59,8 +59,10 @@ void Row::Layout(const RectF& final_rect) {
       continue;
     }
     const SizeF s = children_[i]->Measure(remaining_w, inner_h);
-    // Cross-axis stretch: child height fills row content height.
-    children_[i]->Layout(RectF{x, inner_y, s.w, inner_h});
+    // Cross-axis: stretch only when child asked for full inner height.
+    const float child_h =
+        (s.h >= inner_h - 0.5f) ? inner_h : std::min(s.h, inner_h);
+    children_[i]->Layout(RectF{x, inner_y, s.w, child_h});
     x += s.w;
     remaining_w = std::max(0.f, remaining_w - s.w);
     if (i + 1 < children_.size()) {
