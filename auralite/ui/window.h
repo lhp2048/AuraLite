@@ -20,6 +20,9 @@ class Window {
   Window& operator=(const Window&) = delete;
 
   bool Create(const wchar_t* title, int w, int h);
+  // Borderless owned popup (menus). Does not post WM_QUIT on destroy.
+  bool CreatePopup(HWND owner, int width, int height);
+  bool is_popup() const { return popup_mode_; }
   // When true (default), WM_DESTROY posts WM_QUIT. Host apps that own the
   // message loop (e.g. Family Shell) should set false so closing a UI window
   // does not tear down the process.
@@ -87,6 +90,7 @@ class Window {
   bool clear_popup_pending_ = false;
   bool layout_dirty_ = true;
   bool quit_on_close_ = true;
+  bool popup_mode_ = false;
   Node* mouse_capture_ = nullptr;
   Node* hovered_ = nullptr;
   Node* focused_ = nullptr;

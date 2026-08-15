@@ -126,6 +126,45 @@ bool Window::Create(const wchar_t* title, int w, int h) {
   return true;
 }
 
+bool Window::CreatePopup(HWND owner, int w, int h) {
+  if (hwnd_) {
+    return false;
+  }
+
+  (void)Theme::Active();
+
+  HINSTANCE instance = GetModuleHandleW(nullptr);
+  if (!EnsureWindowClass(instance)) {
+    return false;
+  }
+
+  popup_mode_ = true;
+  quit_on_close_ = false;
+
+  hwnd_ = CreateWindowExW(
+      WS_EX_TOOLWINDOW | WS_EX_TOPMOST, kWindowClassName, L"",
+      WS_POPUP | WS_CLIPCHILDREN, 0, 0, w, h, owner, nullptr, instance,
+      this);
+  if (!hwnd_) {
+    return false;
+  }
+
+  if (!canvas_.Init(hwnd_)) {
+    DestroyWindow(hwnd_);
+    hwnd_ = nullptr;
+    popup_mode_ = false;
+    return false;
+  }
+
+  ImmAssociateContextEx(hwnd_, NULL, 0);
+
+  theme_sink_ = [this] { Invalidate(); };
+  Theme::AddInvalidateSink(&theme_sink_);
+
+  layout_dirty_ = true;
+  return true;
+}
+
 void Window::SetRoot(std::unique_ptr<Node> root) {
   ClearPopup();
   SetFocusNode(nullptr);
@@ -559,7 +598,9 @@ void Window::OnPaint() {
     return;
   }
 
-  canvas_.Clear(Theme::Active().window_bg);
+  const ColorF& clear =
+      popup_mode_ ? Theme::Active().surface : Theme::Active().window_bg;
+  canvas_.Clear(clear);
 
   if (root_) {
     const RectF client = ClientRectF();
