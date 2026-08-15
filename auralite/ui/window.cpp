@@ -215,24 +215,12 @@ void Window::Invalidate() {
   if (!hwnd_) {
     return;
   }
-  // Coalesce multiple Invalidate calls in the same turn into one PostTask.
-  MessageLoop* loop = MessageLoop::current();
-  if (!loop) {
-    InvalidateRect(hwnd_, nullptr, FALSE);
-    return;
-  }
-  if (invalidate_posted_) {
-    return;
-  }
-  invalidate_posted_ = true;
-  auto alive = alive_;
-  loop->PostTask(new auralite::async::LambdaTask([this, alive] {
-    invalidate_posted_ = false;
-    if (!alive || !alive->load(std::memory_order_acquire) || !hwnd_) {
-      return;
-    }
-    InvalidateRect(hwnd_, nullptr, FALSE);
-  }));
+  // InvalidateRect immediately. Do not PostTask-coalesce: nestable tasks can
+  // still be deferred relative to the current WM_* handler, and nested modal
+  // MessageLoop runs (password/settings) then show stale UI until the dialog
+  // closes — typing works (Enter submits) but bullets never appear.
+  invalidate_posted_ = false;
+  InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
 void Window::RequestLayout() {
