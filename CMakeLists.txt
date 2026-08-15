@@ -145,6 +145,9 @@ add_library(auralite_ui STATIC
   auralite/ui/node.cpp
   auralite/ui/column.cpp
   auralite/ui/row.cpp
+  auralite/ui/tile.cpp
+  auralite/ui/tab.cpp
+  auralite/ui/absolute.cpp
   auralite/ui/label.cpp
   auralite/ui/button.cpp
   auralite/ui/image_view.cpp
@@ -246,6 +249,16 @@ if(AURALITE_BUILD_UI_DEMOS)
       "$<TARGET_FILE_DIR:ui_gallery>/gallery.yaml"
     COMMENT "Copy gallery.yaml next to ui_gallery"
   )
+
+  add_executable(ui_layout_test examples/ui_layout_test/main.cpp)
+  target_link_libraries(ui_layout_test PRIVATE AuraLite::UINext)
+  target_compile_definitions(ui_layout_test PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(ui_layout_test PRIVATE /W3 /utf-8 /permissive-)
+  endif()
 endif()
 
 option(AURALITE_BUILD_TESTS "Build test_base / test_view" ON)

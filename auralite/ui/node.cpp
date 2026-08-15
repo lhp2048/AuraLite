@@ -68,6 +68,48 @@ Node& Node::hug_height() {
   return *this;
 }
 
+Node& Node::weight(float w) {
+  weight_ = std::max(0.f, w);
+  return *this;
+}
+
+Node& Node::cross_align(Align a) {
+  cross_align_ = a;
+  has_cross_align_ = true;
+  return *this;
+}
+
+Node& Node::set_pos(float x, float y) {
+  pos_x_ = x;
+  pos_y_ = y;
+  has_pos_ = true;
+  return *this;
+}
+
+Node& Node::left(float v) {
+  left_ = v;
+  has_left_ = true;
+  return *this;
+}
+
+Node& Node::top(float v) {
+  top_ = v;
+  has_top_ = true;
+  return *this;
+}
+
+Node& Node::right(float v) {
+  right_ = v;
+  has_right_ = true;
+  return *this;
+}
+
+Node& Node::bottom(float v) {
+  bottom_ = v;
+  has_bottom_ = true;
+  return *this;
+}
+
 SizeF Node::ResolveSize(float max_w, float max_h, float hug_w,
                         float hug_h) const {
   float w = hug_w;

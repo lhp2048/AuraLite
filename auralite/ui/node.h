@@ -39,6 +39,37 @@ class Node {
   Node& hug_width();
   Node& hug_height();
 
+  // Column/Row main-axis flex share (0 = not weighted; Fill still flexes as weight 1).
+  Node& weight(float w);
+  float weight() const { return weight_; }
+
+  // Cross-axis align; if unset, Column/Row use their child_align default.
+  // Named cross_align (not align) so Label can keep align(TextAlign) for text.
+  Node& cross_align(Align a);
+  Align cross_align() const { return cross_align_; }
+  bool has_cross_align() const { return has_cross_align_; }
+
+  // Absolute parent: child origin relative to parent content (ignored by Column/Row).
+  Node& set_pos(float x, float y);
+  float pos_x() const { return pos_x_; }
+  float pos_y() const { return pos_y_; }
+  bool has_pos() const { return has_pos_; }
+
+  // Absolute edge anchors (distance to parent edges). Prefer over set_pos / own size
+  // when both edges on an axis are set. Ignored by Column/Row/Tile/Tab.
+  Node& left(float v);
+  Node& top(float v);
+  Node& right(float v);
+  Node& bottom(float v);
+  float left() const { return left_; }
+  float top() const { return top_; }
+  float right() const { return right_; }
+  float bottom() const { return bottom_; }
+  bool has_left() const { return has_left_; }
+  bool has_top() const { return has_top_; }
+  bool has_right() const { return has_right_; }
+  bool has_bottom() const { return has_bottom_; }
+
   // Default: claim the full available size (Fill/Fill).
   virtual SizeF Measure(float max_w, float max_h);
   // Default: set bounds and give each child the same rect.
@@ -102,6 +133,20 @@ class Node {
   SizePolicy height_policy_ = SizePolicy::Hug;
   float preferred_w_ = 0.f;
   float preferred_h_ = 0.f;
+  float weight_ = 0.f;
+  Align cross_align_ = Align::Start;
+  bool has_cross_align_ = false;
+  float pos_x_ = 0.f;
+  float pos_y_ = 0.f;
+  bool has_pos_ = false;
+  float left_ = 0.f;
+  float top_ = 0.f;
+  float right_ = 0.f;
+  float bottom_ = 0.f;
+  bool has_left_ = false;
+  bool has_top_ = false;
+  bool has_right_ = false;
+  bool has_bottom_ = false;
 };
 
 }  // namespace auralite::ui

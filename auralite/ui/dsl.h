@@ -3,6 +3,7 @@
 #include "auralite/ui/button.h"
 #include "auralite/ui/checkbox.h"
 #include "auralite/ui/column.h"
+#include "auralite/ui/absolute.h"
 #include "auralite/ui/image_button.h"
 #include "auralite/ui/image_view.h"
 #include "auralite/ui/label.h"
@@ -12,11 +13,14 @@
 #include "auralite/ui/scroll_view.h"
 #include "auralite/ui/split_view.h"
 #include "auralite/ui/switch_control.h"
+#include "auralite/ui/tab.h"
 #include "auralite/ui/text_field.h"
+#include "auralite/ui/tile.h"
 
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace auralite::ui::dsl {
 
@@ -66,6 +70,22 @@ class ColumnBuilder : public detail::ChildHost<ColumnBuilder, Column> {
     get()->spacing(s);
     return *this;
   }
+  ColumnBuilder& child_align(Align a) {
+    get()->child_align(a);
+    return *this;
+  }
+  ColumnBuilder& main_align(Align a) {
+    get()->main_align(a);
+    return *this;
+  }
+  ColumnBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  ColumnBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
 };
 
 class RowBuilder : public detail::ChildHost<RowBuilder, Row> {
@@ -80,6 +100,94 @@ class RowBuilder : public detail::ChildHost<RowBuilder, Row> {
   }
   RowBuilder& spacing(float s) {
     get()->spacing(s);
+    return *this;
+  }
+  RowBuilder& child_align(Align a) {
+    get()->child_align(a);
+    return *this;
+  }
+  RowBuilder& main_align(Align a) {
+    get()->main_align(a);
+    return *this;
+  }
+  RowBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  RowBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
+};
+
+class TileBuilder : public detail::ChildHost<TileBuilder, Tile> {
+ public:
+  TileBuilder& padding(float all) {
+    get()->padding(all);
+    return *this;
+  }
+  TileBuilder& spacing(float s) {
+    get()->spacing(s);
+    return *this;
+  }
+  TileBuilder& spacing(float h, float v) {
+    get()->spacing(h, v);
+    return *this;
+  }
+  TileBuilder& columns(int cols) {
+    get()->columns(cols);
+    return *this;
+  }
+  TileBuilder& item_size(float w, float h) {
+    get()->item_size(w, h);
+    return *this;
+  }
+  TileBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  TileBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
+};
+
+class TabBuilder : public detail::ChildHost<TabBuilder, Tab> {
+ public:
+  TabBuilder& selected(int index) {
+    get()->set_selected(index);
+    return *this;
+  }
+  TabBuilder& headers(std::vector<std::wstring> titles) {
+    get()->set_headers(std::move(titles));
+    return *this;
+  }
+  TabBuilder& header_height(float h) {
+    get()->header_height(h);
+    return *this;
+  }
+  TabBuilder& on_selected(Tab::SelectedHandler handler) {
+    get()->on_selected(std::move(handler));
+    return *this;
+  }
+  TabBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  TabBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
+};
+
+class AbsoluteBuilder : public detail::ChildHost<AbsoluteBuilder, Absolute> {
+ public:
+  AbsoluteBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  AbsoluteBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
     return *this;
   }
 };
@@ -102,6 +210,30 @@ class LabelBuilder : public detail::BuilderBase<Label> {
     get()->align(a);
     return *this;
   }
+  LabelBuilder& cross_align(Align a) {
+    get()->cross_align(a);
+    return *this;
+  }
+  LabelBuilder& weight(float w) {
+    get()->weight(w);
+    return *this;
+  }
+  LabelBuilder& left(float v) {
+    get()->left(v);
+    return *this;
+  }
+  LabelBuilder& top(float v) {
+    get()->top(v);
+    return *this;
+  }
+  LabelBuilder& right(float v) {
+    get()->right(v);
+    return *this;
+  }
+  LabelBuilder& bottom(float v) {
+    get()->bottom(v);
+    return *this;
+  }
   LabelBuilder& preferred_height(float h) {
     get()->preferred_height(h);
     return *this;
@@ -120,6 +252,50 @@ class ButtonBuilder : public detail::BuilderBase<Button> {
   }
   ButtonBuilder& preferred_size(float w, float h) {
     get()->preferred_size(w, h);
+    return *this;
+  }
+  ButtonBuilder& pos(float x, float y) {
+    get()->set_pos(x, y);
+    return *this;
+  }
+  ButtonBuilder& left(float v) {
+    get()->left(v);
+    return *this;
+  }
+  ButtonBuilder& top(float v) {
+    get()->top(v);
+    return *this;
+  }
+  ButtonBuilder& right(float v) {
+    get()->right(v);
+    return *this;
+  }
+  ButtonBuilder& bottom(float v) {
+    get()->bottom(v);
+    return *this;
+  }
+  ButtonBuilder& weight(float w) {
+    get()->weight(w);
+    return *this;
+  }
+  ButtonBuilder& cross_align(Align a) {
+    get()->cross_align(a);
+    return *this;
+  }
+  ButtonBuilder& fill_height() {
+    get()->fill_height();
+    return *this;
+  }
+  ButtonBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
+  ButtonBuilder& hug_width() {
+    get()->hug_width();
+    return *this;
+  }
+  ButtonBuilder& fixed_width(float w) {
+    get()->fixed_width(w);
     return *this;
   }
   ButtonBuilder& on_click(Button::ClickHandler handler) {
@@ -254,6 +430,10 @@ class ScrollViewBuilder : public detail::BuilderBase<ScrollView> {
     get()->fill_width();
     return *this;
   }
+  ScrollViewBuilder& fill_height() {
+    get()->fill_height();
+    return *this;
+  }
   ScrollViewBuilder& fixed_height(float h) {
     get()->fixed_height(h);
     return *this;
@@ -322,6 +502,9 @@ class SplitViewBuilder : public detail::BuilderBase<SplitView> {
 
 inline ColumnBuilder Column() { return ColumnBuilder(); }
 inline RowBuilder Row() { return RowBuilder(); }
+inline TileBuilder Tile() { return TileBuilder(); }
+inline TabBuilder Tab() { return TabBuilder(); }
+inline AbsoluteBuilder Absolute() { return AbsoluteBuilder(); }
 inline LabelBuilder Label() { return LabelBuilder(); }
 inline ButtonBuilder Button() { return ButtonBuilder(); }
 inline TextFieldBuilder TextField() { return TextFieldBuilder(); }

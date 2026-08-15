@@ -14,6 +14,9 @@ struct SizeF {
 
 enum class TextAlign { Left, Center, Right };
 
+// Cross-axis alignment inside Column/Row (main-axis packing stays Start).
+enum class Align { Start, Center, End };
+
 // Layout size along one axis:
 // Fixed = preferred_* ; Hug = intrinsic content ; Fill = take available max.
 enum class SizePolicy { Fixed, Hug, Fill };

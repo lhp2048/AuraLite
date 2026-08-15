@@ -1,5 +1,6 @@
 #include "auralite/ui/factory.h"
 
+#include "auralite/ui/absolute.h"
 #include "auralite/ui/button.h"
 #include "auralite/ui/checkbox.h"
 #include "auralite/ui/column.h"
@@ -12,7 +13,9 @@
 #include "auralite/ui/scroll_view.h"
 #include "auralite/ui/split_view.h"
 #include "auralite/ui/switch_control.h"
+#include "auralite/ui/tab.h"
 #include "auralite/ui/text_field.h"
+#include "auralite/ui/tile.h"
 #include "auralite/ui/yaml_loader.h"
 
 #include <yaml-cpp/yaml.h>
@@ -44,7 +47,7 @@ std::string WideToUtf8(const std::wstring& wide) {
   return out;
 }
 
-TextAlign ParseAlign(const std::string& s) {
+TextAlign ParseTextAlign(const std::string& s) {
   if (s == "center" || s == "Center") {
     return TextAlign::Center;
   }
@@ -52,6 +55,16 @@ TextAlign ParseAlign(const std::string& s) {
     return TextAlign::Right;
   }
   return TextAlign::Left;
+}
+
+Align ParseCrossAlign(const std::string& s) {
+  if (s == "center" || s == "Center") {
+    return Align::Center;
+  }
+  if (s == "end" || s == "End" || s == "right" || s == "Right") {
+    return Align::End;
+  }
+  return Align::Start;
 }
 
 void ApplyPaddingColumn(Column* col, const YAML::Node& props) {
@@ -133,6 +146,51 @@ void ApplyWidthHeight(Node* node, const YAML::Node& props) {
   ApplySizeAxis(node, props, "height", false);
 }
 
+void ApplyWeightCrossAlign(Node* node, const YAML::Node& props,
+                           bool label_text_align) {
+  if (!node) {
+    return;
+  }
+  if (props["weight"]) {
+    node->weight(props["weight"].as<float>());
+  }
+  if (props["cross_align"]) {
+    node->cross_align(ParseCrossAlign(props["cross_align"].as<std::string>()));
+  } else if (!label_text_align && props["align"]) {
+    // Non-Label: align is layout cross_align alias (DuiLib-ish).
+    node->cross_align(ParseCrossAlign(props["align"].as<std::string>()));
+  }
+}
+
+void ApplyPos(Node* node, const YAML::Node& props) {
+  if (!node) {
+    return;
+  }
+  if (props["x"] || props["y"]) {
+    const float x = props["x"] ? props["x"].as<float>() : 0.f;
+    const float y = props["y"] ? props["y"].as<float>() : 0.f;
+    node->set_pos(x, y);
+  }
+}
+
+void ApplyAnchors(Node* node, const YAML::Node& props) {
+  if (!node) {
+    return;
+  }
+  if (props["left"]) {
+    node->left(props["left"].as<float>());
+  }
+  if (props["top"]) {
+    node->top(props["top"].as<float>());
+  }
+  if (props["right"]) {
+    node->right(props["right"].as<float>());
+  }
+  if (props["bottom"]) {
+    node->bottom(props["bottom"].as<float>());
+  }
+}
+
 void BindOnClick(ImageButton* btn, const YAML::Node& props,
                  const HandlerMap& handlers) {
   if (!btn || !props["on_click"]) {
@@ -154,6 +212,15 @@ std::string NodeTypeName(const Node* n) {
   }
   if (dynamic_cast<const Row*>(n)) {
     return "Row";
+  }
+  if (dynamic_cast<const Tile*>(n)) {
+    return "Tile";
+  }
+  if (dynamic_cast<const Tab*>(n)) {
+    return "Tab";
+  }
+  if (dynamic_cast<const Absolute*>(n)) {
+    return "Absolute";
   }
   if (dynamic_cast<const Label*>(n)) {
     return "Label";
@@ -213,6 +280,12 @@ std::string NodeDetail(const Node* n) {
   if (const auto* row = dynamic_cast<const Row*>(n)) {
     return " spacing=" + std::to_string(static_cast<int>(row->spacing()));
   }
+  if (const auto* tile = dynamic_cast<const Tile*>(n)) {
+    return " columns=" + std::to_string(tile->columns());
+  }
+  if (const auto* tab = dynamic_cast<const Tab*>(n)) {
+    return " selected=" + std::to_string(tab->selected());
+  }
   if (const auto* list = dynamic_cast<const ListView*>(n)) {
     return " items=" + std::to_string(list->item_count());
   }
@@ -264,6 +337,14 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["spacing"]) {
       col->spacing(props["spacing"].as<float>());
     }
+    if (props["child_align"]) {
+      col->child_align(ParseCrossAlign(props["child_align"].as<std::string>()));
+    }
+    if (props["main_align"]) {
+      col->main_align(ParseCrossAlign(props["main_align"].as<std::string>()));
+    }
+    ApplyWidthHeight(col.get(), props);
+    ApplyWeightCrossAlign(col.get(), props, false);
     return col;
   });
 
@@ -273,7 +354,85 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["spacing"]) {
       row->spacing(props["spacing"].as<float>());
     }
+    if (props["child_align"]) {
+      row->child_align(ParseCrossAlign(props["child_align"].as<std::string>()));
+    }
+    if (props["main_align"]) {
+      row->main_align(ParseCrossAlign(props["main_align"].as<std::string>()));
+    }
+    ApplyWidthHeight(row.get(), props);
+    ApplyWeightCrossAlign(row.get(), props, false);
     return row;
+  });
+
+  Register("Tile", [](const YAML::Node& props, const HandlerMap&) {
+    auto tile = std::make_unique<Tile>();
+    if (props["padding"]) {
+      const YAML::Node& p = props["padding"];
+      if (p.IsSequence() && p.size() >= 4) {
+        tile->padding(p[0].as<float>(), p[1].as<float>(), p[2].as<float>(),
+                      p[3].as<float>());
+      } else {
+        tile->padding(p.as<float>());
+      }
+    }
+    if (props["spacing"]) {
+      const YAML::Node& s = props["spacing"];
+      if (s.IsSequence() && s.size() >= 2) {
+        tile->spacing(s[0].as<float>(), s[1].as<float>());
+      } else {
+        tile->spacing(s.as<float>());
+      }
+    }
+    if (props["columns"]) {
+      tile->columns(props["columns"].as<int>());
+    }
+    if (props["item_width"] || props["item_height"] || props["item_size"]) {
+      float iw = 80.f;
+      float ih = 80.f;
+      if (props["item_size"] && props["item_size"].IsSequence() &&
+          props["item_size"].size() >= 2) {
+        iw = props["item_size"][0].as<float>();
+        ih = props["item_size"][1].as<float>();
+      }
+      if (props["item_width"]) {
+        iw = props["item_width"].as<float>();
+      }
+      if (props["item_height"]) {
+        ih = props["item_height"].as<float>();
+      }
+      tile->item_size(iw, ih);
+    }
+    ApplyWidthHeight(tile.get(), props);
+    ApplyWeightCrossAlign(tile.get(), props, false);
+    return tile;
+  });
+
+  Register("Tab", [](const YAML::Node& props, const HandlerMap&) {
+    auto tab = std::make_unique<Tab>();
+    if (props["selected"]) {
+      tab->set_selected(props["selected"].as<int>());
+    }
+    if (props["header_height"]) {
+      tab->header_height(props["header_height"].as<float>());
+    }
+    if (props["headers"] && props["headers"].IsSequence()) {
+      std::vector<std::wstring> titles;
+      for (const auto& h : props["headers"]) {
+        titles.push_back(Utf8ToWide(h.as<std::string>()));
+      }
+      tab->set_headers(std::move(titles));
+    }
+    ApplyWidthHeight(tab.get(), props);
+    ApplyWeightCrossAlign(tab.get(), props, false);
+    return tab;
+  });
+
+  Register("Absolute", [](const YAML::Node& props, const HandlerMap&) {
+    auto abs = std::make_unique<Absolute>();
+    ApplyWidthHeight(abs.get(), props);
+    ApplyWeightCrossAlign(abs.get(), props, false);
+    return abs;
   });
 
   Register("Label", [](const YAML::Node& props, const HandlerMap&) {
@@ -285,12 +444,13 @@ void ViewFactory::RegisterBuiltinTypes() {
       label->font_size(props["font_size"].as<float>());
     }
     if (props["align"]) {
-      label->align(ParseAlign(props["align"].as<std::string>()));
+      label->align(ParseTextAlign(props["align"].as<std::string>()));
     }
     if (props["preferred_height"]) {
       label->preferred_height(props["preferred_height"].as<float>());
     }
     ApplyWidthHeight(label.get(), props);
+    ApplyWeightCrossAlign(label.get(), props, true);
     return label;
   });
 
@@ -303,6 +463,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       btn->font_size(props["font_size"].as<float>());
     }
     ApplyWidthHeight(btn.get(), props);
+    ApplyWeightCrossAlign(btn.get(), props, false);
     BindOnClick(btn.get(), props, handlers);
     return btn;
   });
@@ -322,6 +483,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       field->font_size(props["font_size"].as<float>());
     }
     ApplyWidthHeight(field.get(), props);
+    ApplyWeightCrossAlign(field.get(), props, false);
     return field;
   });
 
@@ -331,6 +493,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       image->LoadFromFile(Utf8ToWide(props["path"].as<std::string>()));
     }
     ApplyWidthHeight(image.get(), props);
+    ApplyWeightCrossAlign(image.get(), props, false);
     return image;
   });
 
@@ -338,6 +501,7 @@ void ViewFactory::RegisterBuiltinTypes() {
            [](const YAML::Node& props, const HandlerMap& handlers) {
              auto btn = std::make_unique<ImageButton>();
              ApplyWidthHeight(btn.get(), props);
+             ApplyWeightCrossAlign(btn.get(), props, false);
              BindOnClick(btn.get(), props, handlers);
              return btn;
            });
@@ -353,6 +517,8 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["checked"]) {
       cb->checked(props["checked"].as<bool>());
     }
+    ApplyWidthHeight(cb.get(), props);
+    ApplyWeightCrossAlign(cb.get(), props, false);
     return cb;
   });
 
@@ -370,6 +536,8 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["checked"]) {
       radio->checked(props["checked"].as<bool>());
     }
+    ApplyWidthHeight(radio.get(), props);
+    ApplyWeightCrossAlign(radio.get(), props, false);
     return radio;
   });
 
@@ -389,6 +557,8 @@ void ViewFactory::RegisterBuiltinTypes() {
     } else if (props["on"] && props["on"].IsScalar()) {
       sw->on(props["on"].as<bool>());
     }
+    ApplyWidthHeight(sw.get(), props);
+    ApplyWeightCrossAlign(sw.get(), props, false);
     return sw;
   });
 
@@ -396,6 +566,7 @@ void ViewFactory::RegisterBuiltinTypes() {
     auto scroll = std::make_unique<ScrollView>();
     scroll->fill_width();
     ApplyWidthHeight(scroll.get(), props);
+    ApplyWeightCrossAlign(scroll.get(), props, false);
     return scroll;
   });
 
@@ -412,6 +583,8 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["selected"]) {
       list->set_selected_index(props["selected"].as<int>());
     }
+    ApplyWidthHeight(list.get(), props);
+    ApplyWeightCrossAlign(list.get(), props, false);
     return list;
   });
 
@@ -419,6 +592,7 @@ void ViewFactory::RegisterBuiltinTypes() {
     auto split = std::make_unique<SplitView>();
     split->fill_width();
     ApplyWidthHeight(split.get(), props);
+    ApplyWeightCrossAlign(split.get(), props, false);
     if (props["ratio"]) {
       split->set_ratio(props["ratio"].as<float>());
     }

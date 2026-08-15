@@ -102,7 +102,27 @@ std::unique_ptr<Node> LoadYamlNode(const YAML::Node& node,
     throw std::runtime_error("Unknown or failed YAML type: " + type);
   }
 
-  if (type == "Column" || type == "Row") {
+  // Absolute placement: anchors preferred; x/y as fallback origin.
+  if (props["x"] || props["y"]) {
+    const float x = props["x"] ? props["x"].as<float>() : 0.f;
+    const float y = props["y"] ? props["y"].as<float>() : 0.f;
+    built->set_pos(x, y);
+  }
+  if (props["left"]) {
+    built->left(props["left"].as<float>());
+  }
+  if (props["top"]) {
+    built->top(props["top"].as<float>());
+  }
+  if (props["right"]) {
+    built->right(props["right"].as<float>());
+  }
+  if (props["bottom"]) {
+    built->bottom(props["bottom"].as<float>());
+  }
+
+  if (type == "Column" || type == "Row" || type == "Tile" || type == "Tab" ||
+      type == "Absolute") {
     AttachChildren(built.get(), props, factory, handlers);
   } else if (type == "ScrollView") {
     if (auto* scroll = dynamic_cast<ScrollView*>(built.get())) {

@@ -1,8 +1,52 @@
 #include "auralite/ui/column.h"
 
 #include <algorithm>
+#include <vector>
 
 namespace auralite::ui {
+namespace {
+
+// Only main-axis Fill participates in weight share; Fixed/Hug ignore weight.
+bool IsFlexHeight(const Node* c) {
+  return c && c->height_policy() == SizePolicy::Fill;
+}
+
+float FlexWeightOf(const Node* c) {
+  return c->weight() > 0.f ? c->weight() : 1.f;
+}
+
+Align ResolveCross(const Node* c, Align fallback) {
+  return c->has_cross_align() ? c->cross_align() : fallback;
+}
+
+float CrossX(float inner_x, float inner_w, float child_w, Align a) {
+  switch (a) {
+    case Align::Center:
+      return inner_x + (inner_w - child_w) * 0.5f;
+    case Align::End:
+      return inner_x + (inner_w - child_w);
+    case Align::Start:
+    default:
+      return inner_x;
+  }
+}
+
+float MainOffset(float free, Align a) {
+  if (free <= 0.f) {
+    return 0.f;
+  }
+  switch (a) {
+    case Align::Center:
+      return free * 0.5f;
+    case Align::End:
+      return free;
+    case Align::Start:
+    default:
+      return 0.f;
+  }
+}
+
+}  // namespace
 
 Column& Column::padding(float all) {
   pad_l_ = pad_t_ = pad_r_ = pad_b_ = all;
@@ -22,29 +66,47 @@ Column& Column::spacing(float s) {
   return *this;
 }
 
+Column& Column::child_align(Align a) {
+  child_align_ = a;
+  return *this;
+}
+
+Column& Column::main_align(Align a) {
+  main_align_ = a;
+  return *this;
+}
+
 SizeF Column::Measure(float max_w, float max_h) {
   const float inner_w = std::max(0.f, max_w - pad_l_ - pad_r_);
-  float remaining_h = std::max(0.f, max_h - pad_t_ - pad_b_);
-  float y = 0.f;
-  float max_child_w = 0.f;
+  const float inner_h = std::max(0.f, max_h - pad_t_ - pad_b_);
 
-  for (size_t i = 0; i < children_.size(); ++i) {
-    if (!children_[i]) {
+  float used_h = 0.f;
+  float max_child_w = 0.f;
+  int live = 0;
+  for (const auto& c : children_) {
+    if (!c) {
       continue;
     }
-    const SizeF s = children_[i]->Measure(inner_w, remaining_h);
-    max_child_w = std::max(max_child_w, s.w);
-    y += s.h;
-    remaining_h = std::max(0.f, remaining_h - s.h);
-    if (i + 1 < children_.size()) {
-      y += spacing_;
-      remaining_h = std::max(0.f, remaining_h - spacing_);
+    ++live;
+    if (IsFlexHeight(c.get())) {
+      if (c->width_policy() == SizePolicy::Fixed && c->preferred_width() > 0.f) {
+        max_child_w = std::max(max_child_w, c->preferred_width());
+      } else {
+        const SizeF s = c->Measure(inner_w, 0.f);
+        max_child_w = std::max(max_child_w, s.w);
+      }
+      continue;
     }
+    const SizeF s = c->Measure(inner_w, inner_h);
+    max_child_w = std::max(max_child_w, s.w);
+    used_h += s.h;
+  }
+  if (live > 1) {
+    used_h += spacing_ * static_cast<float>(live - 1);
   }
 
-  const float hug_w = max_child_w + pad_l_ + pad_r_;
-  const float hug_h = y + pad_t_ + pad_b_;
-  return ResolveSize(max_w, max_h, hug_w, hug_h);
+  return ResolveSize(max_w, max_h, max_child_w + pad_l_ + pad_r_,
+                     used_h + pad_t_ + pad_b_);
 }
 
 void Column::Layout(const RectF& final_rect) {
@@ -53,32 +115,67 @@ void Column::Layout(const RectF& final_rect) {
   const float inner_x = final_rect.x + pad_l_;
   const float inner_y = final_rect.y + pad_t_;
   const float inner_w = std::max(0.f, final_rect.w - pad_l_ - pad_r_);
-  float remaining_h = std::max(0.f, final_rect.h - pad_t_ - pad_b_);
-  float y = inner_y;
+  const float inner_h = std::max(0.f, final_rect.h - pad_t_ - pad_b_);
 
-  for (size_t i = 0; i < children_.size(); ++i) {
-    if (!children_[i]) {
-      continue;
+  std::vector<Node*> live;
+  live.reserve(children_.size());
+  for (auto& c : children_) {
+    if (c) {
+      live.push_back(c.get());
     }
-    Node* child = children_[i].get();
-    const SizeF s = child->Measure(inner_w, remaining_h);
+  }
+  if (live.empty()) {
+    return;
+  }
+
+  const float gaps =
+      spacing_ * static_cast<float>(std::max(0, static_cast<int>(live.size()) - 1));
+
+  float fixed_h = 0.f;
+  float total_weight = 0.f;
+  bool any_flex = false;
+  for (Node* c : live) {
+    if (IsFlexHeight(c)) {
+      any_flex = true;
+      total_weight += FlexWeightOf(c);
+    } else {
+      fixed_h += c->Measure(inner_w, inner_h).h;
+    }
+  }
+
+  float remaining = std::max(0.f, inner_h - fixed_h - gaps);
+  float y = inner_y;
+  if (!any_flex) {
+    y += MainOffset(remaining, main_align_);
+  }
+
+  for (size_t i = 0; i < live.size(); ++i) {
+    Node* child = live[i];
+    float child_h = 0.f;
+    SizeF s{};
+
+    if (IsFlexHeight(child) && total_weight > 0.f) {
+      child_h = remaining * (FlexWeightOf(child) / total_weight);
+      s = child->Measure(inner_w, child_h);
+    } else {
+      s = child->Measure(inner_w, inner_h);
+      child_h = s.h;
+    }
 
     float child_w = s.w;
-    float child_h = s.h;
     if (child->width_policy() == SizePolicy::Fill) {
       child_w = inner_w;
     } else {
       child_w = std::min(s.w, inner_w);
     }
-    // Height Fill already claimed remaining via Measure; keep measured h.
-    // Non-fill heights stay intrinsic/fixed.
 
-    child->Layout(RectF{inner_x, y, child_w, child_h});
+    const float x =
+        CrossX(inner_x, inner_w, child_w, ResolveCross(child, child_align_));
+    child->Layout(RectF{x, y, child_w, child_h});
+
     y += child_h;
-    remaining_h = std::max(0.f, remaining_h - child_h);
-    if (i + 1 < children_.size()) {
+    if (i + 1 < live.size()) {
       y += spacing_;
-      remaining_h = std::max(0.f, remaining_h - spacing_);
     }
   }
 }

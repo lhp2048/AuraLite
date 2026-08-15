@@ -1,58 +1,116 @@
-Column:
-  padding: 20
-  spacing: 10
-  children:
-    - Label: { text: "AuraLite UI Gallery", font_size: 22 }
-    - Label: { text: "拖拽分割 · 右键菜单 · 滚动列表", font_size: 13, preferred_height: 22 }
-    - SplitView:
-        width: fill
-        height: 100
-        ratio: 0.42
-        leading:
-          Label: { text: "SplitView 左", font_size: 14, align: center }
-        trailing:
-          Label: { text: "SplitView 右", font_size: 14, align: center }
-    - Row:
-        spacing: 16
-        children:
-          - Checkbox: { text: "记住选项", checked: false }
-          - Switch: { text: "通知", value: false }
-    - Row:
-        spacing: 16
-        children:
-          - Radio: { text: "选项 A", group_id: 1, checked: true }
-          - Radio: { text: "选项 B", group_id: 1, checked: false }
-    - Label: { text: "TextField", font_size: 13, preferred_height: 18 }
-    - TextField: { placeholder: "输入文字（支持 IME）", width: fill, height: 36 }
-    - Label: { text: "Password", font_size: 13, preferred_height: 18 }
-    - TextField: { placeholder: "密码（不复制明文）", password: true, width: fill, height: 36 }
-    - Button: { text: "Button", width: fill, height: 40, on_click: gallery_click }
-    - Row:
-        spacing: 12
-        children:
-          - ImageView: { width: 72, height: 72 }
-          - ImageButton: { width: 56, height: 56, on_click: image_btn_click }
-    - Label: { text: "ScrollView + ListView", font_size: 13, preferred_height: 18 }
-    - ScrollView:
-        width: fill
-        height: 160
-        content:
-          ListView:
+ScrollView:
+  width: fill
+  height: fill
+  content:
+    Column:
+      padding: 20
+      spacing: 10
+      children:
+        - Label: { text: "AuraLite UI Gallery", font_size: 22 }
+        - Label: { text: "拖拽分割 · 右键菜单 · 滚动列表", font_size: 13, preferred_height: 22 }
+        - SplitView:
+            width: fill
+            height: 100
+            ratio: 0.42
+            leading:
+              Label: { text: "SplitView 左", font_size: 14, align: center }
+            trailing:
+              Label: { text: "SplitView 右", font_size: 14, align: center }
+        - Row:
+            spacing: 16
+            children:
+              - Checkbox: { text: "记住选项", checked: false }
+              - Switch: { text: "通知", value: false }
+        - Row:
+            spacing: 16
+            children:
+              - Radio: { text: "选项 A", group_id: 1, checked: true }
+              - Radio: { text: "选项 B", group_id: 1, checked: false }
+        - Label: { text: "TextField", font_size: 13, preferred_height: 18 }
+        - TextField: { placeholder: "输入文字（支持 IME）", width: fill, height: 36 }
+        - Label: { text: "Password", font_size: 13, preferred_height: 18 }
+        - TextField: { placeholder: "密码（不复制明文）", password: true, width: fill, height: 36 }
+        - Button: { text: "Button", width: fill, height: 40, on_click: gallery_click }
+        - Row:
+            spacing: 12
+            children:
+              - ImageView: { width: 72, height: 72 }
+              - ImageButton: { width: 56, height: 56, on_click: image_btn_click }
+        - Label: { text: "weight + cross_align（仅 fill 吃 weight）", font_size: 13, preferred_height: 18 }
+        - Row:
+            spacing: 8
+            child_align: center
+            height: 48
+            children:
+              - Button: { text: "w1", width: fill, height: 32, weight: 1 }
+              - Button: { text: "w2", width: fill, height: 40, weight: 2 }
+              - Button: { text: "hug", width: hug, height: 28 }
+        - Column:
+            spacing: 6
+            child_align: end
+            height: 100
+            children:
+              - Button: { text: "上 weight1", height: fill, weight: 1, width: 120 }
+              - Button: { text: "下 weight2", height: fill, weight: 2, width: 160 }
+        - Label: { text: "main_align center（无 fill 子项时打包）", font_size: 13, preferred_height: 18 }
+        - Row:
+            spacing: 8
+            main_align: center
+            height: 40
+            children:
+              - Button: { text: "A", width: hug, height: 28 }
+              - Button: { text: "B", width: hug, height: 28 }
+        - Label: { text: "Tile（网格）", font_size: 13, preferred_height: 18 }
+        - Tile:
+            columns: 3
+            item_height: 36
+            spacing: 8
+            children:
+              - Button: { text: "T1", height: 36 }
+              - Button: { text: "T2", height: 36 }
+              - Button: { text: "T3", height: 36 }
+              - Button: { text: "T4", height: 36 }
+              - Button: { text: "T5", height: 36 }
+              - Button: { text: "T6", height: 36 }
+        - Label: { text: "Tab（页签栏）", font_size: 13, preferred_height: 18 }
+        - Tab:
             selected: 0
-            items:
-              - "Item 01 — Gallery"
-              - "Item 02 — Gallery"
-              - "Item 03 — Gallery"
-              - "Item 04 — Gallery"
-              - "Item 05 — Gallery"
-              - "Item 06 — Gallery"
-              - "Item 07 — Gallery"
-              - "Item 08 — Gallery"
-              - "Item 09 — Gallery"
-              - "Item 10 — Gallery"
-              - "Item 11 — Gallery"
-              - "Item 12 — Gallery"
-              - "Item 13 — Gallery"
-              - "Item 14 — Gallery"
-              - "Item 15 — Gallery"
-    - Label: { text: "在空白处右键打开 ContextMenu", font_size: 12, preferred_height: 20 }
+            headers: ["页面 A", "页面 B"]
+            header_height: 36
+            width: fill
+            height: 100
+            children:
+              - Label: { text: "Tab 页面 A", font_size: 16, align: center }
+              - Label: { text: "Tab 页面 B", font_size: 16, align: center }
+        - Label: { text: "Absolute（锚定优先 / x·y 兜底）", font_size: 13, preferred_height: 18 }
+        - Absolute:
+            width: fill
+            height: 120
+            children:
+              - Button: { text: "left+right", left: 8, right: 8, top: 8, height: 32 }
+              - Label: { text: "x=12 y=48", font_size: 13, x: 12, y: 48, width: hug, height: hug }
+              - Button: { text: "RB", right: 8, bottom: 8, width: 72, height: 28 }
+        - Label: { text: "ScrollView + ListView", font_size: 13, preferred_height: 18 }
+        - ScrollView:
+            width: fill
+            height: 160
+            content:
+              ListView:
+                selected: 0
+                items:
+                  - "Item 01 — Gallery"
+                  - "Item 02 — Gallery"
+                  - "Item 03 — Gallery"
+                  - "Item 04 — Gallery"
+                  - "Item 05 — Gallery"
+                  - "Item 06 — Gallery"
+                  - "Item 07 — Gallery"
+                  - "Item 08 — Gallery"
+                  - "Item 09 — Gallery"
+                  - "Item 10 — Gallery"
+                  - "Item 11 — Gallery"
+                  - "Item 12 — Gallery"
+                  - "Item 13 — Gallery"
+                  - "Item 14 — Gallery"
+                  - "Item 15 — Gallery"
+        - Label: { text: "在空白处右键打开 ContextMenu", font_size: 12, preferred_height: 20 }

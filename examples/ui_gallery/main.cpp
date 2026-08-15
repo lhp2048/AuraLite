@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "auralite/ui/absolute.h"
 #include "auralite/ui/application.h"
 #include "auralite/ui/button.h"
 #include "auralite/ui/checkbox.h"
@@ -25,7 +26,9 @@
 #include "auralite/ui/scroll_view.h"
 #include "auralite/ui/split_view.h"
 #include "auralite/ui/switch_control.h"
+#include "auralite/ui/tab.h"
 #include "auralite/ui/text_field.h"
+#include "auralite/ui/tile.h"
 #include "auralite/ui/window.h"
 
 namespace {
@@ -119,11 +122,23 @@ auralite::ui::Label* FindLastLabel(auralite::ui::Node* node) {
   return last;
 }
 
-auralite::ui::Label* FindStatusLabel(auralite::ui::Node* root) {
-  if (!root || root->children().size() < 2) {
-    return nullptr;
-  }
-  return dynamic_cast<auralite::ui::Label*>(root->children()[1].get());
+auralite::ui::Label* FindStatusLabel(auralite::ui::Node* node) {
+  auralite::ui::Label* found = nullptr;
+  std::function<void(auralite::ui::Node*)> walk = [&](auralite::ui::Node* n) {
+    if (!n) {
+      return;
+    }
+    if (auto* label = dynamic_cast<auralite::ui::Label*>(n)) {
+      if (label->text().find(L"拖拽") != std::wstring::npos) {
+        found = label;
+      }
+    }
+    for (const auto& child : n->children()) {
+      walk(child.get());
+    }
+  };
+  walk(node);
+  return found;
 }
 
 auralite::ui::SplitView* FindSplit(auralite::ui::Node* node) {
@@ -135,6 +150,21 @@ auralite::ui::SplitView* FindSplit(auralite::ui::Node* node) {
   }
   for (const auto& child : node->children()) {
     if (auto* found = FindSplit(child.get())) {
+      return found;
+    }
+  }
+  return nullptr;
+}
+
+auralite::ui::Tab* FindTab(auralite::ui::Node* node) {
+  if (!node) {
+    return nullptr;
+  }
+  if (auto* tab = dynamic_cast<auralite::ui::Tab*>(node)) {
+    return tab;
+  }
+  for (const auto& child : node->children()) {
+    if (auto* found = FindTab(child.get())) {
       return found;
     }
   }
@@ -199,12 +229,31 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
     }
   }
   if (auto* btn = dynamic_cast<auralite::ui::Button*>(node)) {
-    if (btn->text() == L"Button") {
+    const std::wstring text = btn->text();
+    if (text == L"Button") {
       btn->on_click([status, window]() {
         status->text(L"Button clicked");
         window->Invalidate();
       });
+    } else if (text == L"Float" || text == L"RB" || text == L"left+right" ||
+               text == L"A" || text == L"B") {
+      btn->on_click([status, window, text]() {
+        status->text(L"Clicked: " + text);
+        window->Invalidate();
+      });
+    } else if (text.size() == 2 && text[0] == L'T' && text[1] >= L'1' &&
+               text[1] <= L'6') {
+      btn->on_click([status, window, text]() {
+        status->text(L"Tile: " + text);
+        window->Invalidate();
+      });
     }
+  }
+  if (auto* tab = dynamic_cast<auralite::ui::Tab*>(node)) {
+    tab->on_selected([status, window](int index) {
+      status->text(L"Tab: page " + std::to_wstring(index));
+      window->Invalidate();
+    });
   }
   if (auto* img_btn = dynamic_cast<auralite::ui::ImageButton*>(node)) {
     img_btn->on_click([status, window]() {
@@ -228,55 +277,171 @@ std::unique_ptr<auralite::ui::Node> BuildFluentGallery() {
   }
   list->set_selected_index(0);
 
-  return Column()
-      .padding(20.f)
-      .spacing(10.f)
-      .child(Label().text(L"AuraLite UI Gallery").font_size(22.f))
-      .child(Label()
-                 .text(L"拖拽分割 · 右键菜单 · 滚动列表")
-                 .font_size(13.f)
-                 .preferred_height(22.f))
-      .child(SplitView()
-                 .fill_width()
-                 .fixed_height(100.f)
-                 .ratio(0.42f)
-                 .leading(Label()
-                              .text(L"SplitView 左")
-                              .font_size(14.f)
-                              .align(auralite::ui::TextAlign::Center))
-                 .trailing(Label()
-                               .text(L"SplitView 右")
-                               .font_size(14.f)
-                               .align(auralite::ui::TextAlign::Center)))
-      .child(Row()
-                 .spacing(16.f)
-                 .child(Checkbox().text(L"记住选项"))
-                 .child(Switch().text(L"通知")))
-      .child(Row()
-                 .spacing(16.f)
-                 .child(Radio().text(L"选项 A").group_id(1).checked(true))
-                 .child(Radio().text(L"选项 B").group_id(1)))
-      .child(Label().text(L"TextField").font_size(13.f).preferred_height(18.f))
-      .child(TextField().placeholder(L"输入文字（支持 IME）"))
-      .child(Label().text(L"Password").font_size(13.f).preferred_height(18.f))
-      .child(TextField().placeholder(L"密码（不复制明文）").password(true))
-      .child(Button().text(L"Button"))
-      .child(Row()
-                 .spacing(12.f)
-                 .child(ImageView().preferred_size(72.f, 72.f))
-                 .child(ImageButton().preferred_size(56.f, 56.f)))
-      .child(Label()
-                 .text(L"ScrollView + ListView")
-                 .font_size(13.f)
-                 .preferred_height(18.f))
-      .child(ScrollView()
-                 .fill_width()
-                 .fixed_height(160.f)
-                 .content(std::unique_ptr<auralite::ui::Node>(std::move(list))))
-      .child(Label()
-                 .text(L"在空白处右键打开 ContextMenu")
-                 .font_size(12.f)
-                 .preferred_height(20.f))
+  auto float_label = Label()
+                         .text(L"x=12 y=48")
+                         .font_size(13.f)
+                         .Build();
+  float_label->hug_width();
+  float_label->hug_height();
+  float_label->set_pos(12.f, 48.f);
+
+  return ScrollView()
+      .fill_width()
+      .fill_height()
+      .content(Column()
+                   .padding(20.f)
+                   .spacing(10.f)
+                   .child(Label().text(L"AuraLite UI Gallery").font_size(22.f))
+                   .child(Label()
+                              .text(L"拖拽分割 · 右键菜单 · 滚动列表")
+                              .font_size(13.f)
+                              .preferred_height(22.f))
+                   .child(SplitView()
+                              .fill_width()
+                              .fixed_height(100.f)
+                              .ratio(0.42f)
+                              .leading(Label()
+                                           .text(L"SplitView 左")
+                                           .font_size(14.f)
+                                           .align(auralite::ui::TextAlign::Center))
+                              .trailing(Label()
+                                            .text(L"SplitView 右")
+                                            .font_size(14.f)
+                                            .align(auralite::ui::TextAlign::Center)))
+                   .child(Row()
+                              .spacing(16.f)
+                              .child(Checkbox().text(L"记住选项"))
+                              .child(Switch().text(L"通知")))
+                   .child(Row()
+                              .spacing(16.f)
+                              .child(Radio().text(L"选项 A").group_id(1).checked(true))
+                              .child(Radio().text(L"选项 B").group_id(1)))
+                   .child(Label()
+                              .text(L"TextField")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(TextField().placeholder(L"输入文字（支持 IME）"))
+                   .child(Label()
+                              .text(L"Password")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(TextField()
+                              .placeholder(L"密码（不复制明文）")
+                              .password(true))
+                   .child(Button().text(L"Button"))
+                   .child(Row()
+                              .spacing(12.f)
+                              .child(ImageView().preferred_size(72.f, 72.f))
+                              .child(ImageButton().preferred_size(56.f, 56.f)))
+                   .child(Label()
+                              .text(L"weight + cross_align（仅 fill 吃 weight）")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(Row()
+                              .spacing(8.f)
+                              .child_align(auralite::ui::Align::Center)
+                              .fixed_height(48.f)
+                              .child(Button()
+                                         .text(L"w1")
+                                         .weight(1.f)
+                                         .fixed_height(32.f))
+                              .child(Button()
+                                         .text(L"w2")
+                                         .weight(2.f)
+                                         .fixed_height(40.f))
+                              .child(Button()
+                                         .text(L"hug")
+                                         .hug_width()
+                                         .fixed_height(28.f)))
+                   .child(Column()
+                              .spacing(6.f)
+                              .child_align(auralite::ui::Align::End)
+                              .fixed_height(100.f)
+                              .child(Button()
+                                         .text(L"上 weight1")
+                                         .weight(1.f)
+                                         .fill_height()
+                                         .fixed_width(120.f))
+                              .child(Button()
+                                         .text(L"下 weight2")
+                                         .weight(2.f)
+                                         .fill_height()
+                                         .fixed_width(160.f)))
+                   .child(Label()
+                              .text(L"main_align center（无 fill 子项时打包）")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(Row()
+                              .spacing(8.f)
+                              .main_align(auralite::ui::Align::Center)
+                              .fixed_height(40.f)
+                              .child(Button().text(L"A").hug_width().fixed_height(28.f))
+                              .child(Button().text(L"B").hug_width().fixed_height(28.f)))
+                   .child(Label()
+                              .text(L"Tile（网格）")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(Tile()
+                              .columns(3)
+                              .item_size(80.f, 36.f)
+                              .spacing(8.f)
+                              .child(Button().text(L"T1").preferred_size(80.f, 36.f))
+                              .child(Button().text(L"T2").preferred_size(80.f, 36.f))
+                              .child(Button().text(L"T3").preferred_size(80.f, 36.f))
+                              .child(Button().text(L"T4").preferred_size(80.f, 36.f))
+                              .child(Button().text(L"T5").preferred_size(80.f, 36.f))
+                              .child(Button().text(L"T6").preferred_size(80.f, 36.f)))
+                   .child(Label()
+                              .text(L"Tab（页签栏）")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(Tab()
+                              .selected(0)
+                              .headers({L"页面 A", L"页面 B"})
+                              .header_height(36.f)
+                              .fill_width()
+                              .fixed_height(100.f)
+                              .child(Label()
+                                         .text(L"Tab 页面 A")
+                                         .font_size(16.f)
+                                         .align(auralite::ui::TextAlign::Center))
+                              .child(Label()
+                                         .text(L"Tab 页面 B")
+                                         .font_size(16.f)
+                                         .align(auralite::ui::TextAlign::Center)))
+                   .child(Label()
+                              .text(L"Absolute（锚定优先 / x·y 兜底）")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(Absolute()
+                              .fill_width()
+                              .fixed_height(120.f)
+                              .child(Button()
+                                         .text(L"left+right")
+                                         .left(8.f)
+                                         .right(8.f)
+                                         .top(8.f)
+                                         .fixed_height(32.f))
+                              .child(std::move(float_label))
+                              .child(Button()
+                                         .text(L"RB")
+                                         .right(8.f)
+                                         .bottom(8.f)
+                                         .fixed_width(72.f)
+                                         .fixed_height(28.f)))
+                   .child(Label()
+                              .text(L"ScrollView + ListView")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(ScrollView()
+                              .fill_width()
+                              .fixed_height(160.f)
+                              .content(std::unique_ptr<auralite::ui::Node>(
+                                  std::move(list))))
+                   .child(Label()
+                              .text(L"在空白处右键打开 ContextMenu")
+                              .font_size(12.f)
+                              .preferred_height(20.f)))
       .Build();
 }
 
@@ -291,7 +456,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
       fluent ? L"AuraLite UI Gallery (fluent)" : L"AuraLite UI Gallery (YAML)";
 
   auralite::ui::Window window;
-  if (!window.Create(title, 640, 920)) {
+  if (!window.Create(title, 640, 720)) {
     MessageBoxW(nullptr, L"Window / Canvas init failed", L"ui_gallery",
                 MB_ICONERROR);
     CoUninitialize();

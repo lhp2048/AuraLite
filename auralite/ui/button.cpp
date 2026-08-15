@@ -6,7 +6,7 @@ namespace auralite::ui {
 
 Button::Button() {
   set_focusable(true);
-  // Typical form control: stretch horizontally, keep a fixed control height.
+  // Form default: stretch horizontally. In toolbars/Rows prefer width: hug.
   fill_width();
   fixed_height(40.f);
   set_preferred_width(140.f);

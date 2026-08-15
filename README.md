@@ -50,20 +50,39 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 - UTF-8 文件；UI 字符串宽字符  
 - 2 空格缩进；`TypeName:` 作为唯一 map key（如 `Column:` / `Button:`）  
 - 容器：`children:` 列表；`ScrollView.content`；`SplitView.leading` / `trailing`  
+- 布局容器：`Column` / `Row`（流式）、`Tile`（网格，对应 DuiLib TileLayout）、`Tab`（叠页，对应 TabLayout）、`Absolute`（浮动 / 四边锚定，对应 float）  
 - `on_click: handler_name` → Demo 侧 `HandlerMap`  
 - 尺寸策略：`width` / `height` 可为数字（Fixed）、`fill`（吃满父布局可用轴）、`hug`（内容固有尺寸）。省略时控件有默认（如 TextField/Button：**宽 fill、高 fixed**；Checkbox：**hug×hug**；Label：**宽 fill、高 hug/preferred_height**）  
+- `Column` / `Row`：仅主轴 **`fill`** 的子项参与 `weight` 分剩余（Fixed/Hug 上的 weight 忽略）；`cross_align` / `child_align`；无 fill 子项时可用 `main_align` 打包（start|center|end）。Label 的 `align` 仍是**文本**对齐  
+- 横排工具按钮请显式 `width: hug`（Button 默认宽 fill，适合表单）  
+- `Absolute`：锚定优先 `left`/`top`/`right`/`bottom`；否则 `x`/`y` + 自有宽高  
+- `Tab`：可选 `headers` / `header_height` 页签栏；`selected`  
+- `Tile`：`columns` / `item_size` / `spacing`  
 - 无热重载、无完整 schema；`ContextMenu` 仍为代码 API（`TrackPopupMenu`）
+
+#### 与 DuiLib 对照（布局）
+
+| DuiLib | AuraLite |
+|--------|----------|
+| Vertical / HorizontalLayout | `Column` / `Row` + weight + cross/main_align |
+| TileLayout | `Tile` |
+| TabLayout | `Tab`（可带 `headers`） |
+| float + 边距 | `Absolute` + 四边锚定 / `x`·`y` |
+| 同容器混 float | 浮动子项放进 `Absolute`（不在 Column 内混排） |
+
+布局单测：`ui_layout_test`（`cmake --build ... --target ui_layout_test` 后运行 exe）。
 
 #### 阶段二入口
 
 ```powershell
 cd family_win_desktop\3rd-party\AuraLite
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Debug --target login_demo ui_gallery auralite_ui
+cmake --build build --config Debug --target login_demo ui_gallery auralite_ui ui_layout_test
 .\bin\x64\Debug\login_demo.exe
 .\bin\x64\Debug\login_demo.exe --fluent
 .\bin\x64\Debug\ui_gallery.exe
 .\bin\x64\Debug\ui_gallery.exe --fluent
+.\bin\x64\Debug\ui_layout_test.exe
 ```
 
 产物目录：`bin|lib/<Platform>/<Config>/`（YAML 会复制到 exe 旁）。
