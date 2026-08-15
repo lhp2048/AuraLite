@@ -23,8 +23,10 @@ class Button : public Node {
   Button& bg(const ColorF& c);
   Button& bg_hover(const ColorF& c);
   Button& bg_pressed(const ColorF& c);
-  // Optional label color; unset → text_on_accent (white on filled buttons).
+  // Optional label color; unset → text_on_accent (or text if custom bg set).
   Button& text_color(const ColorF& c);
+  Button& text_align(auralite::TextHAlign align);
+  Button& corner_radius(float r);
   // Optional icon: premul BGRA; uploaded to GPU on first paint.
   Button& icon_bgra(UINT width, UINT height, const uint8_t* bgra, UINT stride);
   Button& set_enabled(bool e);
@@ -53,6 +55,8 @@ class Button : public Node {
   std::optional<ColorF> bg_hover_;
   std::optional<ColorF> bg_pressed_;
   std::optional<ColorF> text_color_;
+  auralite::TextHAlign text_align_ = auralite::TextHAlign::Center;
+  float corner_radius_ = 8.f;
   ClickHandler on_click_;
 
   bool hovered_ = false;

@@ -207,4 +207,4 @@ ScrollView:
                   - "Item 13 — Gallery"
                   - "Item 14 — Gallery"
                   - "Item 15 — Gallery"
-        - Label: { text: "在空白处右键打开 PopupHost 菜单", font_size: 12, preferred_height: 20 }
+        - Label: { text: "在空白处右键打开经典菜单（menu_classic.yaml）", font_size: 12, preferred_height: 20 }

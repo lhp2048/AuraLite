@@ -118,11 +118,19 @@ std::string ResolveGalleryYaml() {
 
 std::string ResolvePopupMenuYaml() {
   namespace fs = std::filesystem;
-  const std::wstring beside = ExeDir() + L"\\popup_menu.yaml";
-  if (fs::exists(beside)) {
-    return NarrowPath(beside);
+  // Prefer classic menu chrome; fall back to widget-tree demo yaml.
+  const wchar_t* beside_names[] = {L"\\menu_classic.yaml", L"\\popup_menu.yaml"};
+  for (const wchar_t* name : beside_names) {
+    const std::wstring beside = ExeDir() + name;
+    if (fs::exists(beside)) {
+      return NarrowPath(beside);
+    }
   }
   const char* candidates[] = {
+      "menu_classic.yaml",
+      "examples/ui_gallery/menu_classic.yaml",
+      "../examples/ui_gallery/menu_classic.yaml",
+      "../../examples/ui_gallery/menu_classic.yaml",
       "popup_menu.yaml",
       "examples/ui_gallery/popup_menu.yaml",
       "../examples/ui_gallery/popup_menu.yaml",
@@ -896,7 +904,7 @@ std::unique_ptr<auralite::ui::Node> BuildFluentGallery() {
                               .content(std::unique_ptr<auralite::ui::Node>(
                                   std::move(list))))
                    .child(Label()
-                              .text(L"在空白处右键打开 PopupHost 菜单")
+                              .text(L"在空白处右键打开经典菜单（menu_classic.yaml）")
                               .font_size(12.f)
                               .preferred_height(20.f)))
       .Build();
@@ -977,7 +985,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
       [&popup_host, &window, &popup_yaml, status, split_ptr](int sx, int sy) {
         if (popup_yaml.empty()) {
           if (status) {
-            status->text(L"popup_menu.yaml not found");
+            status->text(L"menu_classic.yaml / popup_menu.yaml not found");
             window.Invalidate();
           }
           return;

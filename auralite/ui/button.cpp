@@ -55,6 +55,16 @@ Button& Button::text_color(const ColorF& c) {
   return *this;
 }
 
+Button& Button::text_align(auralite::TextHAlign align) {
+  text_align_ = align;
+  return *this;
+}
+
+Button& Button::corner_radius(float r) {
+  corner_radius_ = std::max(0.f, r);
+  return *this;
+}
+
 Button& Button::icon_bgra(UINT width, UINT height, const uint8_t* bgra,
                           UINT stride) {
   icon_.Reset();
@@ -108,6 +118,10 @@ ColorF Button::LabelColor() const {
   if (text_color_) {
     return *text_color_;
   }
+  // Custom bg (e.g. menu rows) usually sits on a light panel → use body text.
+  if (bg_) {
+    return th.text;
+  }
   return th.text_on_accent;
 }
 
@@ -126,8 +140,12 @@ void Button::Paint(auralite::Canvas& canvas) {
   EnsureIcon(canvas);
   const ThemeTokens& th = Theme::Active();
 
-  const float radius = 8.f;
-  canvas.FillRoundedRect(bounds_, radius, radius, BgColor());
+  const float radius = corner_radius_;
+  if (radius > 0.f) {
+    canvas.FillRoundedRect(bounds_, radius, radius, BgColor());
+  } else {
+    canvas.FillRect(bounds_, BgColor());
+  }
   if (focused()) {
     // Dashed focus ring — less heavy than a solid overlay on filled buttons.
     canvas.DrawDashedRect(bounds_, th.border_focus, 1.f);
@@ -149,7 +167,7 @@ void Button::Paint(auralite::Canvas& canvas) {
         text_x, bounds_.y,
         std::max(0.f, bounds_.x + bounds_.w - 12.f - text_x), bounds_.h};
     canvas.DrawText(text_, text_rect, LabelColor(), ResolveFontSize(font_size_),
-                    th.font_ui.c_str(), auralite::TextHAlign::Center);
+                    th.font_ui.c_str(), text_align_);
   }
 }
 

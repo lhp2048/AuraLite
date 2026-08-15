@@ -316,6 +316,30 @@ class ButtonBuilder : public detail::BuilderBase<Button> {
     get()->on_click(std::move(handler));
     return *this;
   }
+  ButtonBuilder& bg(const ColorF& c) {
+    get()->bg(c);
+    return *this;
+  }
+  ButtonBuilder& bg_hover(const ColorF& c) {
+    get()->bg_hover(c);
+    return *this;
+  }
+  ButtonBuilder& bg_pressed(const ColorF& c) {
+    get()->bg_pressed(c);
+    return *this;
+  }
+  ButtonBuilder& text_color(const ColorF& c) {
+    get()->text_color(c);
+    return *this;
+  }
+  ButtonBuilder& text_align(auralite::TextHAlign a) {
+    get()->text_align(a);
+    return *this;
+  }
+  ButtonBuilder& corner_radius(float r) {
+    get()->corner_radius(r);
+    return *this;
+  }
 };
 
 class TextFieldBuilder : public detail::BuilderBase<TextField> {

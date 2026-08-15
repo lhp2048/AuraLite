@@ -1,0 +1,51 @@
+# Classic context-menu look (default right-click in ui_gallery).
+# Panel bg + flat left-aligned rows; Submenu already paints as a menu row.
+Column:
+  bg: "#F5F7FAF2"
+  width: 200
+  padding: [4, 4, 4, 4]
+  spacing: 0
+  children:
+    - Button:
+        text: "Refresh status"
+        width: fill
+        height: 28
+        corner_radius: 4
+        text_align: left
+        font_size: 13
+        bg: "#00000000"
+        bg_hover: "#E6EEFA"
+        bg_pressed: "#D7E4F7"
+        on_click: refresh
+    - Button:
+        text: "About gallery"
+        width: fill
+        height: 28
+        corner_radius: 4
+        text_align: left
+        font_size: 13
+        bg: "#00000000"
+        bg_hover: "#E6EEFA"
+        bg_pressed: "#D7E4F7"
+        on_click: about
+    - Submenu:
+        text: "More"
+        width: fill
+        content:
+          Column:
+            bg: "#F5F7FAF2"
+            width: 200
+            padding: 4
+            spacing: 0
+            children:
+              - Button:
+                  text: "Reset split ratio"
+                  width: fill
+                  height: 28
+                  corner_radius: 4
+                  text_align: left
+                  font_size: 13
+                  bg: "#00000000"
+                  bg_hover: "#E6EEFA"
+                  bg_pressed: "#D7E4F7"
+                  on_click: split_reset

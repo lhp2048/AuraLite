@@ -27,6 +27,7 @@
 #include "auralite/ui/tile.h"
 #include "auralite/ui/user_control.h"
 #include "auralite/ui/yaml_loader.h"
+#include "auralite/ui/theme_yaml.h"
 
 #include <yaml-cpp/yaml.h>
 
@@ -113,6 +114,40 @@ void BindOnClick(Button* btn, const YAML::Node& props,
   const auto it = handlers.find(name);
   if (it != handlers.end()) {
     btn->on_click(it->second);
+  }
+}
+
+void ApplyOptionalColor(Button* btn, const YAML::Node& props, const char* key,
+                        Button& (Button::*setter)(const ColorF&)) {
+  if (!btn || !props[key]) {
+    return;
+  }
+  ColorF c;
+  if (ParseColorHex(props[key].as<std::string>(), &c)) {
+    (btn->*setter)(c);
+  }
+}
+
+void ApplyButtonChrome(Button* btn, const YAML::Node& props) {
+  if (!btn) {
+    return;
+  }
+  ApplyOptionalColor(btn, props, "bg", &Button::bg);
+  ApplyOptionalColor(btn, props, "bg_hover", &Button::bg_hover);
+  ApplyOptionalColor(btn, props, "bg_pressed", &Button::bg_pressed);
+  ApplyOptionalColor(btn, props, "text_color", &Button::text_color);
+  if (props["corner_radius"]) {
+    btn->corner_radius(props["corner_radius"].as<float>());
+  }
+  if (props["text_align"]) {
+    const std::string a = props["text_align"].as<std::string>();
+    if (a == "left" || a == "Left") {
+      btn->text_align(auralite::TextHAlign::Left);
+    } else if (a == "right" || a == "Right") {
+      btn->text_align(auralite::TextHAlign::Right);
+    } else {
+      btn->text_align(auralite::TextHAlign::Center);
+    }
   }
 }
 
@@ -552,6 +587,7 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["font_size"]) {
       btn->font_size(props["font_size"].as<float>());
     }
+    ApplyButtonChrome(btn.get(), props);
     ApplyWidthHeight(btn.get(), props);
     ApplyWeightCrossAlign(btn.get(), props, false);
     BindOnClick(btn.get(), props, handlers);
