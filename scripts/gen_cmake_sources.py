@@ -18,7 +18,7 @@ def parse(vcx_rel):
 
 
 base = parse('AuraLite.Base/AuraLite.Base.vcxproj')
-ui = parse('AuraLite.UI/AuraLite.UI.vcxproj')
+ui = parse('AuraLite.UILegacy/AuraLite.UILegacy.vcxproj')
 
 out = root / 'cmake' / 'LegacySources.cmake'
 out.parent.mkdir(parents=True, exist_ok=True)

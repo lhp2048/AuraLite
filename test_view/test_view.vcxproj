@@ -63,7 +63,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>AuraLite.Base.lib;AuraLite.UI.lib;msimg32.lib;comctl32.lib;ole32.lib;oleaut32.lib;uuid.lib;shell32.lib;shlwapi.lib;imm32.lib;dwmapi.lib;uxtheme.lib;oleacc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>AuraLite.Base.lib;AuraLite.UILegacy.lib;msimg32.lib;comctl32.lib;ole32.lib;oleaut32.lib;uuid.lib;shell32.lib;shlwapi.lib;imm32.lib;dwmapi.lib;uxtheme.lib;oleacc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(AuraLiteRoot)lib\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -74,7 +74,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>AuraLite.Base.lib;AuraLite.UI.lib;msimg32.lib;comctl32.lib;ole32.lib;oleaut32.lib;uuid.lib;shell32.lib;shlwapi.lib;imm32.lib;dwmapi.lib;uxtheme.lib;oleacc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>AuraLite.Base.lib;AuraLite.UILegacy.lib;msimg32.lib;comctl32.lib;ole32.lib;oleaut32.lib;uuid.lib;shell32.lib;shlwapi.lib;imm32.lib;dwmapi.lib;uxtheme.lib;oleacc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(AuraLiteRoot)lib\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -85,7 +85,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>AuraLite.Base.lib;AuraLite.UI.lib;msimg32.lib;comctl32.lib;ole32.lib;oleaut32.lib;uuid.lib;shell32.lib;shlwapi.lib;imm32.lib;dwmapi.lib;uxtheme.lib;oleacc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>AuraLite.Base.lib;AuraLite.UILegacy.lib;msimg32.lib;comctl32.lib;ole32.lib;oleaut32.lib;uuid.lib;shell32.lib;shlwapi.lib;imm32.lib;dwmapi.lib;uxtheme.lib;oleacc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(AuraLiteRoot)lib\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -96,7 +96,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>AuraLite.Base.lib;AuraLite.UI.lib;msimg32.lib;comctl32.lib;ole32.lib;oleaut32.lib;uuid.lib;shell32.lib;shlwapi.lib;imm32.lib;dwmapi.lib;uxtheme.lib;oleacc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>AuraLite.Base.lib;AuraLite.UILegacy.lib;msimg32.lib;comctl32.lib;ole32.lib;oleaut32.lib;uuid.lib;shell32.lib;shlwapi.lib;imm32.lib;dwmapi.lib;uxtheme.lib;oleacc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(AuraLiteRoot)lib\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -115,7 +115,7 @@
     <ProjectReference Include="..\AuraLite.Base\AuraLite.Base.vcxproj">
       <Project>{B762AF39-B217-41F2-9D7B-E55EDB99F9CC}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\AuraLite.UI\AuraLite.UI.vcxproj">
+    <ProjectReference Include="..\AuraLite.UILegacy\AuraLite.UILegacy.vcxproj">
       <Project>{3F19C1C0-7F28-4DF0-84CC-C69FFB55F359}</Project>
     </ProjectReference>
   </ItemGroup>

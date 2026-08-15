@@ -4,7 +4,7 @@
 
 #pragma once
 
-// Static-library build is the default for AuraLite.Base / AuraLite.UI.
+// Static-library build is the default for AuraLite.Base / AuraLite.UILegacy / AuraLite.UI.
 #if defined(AURALITE_STATIC) || !defined(AURALITE_DLL)
 #  define AURALITE_EXPORT
 #elif defined(AURALITE_IMPLEMENTATION)

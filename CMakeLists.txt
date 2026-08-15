@@ -52,7 +52,7 @@ if(MSVC)
 endif()
 
 # ---- Legacy Views libs (Direct2D paint; still used by 1.x / master) ----
-option(AURALITE_BUILD_LEGACY "Build legacy AuraLite.Base + AuraLite.UI" ON)
+option(AURALITE_BUILD_LEGACY "Build legacy AuraLite.Base + AuraLite.UILegacy (Views)" ON)
 if(AURALITE_BUILD_LEGACY)
   add_library(AuraLite.Base STATIC ${AURALITE_BASE_SOURCES})
   add_library(AuraLite::Base ALIAS AuraLite.Base)
@@ -92,10 +92,11 @@ if(AURALITE_BUILD_LEGACY)
     )
   endif()
 
-  add_library(AuraLite.UI STATIC ${AURALITE_UI_SOURCES})
-  add_library(AuraLite::UI ALIAS AuraLite.UI)
-  target_include_directories(AuraLite.UI PUBLIC "${AURALITE_ROOT}")
-  target_compile_definitions(AuraLite.UI
+  # Chromium Views stack (view_framework). Public name is UILegacy; AuraLite::UI is auralite::ui.
+  add_library(AuraLite.UILegacy STATIC ${AURALITE_UI_SOURCES})
+  add_library(AuraLite::UILegacy ALIAS AuraLite.UILegacy)
+  target_include_directories(AuraLite.UILegacy PUBLIC "${AURALITE_ROOT}")
+  target_compile_definitions(AuraLite.UILegacy
     PUBLIC
       AURALITE_STATIC
       NOMINMAX
@@ -105,8 +106,12 @@ if(AURALITE_BUILD_LEGACY)
       UNICODE
       _UNICODE
   )
-  set_target_properties(AuraLite.UI PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
-  target_link_libraries(AuraLite.UI
+  set_target_properties(AuraLite.UILegacy PROPERTIES
+    CXX_STANDARD 14
+    CXX_STANDARD_REQUIRED ON
+    OUTPUT_NAME "AuraLite.UILegacy"
+  )
+  target_link_libraries(AuraLite.UILegacy
     PUBLIC
       AuraLite::Base
       d2d1
@@ -125,7 +130,7 @@ if(AURALITE_BUILD_LEGACY)
       oleacc
   )
   if(MSVC)
-    target_compile_options(AuraLite.UI PRIVATE /W3)
+    target_compile_options(AuraLite.UILegacy PRIVATE /W3)
   endif()
 endif()
 
@@ -140,7 +145,7 @@ FetchContent_Declare(yaml-cpp
 )
 FetchContent_MakeAvailable(yaml-cpp)
 
-# ---- Next-gen declarative UI (auralite::ui) ----
+# ---- Declarative UI (auralite::ui); public CMake alias AuraLite::UI ----
 add_library(auralite_ui STATIC
   auralite/ui/node.cpp
   auralite/ui/column.cpp
@@ -179,7 +184,8 @@ add_library(auralite_ui STATIC
   auralite/reactive/observe.cpp
   auralite/async/awaiters.cpp
 )
-add_library(AuraLite::UINext ALIAS auralite_ui)
+set_target_properties(auralite_ui PROPERTIES OUTPUT_NAME "AuraLite.UI")
+add_library(AuraLite::UI ALIAS auralite_ui)
 target_include_directories(auralite_ui PUBLIC "${AURALITE_ROOT}")
 target_compile_features(auralite_ui PUBLIC cxx_std_20)
 target_compile_definitions(auralite_ui
@@ -210,7 +216,7 @@ endif()
 
 # ---- reactive_test (Signal / Computed / Observe; console) ----
 add_executable(reactive_test examples/reactive_test/main.cpp)
-target_link_libraries(reactive_test PRIVATE AuraLite::UINext)
+target_link_libraries(reactive_test PRIVATE AuraLite::UI)
 target_compile_definitions(reactive_test PRIVATE
   NOMINMAX UNICODE _UNICODE
   WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -221,7 +227,7 @@ endif()
 
 # ---- async_test (ResumeOnUi / Delay / RunAsync / SpawnUi; console) ----
 add_executable(async_test examples/async_test/main.cpp)
-target_link_libraries(async_test PRIVATE AuraLite::UINext)
+target_link_libraries(async_test PRIVATE AuraLite::UI)
 target_compile_definitions(async_test PRIVATE
   NOMINMAX UNICODE _UNICODE
   WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -247,7 +253,7 @@ endif()
 option(AURALITE_BUILD_UI_SMOKE "Build auralite::ui smoke demo" ON)
 if(AURALITE_BUILD_UI_SMOKE)
   add_executable(ui_smoke WIN32 examples/ui_smoke/main.cpp)
-  target_link_libraries(ui_smoke PRIVATE AuraLite::UINext)
+  target_link_libraries(ui_smoke PRIVATE AuraLite::UI)
   target_compile_definitions(ui_smoke PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -260,7 +266,7 @@ endif()
 option(AURALITE_BUILD_UI_DEMOS "Build Phase-2 login_demo + ui_gallery" ON)
 if(AURALITE_BUILD_UI_DEMOS)
   add_executable(login_demo WIN32 examples/login/main.cpp)
-  target_link_libraries(login_demo PRIVATE AuraLite::UINext)
+  target_link_libraries(login_demo PRIVATE AuraLite::UI)
   target_compile_definitions(login_demo PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -276,7 +282,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   )
 
   add_executable(ui_gallery WIN32 examples/ui_gallery/main.cpp)
-  target_link_libraries(ui_gallery PRIVATE AuraLite::UINext)
+  target_link_libraries(ui_gallery PRIVATE AuraLite::UI)
   target_compile_definitions(ui_gallery PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -298,7 +304,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   )
 
   add_executable(ui_layout_test examples/ui_layout_test/main.cpp)
-  target_link_libraries(ui_layout_test PRIVATE AuraLite::UINext)
+  target_link_libraries(ui_layout_test PRIVATE AuraLite::UI)
   target_compile_definitions(ui_layout_test PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -308,7 +314,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(reactive_demo WIN32 examples/reactive_demo/main.cpp)
-  target_link_libraries(reactive_demo PRIVATE AuraLite::UINext)
+  target_link_libraries(reactive_demo PRIVATE AuraLite::UI)
   target_compile_definitions(reactive_demo PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -318,7 +324,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(reactive_gallery WIN32 examples/reactive_gallery/main.cpp)
-  target_link_libraries(reactive_gallery PRIVATE AuraLite::UINext)
+  target_link_libraries(reactive_gallery PRIVATE AuraLite::UI)
   target_compile_definitions(reactive_gallery PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -334,7 +340,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   )
 
   add_executable(theme_test examples/theme_test/main.cpp)
-  target_link_libraries(theme_test PRIVATE AuraLite::UINext)
+  target_link_libraries(theme_test PRIVATE AuraLite::UI)
   target_compile_definitions(theme_test PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -357,21 +363,21 @@ if(AURALITE_BUILD_TESTS AND AURALITE_BUILD_LEGACY)
     test_view/main.cpp
     test_view/test_view.rc
   )
-  target_link_libraries(test_view PRIVATE AuraLite::UI AuraLite::Base)
+  target_link_libraries(test_view PRIVATE AuraLite::UILegacy AuraLite::Base)
   set_target_properties(test_view PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
   if(MSVC)
     target_compile_options(test_view PRIVATE /W3)
   endif()
 
   add_executable(test_dwrite test_dwrite/main.cpp)
-  target_link_libraries(test_dwrite PRIVATE AuraLite::UI AuraLite::Base)
+  target_link_libraries(test_dwrite PRIVATE AuraLite::UILegacy AuraLite::Base)
   set_target_properties(test_dwrite PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
   if(MSVC)
     target_compile_options(test_dwrite PRIVATE /W3)
   endif()
 
   add_executable(test_wic_bitmap test_wic_bitmap/main.cpp)
-  target_link_libraries(test_wic_bitmap PRIVATE AuraLite::UI AuraLite::Base)
+  target_link_libraries(test_wic_bitmap PRIVATE AuraLite::UILegacy AuraLite::Base)
   set_target_properties(test_wic_bitmap PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
   if(MSVC)
     target_compile_options(test_wic_bitmap PRIVATE /W3)

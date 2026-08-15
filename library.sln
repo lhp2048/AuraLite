@@ -4,7 +4,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AuraLite.Base", "AuraLite.Base\AuraLite.Base.vcxproj", "{B762AF39-B217-41F2-9D7B-E55EDB99F9CC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AuraLite.UI", "AuraLite.UI\AuraLite.UI.vcxproj", "{3F19C1C0-7F28-4DF0-84CC-C69FFB55F359}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AuraLite.UILegacy", "AuraLite.UILegacy\AuraLite.UILegacy.vcxproj", "{3F19C1C0-7F28-4DF0-84CC-C69FFB55F359}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_base", "test_base\test_base.vcxproj", "{16CD023E-334A-4D66-A243-76A5B30F18B9}"
 EndProject

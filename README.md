@@ -4,6 +4,8 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 
 上游仓库：https://github.com/lhp2048/AuraLite
 
+**编码风格：** 见 [`CODING.md`](CODING.md)（`base` / `gfx` / `message_framework` / `view_framework` 以 Chromium 老 Views 习惯为准；`auralite/` 新栈见文中例外）。
+
 ## 分支策略
 
 | 分支 | 用途 |
@@ -29,21 +31,21 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 
 ### master 阶段二（`auralite::ui` 声明式 UI）
 
-在 `auralite::Canvas` 上新建控件树与声明式双轨（**YAML + C++ fluent DSL**），**不**依赖 `view::` / `AuraLite.UI`。设计见：
+在 `auralite::Canvas` 上新建控件树与声明式双轨（**YAML + C++ fluent DSL**），**不**依赖 `view::` / `AuraLite.UILegacy`。设计见：
 
 [`family_win_desktop/docs/superpowers/specs/2026-08-15-auralite-phase2-declarative-ui-design.md`](../../docs/superpowers/specs/2026-08-15-auralite-phase2-declarative-ui-design.md)
 
 | 目标 | 说明 |
 |------|------|
 | `auralite_d2d` (`AuraLite::D2D`) | `auralite::Canvas` / `Image`（D2D + DirectWrite + WIC） |
-| `auralite_ui` (`AuraLite::UINext`) | `auralite::ui` 控件树 + `ViewFactory` + yaml-cpp + `dsl::*` |
+| `auralite_ui` (`AuraLite::UI`，产物 `AuraLite.UI.lib`) | `auralite::ui` 控件树 + `ViewFactory` + yaml-cpp + `dsl::*` + reactive/async |
 | `login_demo` | 登录窗：默认读 `login_window.yaml`；`--fluent` 用链式等价树 |
 | `ui_gallery` | 全控件面画廊（YAML 默认 / `--fluent`）；含 ContextMenu |
 | `ui_smoke` | 早期冒烟（可选保留） |
-| `AuraLite.Base` / `AuraLite.UI` | 旧 Views 静态库（对照 / `1.x`·`2.x`）；**新 Demo 不链接** |
+| `AuraLite.Base` / `AuraLite.UILegacy` | 旧 Views 静态库（对照 / Shell 迁移前）；**新 Demo 不链接** |
 | `d2d_demo` / `test_view` | 阶段一 / Views 冒烟 |
 
-**与分支关系：** `1.x` = Views+GDI+；`2.x` = Views+D2D 冻结线；`master` = 阶段二 `auralite::ui` + **阶段三 reactive/async**。新 Demo **只**链 `AuraLite::UINext`（传递依赖 D2D + yaml-cpp + `AuraLite::Base` / MessageLoop）。
+**与分支关系：** `1.x` = Views+GDI+；`2.x` = Views+D2D 冻结线；`master` = 阶段二 `auralite::ui` + **阶段三 reactive/async**。新 Demo **只**链 `AuraLite::UI`（传递依赖 D2D + yaml-cpp + `AuraLite::Base` / MessageLoop）。
 
 ### master 阶段三（异步与响应式）
 
@@ -149,14 +151,15 @@ cmake --build build --config Debug --target login_demo ui_gallery auralite_ui ui
 
 ## 工程结构
 
-源码目录仍按模块划分；**对外只编两个静态库**：
+源码目录仍按模块划分；**CMake 对外库名：**
 
 | 工程 | 聚合内容 | 产物 |
 |------|----------|------|
 | **AuraLite.Base** | `base` + `rfc_algorithm` + `message_framework` | `AuraLite.Base.lib` |
-| **AuraLite.UI** | `gfx` + `animation` + `view_framework` | `AuraLite.UI.lib` |
+| **AuraLite.UI**（`auralite_ui`） | `auralite::ui` + reactive/async（链 D2D） | `AuraLite.UI.lib` |
+| **AuraLite.UILegacy** | `gfx` + `animation` + `view_framework` | `AuraLite.UILegacy.lib` |
 | `test_base` | Base 冒烟（控制台） | `test_base.exe` |
-| `test_view` | UI 示例（窗口） | `test_view.exe` |
+| `test_view` | 旧 Views 示例（窗口） | `test_view.exe` |
 
 ### 基础控件（`view_framework/controls/`）
 
@@ -205,9 +208,10 @@ cmake --build build --config Debug --target login_demo ui_gallery auralite_ui ui
 
 ```
 AuraLite/
-  AuraLite.Base/          # 静态库工程
-  AuraLite.UI/            # 静态库工程（依赖 Base）
+  AuraLite.Base/          # Base 静态库工程
+  AuraLite.UILegacy/      # 旧 Views 静态库工程（产物 AuraLite.UILegacy.lib）
   AuraLite.Common.props   # 公共编译选项
+  auralite/               # 新栈：ui / reactive / async / canvas（CMake → AuraLite.UI.lib）
   auralite_export.h
   base/  rfc_algorithm/  message_framework/
   gfx/   animation/      view_framework/
@@ -216,7 +220,7 @@ AuraLite/
   bin/<Platform>/<Configuration>/   # *.exe
 ```
 
-`base/`、`gfx/` 等目录下的旧 `.vcxproj` 仅作历史参考，请用 `AuraLite.Base` / `AuraLite.UI`。
+`base/`、`gfx/` 等目录下的旧 `.vcxproj` 仅作历史参考。CMake：`AuraLite::UI`（新）/ `AuraLite::UILegacy`（Views）/ `AuraLite::Base`。
 
 ## 编译环境
 
@@ -243,12 +247,12 @@ msbuild library.sln /p:Configuration=Debug /p:Platform=x64 /m
 
 ```powershell
 msbuild AuraLite.Base\AuraLite.Base.vcxproj /p:Configuration=Debug /p:Platform=x64
-msbuild AuraLite.UI\AuraLite.UI.vcxproj /p:Configuration=Debug /p:Platform=x64
+msbuild AuraLite.UILegacy\AuraLite.UILegacy.vcxproj /p:Configuration=Debug /p:Platform=x64
 ```
 
 输出：
 
-- 库：`lib\<Platform>\<Configuration>\AuraLite.Base.lib`、`AuraLite.UI.lib`
+- 库：`lib\<Platform>\<Configuration>\AuraLite.Base.lib`、`AuraLite.UILegacy.lib`（CMake 新栈产物为 `AuraLite.UI.lib`）
 - 测试：`bin\<Platform>\<Configuration>\test_base.exe`、`test_view.exe`
 
 ## 运行测试
@@ -261,7 +265,8 @@ msbuild AuraLite.UI\AuraLite.UI.vcxproj /p:Configuration=Debug /p:Platform=x64
 ## 接入 FamilyShell
 
 1. 头文件搜索路径加：`3rd-party\AuraLite`
-2. 链接：`AuraLite.UI.lib` + `AuraLite.Base.lib`（及系统库：`d2d1`、`dwrite`、`windowscodecs`、`ole32`、`oleacc`、`dwmapi`、`uxtheme` 等，参见 `test_view`）
+2. 链接旧 Views：`AuraLite.UILegacy.lib` + `AuraLite.Base.lib`（及系统库：`d2d1`、`dwrite`、`windowscodecs`、`ole32`、`oleacc`、`dwmapi`、`uxtheme` 等，参见 `test_view`）
+3. 链接新 UI（推荐）：CMake 目标 `AuraLite::UI`（产物 `AuraLite.UI.lib`）
 3. 预处理器建议定义：`AURALITE_STATIC`、`NOMINMAX`、`_WIN32_WINNT=0x0601`
 
 ## 依赖说明

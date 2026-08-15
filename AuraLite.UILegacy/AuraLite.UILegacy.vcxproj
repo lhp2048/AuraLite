@@ -22,7 +22,7 @@
     <VCProjectVersion>17.0</VCProjectVersion>
     <ProjectGuid>{3F19C1C0-7F28-4DF0-84CC-C69FFB55F359}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>AuraLite.UI</RootNamespace>
+    <RootNamespace>AuraLite.UILegacy</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -57,7 +57,7 @@
   <PropertyGroup>
     <OutDir>$(AuraLiteRoot)lib\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(AuraLiteRoot)obj\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
-    <TargetName>$(ProjectName)</TargetName>
+    <TargetName>AuraLite.UILegacy</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

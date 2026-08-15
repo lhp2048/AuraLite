@@ -1,4 +1,4 @@
-# Merge AuraLite into two static libs: AuraLite.Base + AuraLite.UI
+# Merge AuraLite into two static libs: AuraLite.Base + AuraLite.UILegacy
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Write-Host "AuraLite root: $Root"
@@ -138,7 +138,7 @@ $guidTestBase = "16CD023E-334A-4D66-A243-76A5B30F18B9"
 $guidTestView = "F19EF4AA-5DD6-4E44-9B8E-2455568AE16E"
 
 Write-LibProject -Name "AuraLite.Base" -Guid $guidBase -ProjDir (Join-Path $Root "AuraLite.Base") -Sources $baseSources
-Write-LibProject -Name "AuraLite.UI" -Guid $guidUI -ProjDir (Join-Path $Root "AuraLite.UI") -Sources $uiSources
+Write-LibProject -Name "AuraLite.UILegacy" -Guid $guidUI -ProjDir (Join-Path $Root "AuraLite.UILegacy") -Sources $uiSources
 
 # --- test apps ---
 function Write-AppProject {
@@ -224,8 +224,8 @@ function Write-AppProject {
   [void]$sb.AppendLine('    <ProjectReference Include="..\AuraLite.Base\AuraLite.Base.vcxproj">')
   [void]$sb.AppendLine("      <Project>{$guidBase}</Project>")
   [void]$sb.AppendLine('    </ProjectReference>')
-  if ($LibNames -contains "AuraLite.UI") {
-    [void]$sb.AppendLine('    <ProjectReference Include="..\AuraLite.UI\AuraLite.UI.vcxproj">')
+  if ($LibNames -contains "AuraLite.UILegacy") {
+    [void]$sb.AppendLine('    <ProjectReference Include="..\AuraLite.UILegacy\AuraLite.UILegacy.vcxproj">')
     [void]$sb.AppendLine("      <Project>{$guidUI}</Project>")
     [void]$sb.AppendLine('    </ProjectReference>')
   }
@@ -237,7 +237,7 @@ function Write-AppProject {
 }
 
 Write-AppProject -Name "test_base" -Guid $guidTestBase -Dir (Join-Path $Root "test_base") -SubSystem "Console" -LibNames @("AuraLite.Base")
-Write-AppProject -Name "test_view" -Guid $guidTestView -Dir (Join-Path $Root "test_view") -SubSystem "Windows" -HasRc $true -LibNames @("AuraLite.Base","AuraLite.UI")
+Write-AppProject -Name "test_view" -Guid $guidTestView -Dir (Join-Path $Root "test_view") -SubSystem "Windows" -HasRc $true -LibNames @("AuraLite.Base","AuraLite.UILegacy")
 
 # --- library.sln ---
 $sln = @"
@@ -247,7 +247,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AuraLite.Base", "AuraLite.Base\AuraLite.Base.vcxproj", "{$guidBase}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AuraLite.UI", "AuraLite.UI\AuraLite.UI.vcxproj", "{$guidUI}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AuraLite.UILegacy", "AuraLite.UILegacy\AuraLite.UILegacy.vcxproj", "{$guidUI}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_base", "test_base\test_base.vcxproj", "{$guidTestBase}"
 EndProject
