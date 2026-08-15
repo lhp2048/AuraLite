@@ -129,6 +129,34 @@ if(AURALITE_BUILD_LEGACY)
   endif()
 endif()
 
+# ---- Next-gen declarative UI (auralite::ui) ----
+add_library(auralite_ui STATIC
+  auralite/ui/node.cpp
+  auralite/ui/window.cpp
+  auralite/ui/application.cpp
+)
+add_library(AuraLite::UINext ALIAS auralite_ui)
+target_include_directories(auralite_ui PUBLIC "${AURALITE_ROOT}")
+target_compile_features(auralite_ui PUBLIC cxx_std_20)
+target_compile_definitions(auralite_ui
+  PUBLIC
+    NOMINMAX
+    UNICODE
+    _UNICODE
+    WINVER=0x0A00
+    _WIN32_WINNT=0x0A00
+)
+target_link_libraries(auralite_ui
+  PUBLIC
+    AuraLite::D2D
+  PRIVATE
+    user32
+    gdi32
+)
+if(MSVC)
+  target_compile_options(auralite_ui PRIVATE /W3 /utf-8 /permissive-)
+endif()
+
 # ---- D2D demo + legacy smoke tests (same OutDir as library.sln) ----
 option(AURALITE_BUILD_D2D_DEMO "Build Direct2D smoke demo" ON)
 if(AURALITE_BUILD_D2D_DEMO)
@@ -140,6 +168,19 @@ if(AURALITE_BUILD_D2D_DEMO)
   )
   if(MSVC)
     target_compile_options(d2d_demo PRIVATE /W3 /utf-8 /permissive-)
+  endif()
+endif()
+
+option(AURALITE_BUILD_UI_SMOKE "Build auralite::ui smoke demo" ON)
+if(AURALITE_BUILD_UI_SMOKE)
+  add_executable(ui_smoke WIN32 examples/ui_smoke/main.cpp)
+  target_link_libraries(ui_smoke PRIVATE AuraLite::UINext)
+  target_compile_definitions(ui_smoke PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(ui_smoke PRIVATE /W3 /utf-8 /permissive-)
   endif()
 endif()
 
