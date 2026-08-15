@@ -133,7 +133,6 @@ bool Canvas::Init(HWND hwnd) {
     return false;
   }
   hwnd_ = hwnd;
-  layered_ = false;
 
   if (!d2d_factory_) {
     const HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,
@@ -153,6 +152,7 @@ bool Canvas::Init(HWND hwnd) {
   }
 
   DiscardDeviceResources();
+  layered_ = false;
   return CreateDeviceResources();
 }
 
