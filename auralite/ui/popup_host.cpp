@@ -241,7 +241,9 @@ std::unique_ptr<Node> PopupHost::ShowLayer(std::unique_ptr<Node> root,
   // Deactivate outside stack → dismiss entire stack. Nested Push activates a
   // deeper layer already in stack_; that must not dismiss parents.
   raw->set_on_deactivate_outside([this](HWND activating) {
-    if (IsHwndInStack(activating)) {
+    // lParam may be NULL when focus is briefly cleared during nested
+    // ShowWindow/SetForegroundWindow — do not treat as "outside".
+    if (!activating || IsHwndInStack(activating)) {
       return;
     }
     Dismiss();

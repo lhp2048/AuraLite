@@ -1,5 +1,7 @@
 # Classic context-menu look (default right-click in ui_gallery).
 # Panel bg + flat left-aligned rows; Submenu already paints as a menu row.
+# Note: layered popups ignore mouse on fully transparent pixels — item bg
+# must be non-zero alpha (use panel-matching fill, not #00000000).
 Column:
   bg: "#F5F7FAF2"
   width: 200
@@ -13,7 +15,7 @@ Column:
         corner_radius: 4
         text_align: left
         font_size: 13
-        bg: "#00000000"
+        bg: "#F5F7FAF2"
         bg_hover: "#E6EEFA"
         bg_pressed: "#D7E4F7"
         on_click: refresh
@@ -24,7 +26,7 @@ Column:
         corner_radius: 4
         text_align: left
         font_size: 13
-        bg: "#00000000"
+        bg: "#F5F7FAF2"
         bg_hover: "#E6EEFA"
         bg_pressed: "#D7E4F7"
         on_click: about
@@ -45,7 +47,7 @@ Column:
                   corner_radius: 4
                   text_align: left
                   font_size: 13
-                  bg: "#00000000"
+                  bg: "#F5F7FAF2"
                   bg_hover: "#E6EEFA"
                   bg_pressed: "#D7E4F7"
                   on_click: split_reset

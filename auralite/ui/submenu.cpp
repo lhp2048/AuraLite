@@ -64,9 +64,9 @@ void Submenu::Paint(auralite::Canvas& canvas) {
     return;
   }
   const ThemeTokens& th = Theme::Active();
-  if (hovered_) {
-    canvas.FillRect(bounds_, th.accent_soft);
-  }
+  // Layered popups: fully transparent pixels do not receive mouse hits.
+  // Always paint an opaque row so the trigger stays clickable.
+  canvas.FillRect(bounds_, hovered_ ? th.accent_soft : th.surface);
 
   const float fs = ResolveFontSize(std::nullopt);
   const float chevron_x = bounds_.x + bounds_.w - kPadX - kChevronSlot;
