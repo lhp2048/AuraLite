@@ -176,6 +176,7 @@ add_library(auralite_ui STATIC
   auralite/ui/tree_view.cpp
   auralite/ui/split_view.cpp
   auralite/ui/context_menu.cpp
+  auralite/ui/popup_host.cpp
   auralite/ui/window.cpp
   auralite/ui/theme.cpp
   auralite/ui/theme_yaml.cpp

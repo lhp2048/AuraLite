@@ -29,6 +29,8 @@ class Window {
   void set_quit_on_close(bool quit) { quit_on_close_ = quit; }
   bool quit_on_close() const { return quit_on_close_; }
   void SetRoot(std::unique_ptr<Node> root);
+  // Detach root without destroying the window (Submenu return / PopupHost).
+  std::unique_ptr<Node> ReleaseRoot();
   // Floating layer above root (Combo dropdown). |on_dismiss| runs on ClearPopup.
   // |anchor| click while open is left to the control (toggle), not dismissed here.
   void SetPopup(std::unique_ptr<Node> popup,
@@ -38,6 +40,12 @@ class Window {
   // Safe while handling popup mouse events: runs ClearPopup after dispatch returns.
   void RequestClearPopup();
   Node* popup() const { return popup_.get(); }
+
+  // PopupHost: invoked on WM_ACTIVATE(WA_INACTIVE) with the HWND gaining
+  // activation. Host dismisses only when that HWND is outside the stack.
+  void set_on_deactivate_outside(std::function<void(HWND)> cb) {
+    on_deactivate_outside_ = std::move(cb);
+  }
 
   void Invalidate();
   // Mark layout dirty and repaint (e.g. after visible toggles).
@@ -91,6 +99,7 @@ class Window {
   bool layout_dirty_ = true;
   bool quit_on_close_ = true;
   bool popup_mode_ = false;
+  std::function<void(HWND)> on_deactivate_outside_;
   Node* mouse_capture_ = nullptr;
   Node* hovered_ = nullptr;
   Node* focused_ = nullptr;

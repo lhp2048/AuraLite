@@ -1,6 +1,7 @@
 #include "auralite/ui/window.h"
 
 #include "auralite/async/task_lambda.h"
+#include "auralite/ui/popup_host.h"
 #include "message_framework/message_loop.h"
 
 #include <imm.h>
@@ -180,6 +181,18 @@ void Window::SetRoot(std::unique_ptr<Node> root) {
   hovered_ = nullptr;
   layout_dirty_ = true;
   Invalidate();
+}
+
+std::unique_ptr<Node> Window::ReleaseRoot() {
+  ClearPopup();
+  SetFocusNode(nullptr);
+  mouse_capture_ = nullptr;
+  hovered_ = nullptr;
+  if (root_) {
+    root_->set_host_window(nullptr);
+  }
+  layout_dirty_ = true;
+  return std::move(root_);
 }
 
 void Window::SetPopup(std::unique_ptr<Node> popup,
@@ -477,6 +490,8 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         return 0;
       }
       DispatchKey(msg, wparam);
+      // Esc may have destroyed this Window via PopupHost — do not touch
+      // members after DispatchKey when popup_mode_ was set.
       return 0;
 
     case WM_KEYUP:
@@ -506,6 +521,19 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
 
     case WM_IME_CHAR:
       DispatchImeChar(wparam);
+      return 0;
+
+    case WM_ACTIVATE:
+      // PopupHost menus: inactive + activation target outside stack → dismiss
+      // entire stack. Nested Push activates another layer in-stack — keep open.
+      if (popup_mode_ && LOWORD(wparam) == WA_INACTIVE &&
+          on_deactivate_outside_) {
+        HWND other = reinterpret_cast<HWND>(lparam);
+        auto cb = on_deactivate_outside_;
+        cb(other);
+        // |this| may be destroyed if the host dismissed the stack.
+        return 0;
+      }
       return 0;
 
     case WM_SETFOCUS:
@@ -806,6 +834,19 @@ void Window::DispatchContextMenu(WPARAM /*wparam*/, LPARAM lparam) {
 }
 
 void Window::DispatchKey(UINT msg, WPARAM wparam) {
+  // PopupHost: Esc closes the top layer only (DismissFrom(depth-1)).
+  if (popup_mode_ && (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) &&
+      wparam == VK_ESCAPE) {
+    if (PopupHost* host = PopupHost::Current()) {
+      const size_t d = host->depth();
+      if (d >= 1) {
+        host->DismissFrom(d - 1);
+      }
+      // |this| may be destroyed; return without touching members.
+      return;
+    }
+  }
+
   if (!focused_) {
     return;
   }
