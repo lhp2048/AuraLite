@@ -20,6 +20,11 @@ class Window {
   Window& operator=(const Window&) = delete;
 
   bool Create(const wchar_t* title, int w, int h);
+  // When true (default), WM_DESTROY posts WM_QUIT. Host apps that own the
+  // message loop (e.g. Family Shell) should set false so closing a UI window
+  // does not tear down the process.
+  void set_quit_on_close(bool quit) { quit_on_close_ = quit; }
+  bool quit_on_close() const { return quit_on_close_; }
   void SetRoot(std::unique_ptr<Node> root);
   // Floating layer above root (Combo dropdown). |on_dismiss| runs on ClearPopup.
   // |anchor| click while open is left to the control (toggle), not dismissed here.
@@ -81,6 +86,7 @@ class Window {
   Node* popup_anchor_ = nullptr;
   bool clear_popup_pending_ = false;
   bool layout_dirty_ = true;
+  bool quit_on_close_ = true;
   Node* mouse_capture_ = nullptr;
   Node* hovered_ = nullptr;
   Node* focused_ = nullptr;

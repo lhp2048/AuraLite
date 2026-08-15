@@ -503,8 +503,11 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       hovered_ = nullptr;
       focused_ = nullptr;
       tracking_mouse_leave_ = false;
-      // Quit the app when the last UI window closes (Task 1 single-window).
-      PostQuitMessage(0);
+      // Optional: Application::Run / single-window demos quit here.
+      // Embedded hosts (Shell MessageLoop) must set_quit_on_close(false).
+      if (quit_on_close_) {
+        PostQuitMessage(0);
+      }
       return 0;
 
     default:
