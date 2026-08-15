@@ -23,6 +23,7 @@
 #include "auralite/ui/text_area.h"
 #include "auralite/ui/text_field.h"
 #include "auralite/ui/tile.h"
+#include "auralite/ui/user_control.h"
 
 #include <memory>
 #include <string>
@@ -514,6 +515,52 @@ inline TabBuilder Tab() { return TabBuilder(); }
 inline AbsoluteBuilder Absolute() { return AbsoluteBuilder(); }
 inline LabelBuilder Label() { return LabelBuilder(); }
 inline ButtonBuilder Button() { return ButtonBuilder(); }
+
+class UserControlBuilder : public detail::BuilderBase<UserControl> {
+ public:
+  UserControlBuilder& on_paint(UserControl::PaintHandler handler) {
+    get()->on_paint(std::move(handler));
+    return *this;
+  }
+  UserControlBuilder& on_mouse_down(UserControl::MouseHandler handler) {
+    get()->on_mouse_down(std::move(handler));
+    return *this;
+  }
+  UserControlBuilder& on_mouse_up(UserControl::MouseHandler handler) {
+    get()->on_mouse_up(std::move(handler));
+    return *this;
+  }
+  UserControlBuilder& on_mouse_move(UserControl::MouseHandler handler) {
+    get()->on_mouse_move(std::move(handler));
+    return *this;
+  }
+  UserControlBuilder& on_mouse_wheel(UserControl::MouseHandler handler) {
+    get()->on_mouse_wheel(std::move(handler));
+    return *this;
+  }
+  UserControlBuilder& on_key(UserControl::KeyHandler handler) {
+    get()->on_key(std::move(handler));
+    return *this;
+  }
+  UserControlBuilder& wants_mouse_wheel(bool want) {
+    get()->wants_mouse_wheel(want);
+    return *this;
+  }
+  UserControlBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  UserControlBuilder& fill_height() {
+    get()->fill_height();
+    return *this;
+  }
+  UserControlBuilder& weight(float w) {
+    get()->weight(w);
+    return *this;
+  }
+};
+
+inline UserControlBuilder UserControl() { return UserControlBuilder(); }
 inline TextFieldBuilder TextField() { return TextFieldBuilder(); }
 inline ImageViewBuilder ImageView() { return ImageViewBuilder(); }
 inline ImageButtonBuilder ImageButton() { return ImageButtonBuilder(); }

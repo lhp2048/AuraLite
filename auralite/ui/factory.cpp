@@ -24,6 +24,7 @@
 #include "auralite/ui/text_area.h"
 #include "auralite/ui/text_field.h"
 #include "auralite/ui/tile.h"
+#include "auralite/ui/user_control.h"
 #include "auralite/ui/yaml_loader.h"
 
 #include <yaml-cpp/yaml.h>
@@ -551,6 +552,13 @@ void ViewFactory::RegisterBuiltinTypes() {
     ApplyWeightCrossAlign(btn.get(), props, false);
     BindOnClick(btn.get(), props, handlers);
     return btn;
+  });
+
+  Register("UserControl", [](const YAML::Node& props, const HandlerMap&) {
+    auto view = std::make_unique<UserControl>();
+    ApplyWidthHeight(view.get(), props);
+    ApplyWeightCrossAlign(view.get(), props, false);
+    return view;
   });
 
   Register("TextField", [](const YAML::Node& props, const HandlerMap&) {

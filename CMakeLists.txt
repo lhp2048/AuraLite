@@ -155,6 +155,7 @@ add_library(auralite_ui STATIC
   auralite/ui/absolute.cpp
   auralite/ui/label.cpp
   auralite/ui/button.cpp
+  auralite/ui/user_control.cpp
   auralite/ui/image_view.cpp
   auralite/ui/image_button.cpp
   auralite/ui/text_field.cpp
