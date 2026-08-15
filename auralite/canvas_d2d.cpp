@@ -330,6 +330,21 @@ void Canvas::DrawLine(float x0, float y0, float x1, float y1,
                            stroke_width);
 }
 
+void Canvas::PushAxisAlignedClip(const RectF& rect) {
+  if (!render_target_) {
+    return;
+  }
+  render_target_->PushAxisAlignedClip(ToD2D(rect),
+                                      D2D1_ANTIALIAS_MODE_ALIASED);
+}
+
+void Canvas::PopAxisAlignedClip() {
+  if (!render_target_) {
+    return;
+  }
+  render_target_->PopAxisAlignedClip();
+}
+
 void Canvas::DrawText(const std::wstring& text, const RectF& layout_rect,
                       const ColorF& color, float font_size,
                       const wchar_t* font_family, TextHAlign align) {

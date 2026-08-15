@@ -2,6 +2,7 @@
 #include <objbase.h>
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "auralite/ui/application.h"
@@ -11,8 +12,10 @@
 #include "auralite/ui/image_button.h"
 #include "auralite/ui/image_view.h"
 #include "auralite/ui/label.h"
+#include "auralite/ui/list_view.h"
 #include "auralite/ui/radio.h"
 #include "auralite/ui/row.h"
+#include "auralite/ui/scroll_view.h"
 #include "auralite/ui/switch_control.h"
 #include "auralite/ui/text_field.h"
 #include "auralite/ui/window.h"
@@ -52,7 +55,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   auralite::ui::Window window;
-  if (!window.Create(L"AuraLite UI Smoke", 720, 780)) {
+  if (!window.Create(L"AuraLite UI Smoke", 720, 900)) {
     MessageBoxW(nullptr, L"Window / Canvas init failed", L"ui_smoke",
                 MB_ICONERROR);
     CoUninitialize();
@@ -64,7 +67,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
 
   {
     auto title = std::make_unique<auralite::ui::Label>();
-    title->text(L"AuraLite Phase 2 — Checkbox / Radio / Switch")
+    title->text(L"AuraLite Phase 2 — ScrollView / ListView")
         .font_size(20.f)
         .align(auralite::ui::TextAlign::Left);
     root->AddChild(std::move(title));
@@ -72,7 +75,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
 
   auto status = std::make_unique<auralite::ui::Label>();
   auralite::ui::Label* status_ptr = status.get();
-  status->text(L"Tab focus · click toggles · radios share group 1")
+  status->text(L"Wheel scrolls list · click to select · Tab focuses ListView")
       .font_size(14.f)
       .color(auralite::ColorF::FromRgb(90, 100, 120))
       .align(auralite::ui::TextAlign::Left);
@@ -113,6 +116,34 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
         .placeholder(L"Password (no copy)")
         .preferred_size(320.f, 36.f);
     root->AddChild(std::move(field));
+  }
+
+  {
+    auto list_label = std::make_unique<auralite::ui::Label>();
+    list_label->text(L"Scrollable list (30 items)")
+        .font_size(13.f)
+        .color(auralite::ColorF::FromRgb(70, 80, 95))
+        .preferred_height(20.f);
+    root->AddChild(std::move(list_label));
+  }
+  {
+    auto list = std::make_unique<auralite::ui::ListView>();
+    for (int i = 1; i <= 30; ++i) {
+      wchar_t buf[64];
+      swprintf_s(buf, L"Item %02d — AuraLite ListView", i);
+      list->AddItem(buf);
+    }
+    list->on_selection_changed([status_ptr, &window](int index) {
+      if (status_ptr) {
+        status_ptr->text(L"List selected: " + std::to_wstring(index));
+      }
+      window.Invalidate();
+    });
+    list->set_selected_index(0);
+
+    auto scroll = std::make_unique<auralite::ui::ScrollView>();
+    scroll->preferred_size(400.f, 180.f).set_content(std::move(list));
+    root->AddChild(std::move(scroll));
   }
 
   {

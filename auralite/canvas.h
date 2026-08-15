@@ -111,6 +111,10 @@ class Canvas {
   void DrawImage(const Image& image, const RectF& dest);
   void DrawImage(const Image& image, const RectF& src, const RectF& dest);
 
+  // Axis-aligned clip stack (must Pop once per successful Push).
+  void PushAxisAlignedClip(const RectF& rect);
+  void PopAxisAlignedClip();
+
   bool is_valid() const { return render_target_ != nullptr; }
   ID2D1HwndRenderTarget* render_target() const { return render_target_; }
   ID2D1Factory* d2d_factory() const { return d2d_factory_; }

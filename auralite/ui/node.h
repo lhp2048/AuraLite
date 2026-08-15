@@ -40,6 +40,9 @@ class Node {
   virtual void OnFocus() {}
   virtual void OnBlur() {}
 
+  // Wheel: Window walks from hit node up to first ancestor that returns true.
+  virtual bool WantsMouseWheel() const { return false; }
+
   // IME: composition is temporary underline text; result commits into the control.
   virtual bool WantsIme() const { return false; }
   virtual void OnImeComposition(const std::wstring& /*composition*/) {}

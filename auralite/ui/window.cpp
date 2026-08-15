@@ -528,9 +528,17 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
     case WM_MOUSEMOVE:
       target->OnMouseMove(ev);
       break;
-    case WM_MOUSEWHEEL:
-      target->OnMouseWheel(ev);
+    case WM_MOUSEWHEEL: {
+      // Prefer first scrollable ancestor from the hit node (ScrollView).
+      Node* wheel_target = target;
+      while (wheel_target && !wheel_target->WantsMouseWheel()) {
+        wheel_target = wheel_target->parent();
+      }
+      if (wheel_target) {
+        wheel_target->OnMouseWheel(ev);
+      }
       break;
+    }
     default:
       break;
   }
