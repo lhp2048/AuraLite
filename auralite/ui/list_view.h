@@ -29,11 +29,14 @@ class ListView : public Node {
   void Paint(auralite::Canvas& canvas) override;
 
   void OnMouseDown(const MouseEvent& e) override;
+  void OnMouseMove(const MouseEvent& e) override;
+  void OnMouseLeave(const MouseEvent& e) override;
   void OnKey(const KeyEvent& e) override;
 
  private:
   float ItemHeight() const;
   int IndexAtY(float y) const;
+  void SetHoverIndex(int index);
 
   static constexpr float kItemPaddingX = 8.f;
   static constexpr float kItemPaddingY = 4.f;
@@ -41,11 +44,13 @@ class ListView : public Node {
 
   std::vector<std::wstring> items_;
   int selected_index_ = -1;
+  int hover_index_ = -1;
   float font_size_ = 14.f;
   SelectionHandler on_selection_;
   ColorF text_color_ = ColorF::FromRgb(20, 20, 20);
   ColorF selected_bg_ = ColorF::FromRgb(51, 120, 210);
   ColorF selected_text_ = ColorF::FromRgb(255, 255, 255);
+  ColorF hover_bg_ = ColorF::FromRgb(230, 238, 250);
 };
 
 }  // namespace auralite::ui

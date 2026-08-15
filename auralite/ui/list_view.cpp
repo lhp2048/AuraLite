@@ -28,6 +28,14 @@ int ListView::AddItem(const std::wstring& text) {
 void ListView::ClearItems() {
   items_.clear();
   selected_index_ = -1;
+  hover_index_ = -1;
+}
+
+void ListView::SetHoverIndex(int index) {
+  if (hover_index_ == index) {
+    return;
+  }
+  hover_index_ = index;
 }
 
 void ListView::set_selected_index(int index) {
@@ -81,8 +89,11 @@ void ListView::Paint(auralite::Canvas& canvas) {
     const RectF row{bounds_.x, bounds_.y + static_cast<float>(i) * ih,
                     bounds_.w, ih};
     const bool selected = (i == selected_index_);
+    const bool hovered = (i == hover_index_);
     if (selected) {
       canvas.FillRect(row, selected_bg_);
+    } else if (hovered) {
+      canvas.FillRect(row, hover_bg_);
     }
     const ColorF& color = selected ? selected_text_ : text_color_;
     const RectF text_rect{row.x + kItemPaddingX, row.y,
@@ -104,6 +115,7 @@ void ListView::OnMouseDown(const MouseEvent& e) {
   if (idx < 0) {
     return;
   }
+  SetHoverIndex(idx);
   // Re-clicking the current item still notifies (Combo needs to dismiss).
   if (idx == selected_index_) {
     if (on_selection_) {
@@ -112,6 +124,14 @@ void ListView::OnMouseDown(const MouseEvent& e) {
     return;
   }
   set_selected_index(idx);
+}
+
+void ListView::OnMouseMove(const MouseEvent& e) {
+  SetHoverIndex(IndexAtY(e.y));
+}
+
+void ListView::OnMouseLeave(const MouseEvent&) {
+  SetHoverIndex(-1);
 }
 
 void ListView::OnKey(const KeyEvent& e) {
