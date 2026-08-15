@@ -916,9 +916,13 @@ void ViewFactory::RegisterBuiltinTypes() {
     }
     ApplyListColumnsHeader(list.get(), props);
     if (props["item_template"]) {
-      const YAML::Node tmpl = props["item_template"];
-      list->item_template_factory([this, tmpl, handlers]() {
-        return LoadYamlNode(tmpl, *this, handlers);
+      // Clone: YAML::Node is a view into the Load() document; that document is
+      // destroyed when CreateFromYaml* returns. Deferring LoadYamlNode without
+      // Clone (and without keeping ViewFactory alive) AVs on first SyncVisibleRows.
+      const YAML::Node tmpl = YAML::Clone(props["item_template"]);
+      list->item_template_factory([tmpl, handlers]() {
+        ViewFactory factory;
+        return LoadYamlNode(tmpl, factory, handlers);
       });
     }
     for (int i = 0; i < count; ++i) {
