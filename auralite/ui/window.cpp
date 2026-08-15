@@ -122,6 +122,21 @@ void Window::ClearPopup() {
   Invalidate();
 }
 
+void Window::SyncPopupLayout() {
+  if (!popup_ || !popup_anchor_) {
+    return;
+  }
+  const RectF a = popup_anchor_->bounds();
+  float h = popup_->bounds().h;
+  if (h <= 0.f) {
+    h = popup_->Measure(a.w, 200.f).h;
+  }
+  if (h <= 0.f) {
+    h = 120.f;
+  }
+  popup_->Layout(RectF{a.x, a.y + a.h + 2.f, a.w, h});
+}
+
 void Window::Invalidate() {
   if (hwnd_) {
     InvalidateRect(hwnd_, nullptr, FALSE);
@@ -456,6 +471,7 @@ void Window::OnPaint() {
     root_->Paint(canvas_);
   }
   if (popup_) {
+    SyncPopupLayout();
     popup_->Paint(canvas_);
   }
 
@@ -512,6 +528,8 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
     ev.x = static_cast<float>(GET_X_LPARAM(lparam));
     ev.y = static_cast<float>(GET_Y_LPARAM(lparam));
   }
+
+  SyncPopupLayout();
 
   Node* popup_hit = popup_ ? popup_->HitTest(ev.x, ev.y) : nullptr;
   Node* root_hit = root_ ? root_->HitTest(ev.x, ev.y) : nullptr;

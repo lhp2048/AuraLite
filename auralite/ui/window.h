@@ -55,6 +55,7 @@ class Window {
   void DispatchImeChar(WPARAM wparam);
   void UpdateImeAssociation();
   void UpdateImeCandidatePos();
+  void SyncPopupLayout();
 
   static MouseButton ButtonFromMsg(UINT msg, WPARAM wparam);
   RectF ClientRectF() const;
