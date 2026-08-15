@@ -48,6 +48,7 @@ Window::~Window() {
     }
     DestroyWindow(hwnd_);
     hwnd_ = nullptr;
+    popup_mode_ = false;
   }
 }
 
@@ -146,6 +147,8 @@ bool Window::CreatePopup(HWND owner, int w, int h) {
       WS_POPUP | WS_CLIPCHILDREN, 0, 0, w, h, owner, nullptr, instance,
       this);
   if (!hwnd_) {
+    popup_mode_ = false;
+    quit_on_close_ = true;
     return false;
   }
 
@@ -153,6 +156,7 @@ bool Window::CreatePopup(HWND owner, int w, int h) {
     DestroyWindow(hwnd_);
     hwnd_ = nullptr;
     popup_mode_ = false;
+    quit_on_close_ = true;
     return false;
   }
 
@@ -526,6 +530,7 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       }
       canvas_.Shutdown();
       hwnd_ = nullptr;
+      popup_mode_ = false;
       mouse_capture_ = nullptr;
       hovered_ = nullptr;
       focused_ = nullptr;
