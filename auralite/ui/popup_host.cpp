@@ -1,6 +1,5 @@
 #include "auralite/ui/popup_host.h"
 
-#include "auralite/async/task_lambda.h"
 #include "auralite/ui/submenu.h"
 
 #include <cmath>
@@ -23,6 +22,19 @@ RectF WorkAreaNear(POINT screen) {
     return RectF{0.f, 0.f, 1920.f, 1080.f};
   }
   const RECT& r = mi.rcWork;
+  return RectF{static_cast<float>(r.left), static_cast<float>(r.top),
+               static_cast<float>(r.right - r.left),
+               static_cast<float>(r.bottom - r.top)};
+}
+
+RectF MonitorAreaNear(POINT screen) {
+  HMONITOR mon = MonitorFromPoint(screen, MONITOR_DEFAULTTONEAREST);
+  MONITORINFO mi = {};
+  mi.cbSize = sizeof(mi);
+  if (!GetMonitorInfoW(mon, &mi)) {
+    return RectF{0.f, 0.f, 1920.f, 1080.f};
+  }
+  const RECT& r = mi.rcMonitor;
   return RectF{static_cast<float>(r.left), static_cast<float>(r.top),
                static_cast<float>(r.right - r.left),
                static_cast<float>(r.bottom - r.top)};
@@ -53,18 +65,18 @@ POINT ClampTopLeft(POINT desired, SizeF size, const RectF& work) {
 PopupHost::PopupHost() = default;
 
 PopupHost::~PopupHost() {
-  if (alive_) {
-    *alive_ = false;
-  }
-  dismiss_posted_ = false;
+  dismiss_pending_ = false;
+  after_dismiss_ = nullptr;
   Dismiss();
 }
 
 PopupHost* PopupHost::Current() { return g_current; }
 
 void PopupHost::ClearOpenState() {
-  dismiss_posted_ = false;
-  dismiss_posted_level_ = 0;
+  dismiss_pending_ = false;
+  dismiss_pending_level_ = 0;
+  // Do not clear after_dismiss_ here: FlushPendingDismiss may still run it
+  // after DismissFrom emptied the stack.
   UninstallMouseHook();
   UninstallOwnerHook();
   owner_ = nullptr;
@@ -74,10 +86,16 @@ void PopupHost::ClearOpenState() {
 }
 
 void PopupHost::Show(HWND owner, POINT screen, std::unique_ptr<Node> root) {
+  Show(owner, screen, std::move(root), PopupShowOptions{});
+}
+
+void PopupHost::Show(HWND owner, POINT screen, std::unique_ptr<Node> root,
+                     PopupShowOptions options) {
   Dismiss();
   if (!root || !owner) {
     return;
   }
+  show_options_ = options;
   owner_ = owner;
   g_current = this;
   InstallOwnerHook();
@@ -87,6 +105,7 @@ void PopupHost::Show(HWND owner, POINT screen, std::unique_ptr<Node> root) {
   if (stack_.empty()) {
     ClearOpenState();
   }
+  show_options_ = PopupShowOptions{};
 }
 
 void PopupHost::ShowFromYaml(HWND owner, POINT screen,
@@ -180,37 +199,37 @@ void PopupHost::Dismiss() { DismissFrom(0); }
 void PopupHost::RequestDismiss() { RequestDismissFrom(0); }
 
 void PopupHost::RequestDismissFrom(size_t level) {
-  if (dismiss_posted_) {
-    if (level < dismiss_posted_level_) {
-      dismiss_posted_level_ = level;
+  if (dismiss_pending_) {
+    if (level < dismiss_pending_level_) {
+      dismiss_pending_level_ = level;
     }
     return;
   }
-  dismiss_posted_ = true;
-  dismiss_posted_level_ = level;
-  MessageLoop* loop = MessageLoop::current();
-  if (!loop) {
-    dismiss_posted_ = false;
-    DismissFrom(level);
-    return;
+  dismiss_pending_ = true;
+  dismiss_pending_level_ = level;
+}
+
+bool PopupHost::FlushPendingDismiss() {
+  if (!dismiss_pending_) {
+    return false;
   }
-  // Non-nestable: do not run during MessageBox / nested pumps (about dialog).
-  auto alive = alive_;
-  loop->PostNonNestableTask(new auralite::async::LambdaTask([this, alive] {
-    if (!alive || !*alive) {
-      return;
-    }
-    const size_t lvl = dismiss_posted_level_;
-    dismiss_posted_ = false;
-    dismiss_posted_level_ = 0;
-    DismissFrom(lvl);
-  }));
+  const size_t lvl = dismiss_pending_level_;
+  dismiss_pending_ = false;
+  dismiss_pending_level_ = 0;
+  auto after = std::move(after_dismiss_);
+  after_dismiss_ = nullptr;
+  DismissFrom(lvl);
+  if (after) {
+    after();
+  }
+  return true;
 }
 
 std::function<void()> PopupHost::WrapDismiss(std::function<void()> fn) {
+  // Close menu first (flushed after DispatchMouse), then run |fn| (MessageBox).
   return [this, fn = std::move(fn)] {
     if (fn) {
-      fn();
+      after_dismiss_ = std::move(fn);
     }
     RequestDismiss();
   };
@@ -234,30 +253,40 @@ void PopupHost::PlaceRoot(Window* w, POINT screen, SizeF content) {
   if (!w || !w->hwnd()) {
     return;
   }
-  RectF work = WorkAreaNear(screen);
-  POINT tl = ClampTopLeft(screen, content, work);
+  const float dpi = w->dpi();
+  const SizeF px{auralite::PxFromDip(content.w, dpi),
+                 auralite::PxFromDip(content.h, dpi)};
+  const RectF area = show_options_.clamp_to_monitor ? MonitorAreaNear(screen)
+                                                    : WorkAreaNear(screen);
+  POINT desired = screen;
+  if (show_options_.placement == PopupPlacement::kBottomLeftAtPoint) {
+    desired.y -= static_cast<LONG>(std::ceil(px.h));
+  }
+  POINT tl = ClampTopLeft(desired, px, area);
   SetWindowPos(w->hwnd(), HWND_TOPMOST, tl.x, tl.y,
-               static_cast<int>(std::ceil(content.w)),
-               static_cast<int>(std::ceil(content.h)), SWP_SHOWWINDOW);
+               static_cast<int>(std::ceil(px.w)),
+               static_cast<int>(std::ceil(px.h)), SWP_SHOWWINDOW);
 }
 
 void PopupHost::PlaceChild(Window* w, const RectF& anchor, SizeF content) {
   if (!w || !w->hwnd()) {
     return;
   }
+  const float dpi = w->dpi();
+  const SizeF px{auralite::PxFromDip(content.w, dpi),
+                 auralite::PxFromDip(content.h, dpi)};
   RectF work = WorkAreaNear(
       POINT{static_cast<LONG>(anchor.x), static_cast<LONG>(anchor.y)});
   float x = anchor.x + anchor.w;  // prefer right of item
-  if (x + content.w > work.x + work.w) {
-    x = anchor.x - content.w;  // flip left
+  if (x + px.w > work.x + work.w) {
+    x = anchor.x - px.w;  // flip left
   }
   float y = anchor.y;
   POINT tl =
-      ClampTopLeft(POINT{static_cast<LONG>(x), static_cast<LONG>(y)}, content,
-                   work);
+      ClampTopLeft(POINT{static_cast<LONG>(x), static_cast<LONG>(y)}, px, work);
   SetWindowPos(w->hwnd(), HWND_TOPMOST, tl.x, tl.y,
-               static_cast<int>(std::ceil(content.w)),
-               static_cast<int>(std::ceil(content.h)), SWP_SHOWWINDOW);
+               static_cast<int>(std::ceil(px.w)),
+               static_cast<int>(std::ceil(px.h)), SWP_SHOWWINDOW);
 }
 
 std::unique_ptr<Node> PopupHost::ShowLayer(std::unique_ptr<Node> root,
@@ -286,6 +315,9 @@ std::unique_ptr<Node> PopupHost::ShowLayer(std::unique_ptr<Node> root,
       return;
     }
     RequestDismiss();
+    if (owner_) {
+      PostMessageW(owner_, WM_APP + 0x414C, 0, 0);
+    }
   });
 
   raw->SetRoot(std::move(root));
@@ -402,8 +434,11 @@ LRESULT CALLBACK PopupHost::MouseHookProc(int code, WPARAM wparam,
     const auto* info = reinterpret_cast<const MSLLHOOKSTRUCT*>(lparam);
     if (info && !g_mouse_hook_host->HitAnyPopup(info->pt)) {
       // Keep activate path; this covers cases activate misses.
-      // May UnhookWindowsHookEx — CallNextHookEx(nullptr) is still valid.
       g_mouse_hook_host->RequestDismiss();
+      // Not inside a popup DispatchMouse — flush via owner after hook returns.
+      if (g_mouse_hook_host->owner_) {
+        PostMessageW(g_mouse_hook_host->owner_, WM_APP + 0x414C, 0, 0);
+      }
     }
   }
   return CallNextHookEx(nullptr, code, wparam, lparam);
@@ -414,6 +449,11 @@ LRESULT CALLBACK PopupHost::OwnerSubclassProc(HWND hwnd, UINT msg,
   auto* host =
       reinterpret_cast<PopupHost*>(GetPropW(hwnd, L"AuraLite.PopupHost"));
   WNDPROC old_proc = host ? host->owner_old_proc_ : nullptr;
+
+  if (msg == WM_APP + 0x414C && host) {
+    host->FlushPendingDismiss();
+    return 0;
+  }
 
   if (msg == WM_DESTROY && host) {
     // Owner going away: drop stack before default destroy tears owned HWNDs.

@@ -3,6 +3,7 @@
 #include "auralite/ui/node.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace auralite::ui {
@@ -17,6 +18,12 @@ class Submenu : public Node {
   Submenu& text(const std::wstring& t);
   Submenu& content(std::unique_ptr<Node> node);
   Submenu& open_on_hover(bool v);
+  // Sparse color overrides; unset falls back to Theme surface / accent_soft.
+  Submenu& bg(const ColorF& c);
+  Submenu& bg_hover(const ColorF& c);
+  Submenu& text_color(const ColorF& c);
+  Submenu& font_size(float size);
+  Submenu& corner_radius(float r);
 
   const std::wstring& text() const { return text_; }
   Node* content() const { return content_.get(); }
@@ -33,6 +40,8 @@ class Submenu : public Node {
   void OpenIfNeeded();
   void RequestRepaint();
   RectF AnchorScreenRect() const;
+  ColorF BgColor() const;
+  ColorF LabelColor() const;
 
   static constexpr float kRowH = 32.f;
   static constexpr float kPadX = 12.f;
@@ -43,6 +52,12 @@ class Submenu : public Node {
   std::unique_ptr<Node> content_;
   bool open_on_hover_ = true;
   bool hovered_ = false;
+
+  std::optional<ColorF> bg_;
+  std::optional<ColorF> bg_hover_;
+  std::optional<ColorF> text_color_;
+  std::optional<float> font_size_;
+  float corner_radius_ = 0.f;
 };
 
 }  // namespace auralite::ui

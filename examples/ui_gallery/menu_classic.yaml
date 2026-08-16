@@ -1,5 +1,5 @@
 # Classic context-menu look (default right-click in ui_gallery).
-# Panel bg + flat left-aligned rows; Submenu already paints as a menu row.
+# Panel bg + flat left-aligned rows; Submenu row chrome matches Buttons.
 # Note: layered popups ignore mouse on fully transparent pixels — item bg
 # must be non-zero alpha (use panel-matching fill, not #00000000).
 Column:
@@ -33,6 +33,11 @@ Column:
     - Submenu:
         text: "More"
         width: fill
+        height: 28
+        corner_radius: 4
+        font_size: 13
+        bg: "#F5F7FAF2"
+        bg_hover: "#E6EEFA"
         content:
           Column:
             bg: "#F5F7FAF2"

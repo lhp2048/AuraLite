@@ -145,6 +145,14 @@ std::unique_ptr<Node> LoadYamlNode(const YAML::Node& node,
     }
   }
 
+  if (props["clip"]) {
+    built->clip_children(props["clip"].as<bool>());
+  }
+
+  if (props["tooltip"]) {
+    built->tooltip(Utf8ToWide(props["tooltip"].as<std::string>()));
+  }
+
   // Absolute placement: anchors preferred; x/y as fallback origin.
   if (props["x"] || props["y"]) {
     const float x = props["x"] ? props["x"].as<float>() : 0.f;

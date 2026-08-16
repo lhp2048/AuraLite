@@ -1,12 +1,16 @@
 #include "auralite/ui/window.h"
 
 #include "auralite/async/task_lambda.h"
+#include "auralite/ui/label.h"
 #include "auralite/ui/popup_host.h"
+#include "auralite/ui/theme.h"
 #include "message_framework/message_loop.h"
 
 #include <imm.h>
 #include <windowsx.h>
 
+#include <algorithm>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -14,6 +18,88 @@ namespace auralite::ui {
 namespace {
 
 constexpr wchar_t kWindowClassName[] = L"AuraLite.UI.Window";
+
+float QueryMonitorDpiNearCursor() {
+  using GetDpiForMonitorFn = HRESULT(WINAPI*)(HMONITOR, int, UINT*, UINT*);
+  static GetDpiForMonitorFn fn = nullptr;
+  static bool tried = false;
+  if (!tried) {
+    tried = true;
+    HMODULE shcore = LoadLibraryW(L"shcore.dll");
+    if (shcore) {
+      fn = reinterpret_cast<GetDpiForMonitorFn>(
+          GetProcAddress(shcore, "GetDpiForMonitor"));
+    }
+  }
+  POINT pt = {};
+  GetCursorPos(&pt);
+  HMONITOR mon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+  UINT dx = 96;
+  UINT dy = 96;
+  // MDT_EFFECTIVE_DPI = 0
+  if (fn && mon && SUCCEEDED(fn(mon, 0, &dx, &dy)) && dx > 0) {
+    return static_cast<float>(dx);
+  }
+  return auralite::kDipDpi;
+}
+
+float QueryHwndDpi(HWND hwnd) {
+  using GetDpiForWindowFn = UINT(WINAPI*)(HWND);
+  static GetDpiForWindowFn fn = nullptr;
+  static bool tried = false;
+  if (!tried) {
+    tried = true;
+    fn = reinterpret_cast<GetDpiForWindowFn>(
+        GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetDpiForWindow"));
+  }
+  if (fn && hwnd) {
+    const UINT d = fn(hwnd);
+    if (d > 0) {
+      return static_cast<float>(d);
+    }
+  }
+  return auralite::kDipDpi;
+}
+
+int DipToOuterPx(float dip, float dpi) {
+  return static_cast<int>(std::ceil(auralite::PxFromDip(dip, dpi)));
+}
+
+bool IsImeUiWindow(HWND hwnd, HWND dialog) {
+  if (!hwnd) {
+    return false;
+  }
+  wchar_t cls[128] = {};
+  GetClassNameW(hwnd, cls, 128);
+  if (wcsstr(cls, L"IME") != nullptr || wcsstr(cls, L"MSCTFIME") != nullptr) {
+    return true;
+  }
+  return GetWindow(hwnd, GW_OWNER) == dialog;
+}
+
+class ModalDispatcher : public MessageLoopForUI::Dispatcher {
+ public:
+  explicit ModalDispatcher(HWND focus) : focus_(focus) {}
+  bool Dispatch(const MSG& msg) override {
+    if (focus_ && IsWindow(focus_)) {
+      const HWND focus = GetFocus();
+      if (focus != focus_ && !IsChild(focus_, focus) &&
+          !IsImeUiWindow(focus, focus_)) {
+        if (GetForegroundWindow() != focus_) {
+          SetForegroundWindow(focus_);
+        }
+        SetActiveWindow(focus_);
+        SetFocus(focus_);
+      }
+    }
+    TranslateMessage(&msg);
+    DispatchMessage(&msg);
+    return true;
+  }
+
+ private:
+  HWND focus_;
+};
 
 std::wstring ImmGetString(HIMC himc, DWORD index) {
   if (!himc) {
@@ -42,6 +128,8 @@ Window::~Window() {
     alive_->store(false);
   }
   Theme::RemoveInvalidateSink(&theme_sink_);
+  HideTooltip();
+  tooltip_window_.reset();
   if (hwnd_) {
     if (anim_clients_ > 0) {
       KillTimer(hwnd_, kAnimTimerId);
@@ -105,12 +193,19 @@ bool Window::Create(const wchar_t* title, int w, int h) {
     return false;
   }
 
+  dpi_ = QueryMonitorDpiNearCursor();
+  const int pw = DipToOuterPx(static_cast<float>(w), dpi_);
+  const int ph = DipToOuterPx(static_cast<float>(h), dpi_);
+
   hwnd_ = CreateWindowExW(
       0, kWindowClassName, title ? title : L"AuraLite", WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, CW_USEDEFAULT, w, h, nullptr, nullptr, instance, this);
+      CW_USEDEFAULT, CW_USEDEFAULT, pw, ph, nullptr, nullptr, instance, this);
   if (!hwnd_) {
     return false;
   }
+
+  dpi_ = QueryHwndDpi(hwnd_);
+  canvas_.SetDpi(dpi_);
 
   if (!canvas_.Init(hwnd_)) {
     DestroyWindow(hwnd_);
@@ -143,15 +238,22 @@ bool Window::CreatePopup(HWND owner, int w, int h) {
   popup_mode_ = true;
   quit_on_close_ = false;
 
+  dpi_ = QueryMonitorDpiNearCursor();
+  const int pw = DipToOuterPx(static_cast<float>(w), dpi_);
+  const int ph = DipToOuterPx(static_cast<float>(h), dpi_);
+
   hwnd_ = CreateWindowExW(
       WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED, kWindowClassName, L"",
-      WS_POPUP | WS_CLIPCHILDREN, 0, 0, w, h, owner, nullptr, instance,
+      WS_POPUP | WS_CLIPCHILDREN, 0, 0, pw, ph, owner, nullptr, instance,
       this);
   if (!hwnd_) {
     popup_mode_ = false;
     quit_on_close_ = true;
     return false;
   }
+
+  dpi_ = QueryHwndDpi(hwnd_);
+  canvas_.SetDpi(dpi_);
 
   if (!canvas_.InitLayered(hwnd_)) {
     DestroyWindow(hwnd_);
@@ -168,6 +270,200 @@ bool Window::CreatePopup(HWND owner, int w, int h) {
 
   layout_dirty_ = true;
   return true;
+}
+
+bool Window::CreateDialogWindow(HWND owner, int width, int height,
+                                const DialogOptions& opt) {
+  return CreateDialogWindow(owner, L"", width, height, opt);
+}
+
+bool Window::CreateDialogWindow(HWND owner, const wchar_t* title, int width,
+                                int height, const DialogOptions& opt) {
+  if (hwnd_) {
+    return false;
+  }
+
+  (void)Theme::Active();
+
+  HINSTANCE instance = GetModuleHandleW(nullptr);
+  if (!EnsureWindowClass(instance)) {
+    return false;
+  }
+
+  dialog_mode_ = true;
+  quit_on_close_ = false;
+  popup_mode_ = false;
+  dialog_owner_ = owner;
+  dialog_opt_ = opt;
+
+  dpi_ = QueryMonitorDpiNearCursor();
+  const int pw = DipToOuterPx(static_cast<float>(width), dpi_);
+  const int ph = DipToOuterPx(static_cast<float>(height), dpi_);
+
+  DWORD ex = 0;
+  if (opt.topmost) {
+    ex |= WS_EX_TOPMOST;
+  }
+
+  hwnd_ = CreateWindowExW(ex, kWindowClassName, title ? title : L"",
+                          WS_POPUP | WS_CLIPCHILDREN, 0, 0, pw, ph, owner,
+                          nullptr, instance, this);
+  if (!hwnd_) {
+    dialog_mode_ = false;
+    quit_on_close_ = true;
+    dialog_owner_ = nullptr;
+    return false;
+  }
+
+  dpi_ = QueryHwndDpi(hwnd_);
+  canvas_.SetDpi(dpi_);
+
+  if (!canvas_.Init(hwnd_)) {
+    DestroyWindow(hwnd_);
+    hwnd_ = nullptr;
+    dialog_mode_ = false;
+    quit_on_close_ = true;
+    dialog_owner_ = nullptr;
+    return false;
+  }
+
+  ImmAssociateContextEx(hwnd_, NULL, 0);
+
+  theme_sink_ = [this] { Invalidate(); };
+  Theme::AddInvalidateSink(&theme_sink_);
+
+  layout_dirty_ = true;
+  PlaceDialogWindow(owner, width, height, opt);
+  return true;
+}
+
+void Window::PlaceDialogWindow(HWND owner, int width_dip, int height_dip,
+                               const DialogOptions& opt) {
+  if (!hwnd_) {
+    return;
+  }
+
+  const int pw = DipToOuterPx(static_cast<float>(width_dip), dpi_);
+  const int ph = DipToOuterPx(static_cast<float>(height_dip), dpi_);
+
+  int x = 0;
+  int y = 0;
+  HMONITOR mon = nullptr;
+  const bool center_owner =
+      opt.center_on_owner && owner && IsWindow(owner);
+
+  if (center_owner) {
+    RECT orc = {};
+    GetWindowRect(owner, &orc);
+    x = orc.left + (orc.right - orc.left - pw) / 2;
+    y = orc.top + (orc.bottom - orc.top - ph) / 2;
+    mon = MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
+  } else {
+    POINT pt = {};
+    GetCursorPos(&pt);
+    mon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+  }
+
+  MONITORINFO mi = {};
+  mi.cbSize = sizeof(mi);
+  if (mon && GetMonitorInfoW(mon, &mi)) {
+    const RECT& work = mi.rcWork;
+    if (!center_owner) {
+      x = work.left + (work.right - work.left - pw) / 2;
+      y = work.top + (work.bottom - work.top - ph) / 2;
+    }
+    if (x + pw > work.right) {
+      x = work.right - pw;
+    }
+    if (y + ph > work.bottom) {
+      y = work.bottom - ph;
+    }
+    if (x < work.left) {
+      x = work.left;
+    }
+    if (y < work.top) {
+      y = work.top;
+    }
+  }
+
+  SetWindowPos(hwnd_, opt.topmost ? HWND_TOPMOST : HWND_TOP, x, y, pw, ph,
+               SWP_FRAMECHANGED);
+}
+
+void Window::ActivateDialogHwnd() {
+  if (!hwnd_) {
+    return;
+  }
+  AllowSetForegroundWindow(ASFW_ANY);
+  ShowWindow(hwnd_, SW_SHOWNORMAL);
+  HWND fg = GetForegroundWindow();
+  DWORD fg_tid = fg ? GetWindowThreadProcessId(fg, nullptr) : 0;
+  const DWORD cur_tid = GetCurrentThreadId();
+  const bool attached =
+      (fg_tid != 0 && fg_tid != cur_tid) &&
+      AttachThreadInput(cur_tid, fg_tid, TRUE);
+  SetWindowPos(hwnd_, dialog_opt_.topmost ? HWND_TOPMOST : HWND_TOP, 0, 0, 0, 0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+  BringWindowToTop(hwnd_);
+  SetForegroundWindow(hwnd_);
+  SetActiveWindow(hwnd_);
+  SetFocus(hwnd_);
+  if (attached) {
+    AttachThreadInput(cur_tid, fg_tid, FALSE);
+  }
+}
+
+void Window::RestoreDialogOwner() {
+  if (dialog_owner_ && IsWindow(dialog_owner_)) {
+    EnableWindow(dialog_owner_, TRUE);
+  }
+}
+
+int Window::RunModal() {
+  if (!hwnd_ || !dialog_mode_) {
+    return IDABORT;
+  }
+  MessageLoop* base_loop = MessageLoop::current();
+  if (!base_loop || base_loop->type() != MessageLoop::TYPE_UI) {
+    return IDABORT;
+  }
+  MessageLoopForUI* loop = MessageLoopForUI::current();
+  if (!loop) {
+    return IDABORT;
+  }
+  HideTooltip();
+  if (dialog_owner_) {
+    if (Window* owner_ui = FromHwnd(dialog_owner_)) {
+      owner_ui->HideTooltip();
+    }
+  }
+  modal_result_ = IDCANCEL;
+  modal_running_ = true;
+  if (dialog_owner_ && IsWindow(dialog_owner_)) {
+    EnableWindow(dialog_owner_, FALSE);
+  }
+  ActivateDialogHwnd();
+  ModalDispatcher dispatcher(hwnd_);
+  loop->Run(&dispatcher);
+  modal_running_ = false;
+  RestoreDialogOwner();
+  if (hwnd_) {
+    DestroyWindow(hwnd_);
+    hwnd_ = nullptr;
+  }
+  return modal_result_;
+}
+
+void Window::EndModal(int result) {
+  modal_result_ = result;
+  HideTooltip();
+  if (modal_running_ && MessageLoop::current()) {
+    MessageLoop::current()->Quit();
+  }
+  if (hwnd_ && !modal_running_) {
+    DestroyWindow(hwnd_);
+    hwnd_ = nullptr;
+  }
 }
 
 void Window::SetRoot(std::unique_ptr<Node> root) {
@@ -361,6 +657,7 @@ void Window::NotifyDeviceLost() {
 }
 
 void Window::ClearHover() {
+  HideTooltip();
   if (!hovered_) {
     return;
   }
@@ -406,8 +703,10 @@ void Window::UpdateImeCandidatePos() {
   const RectF b = focused_->bounds();
   COMPOSITIONFORM form = {};
   form.dwStyle = CFS_POINT;
-  form.ptCurrentPos.x = static_cast<LONG>(b.x + 10.f);
-  form.ptCurrentPos.y = static_cast<LONG>(b.y + b.h);
+  form.ptCurrentPos.x =
+      static_cast<LONG>(auralite::PxFromDip(b.x + 10.f, dpi_));
+  form.ptCurrentPos.y =
+      static_cast<LONG>(auralite::PxFromDip(b.y + b.h, dpi_));
   ImmSetCompositionWindow(himc, &form);
   ImmReleaseContext(hwnd_, himc);
 }
@@ -440,6 +739,13 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         OnSize(LOWORD(lparam), HIWORD(lparam));
       }
       return 0;
+
+    case WM_DPICHANGED: {
+      const UINT new_dpi = LOWORD(wparam);
+      const RECT* rec = reinterpret_cast<const RECT*>(lparam);
+      ApplyDpiChange(new_dpi, rec);
+      return 0;
+    }
 
     case WM_DISPLAYCHANGE:
     case WM_PAINT: {
@@ -536,6 +842,9 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         }
         return 0;
       }
+      if (LOWORD(wparam) == WA_INACTIVE) {
+        HideTooltip();
+      }
       break;
 
     case WM_SETFOCUS:
@@ -551,9 +860,18 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         Invalidate();
         return 0;
       }
+      if (wparam == kTooltipTimerId) {
+        KillTimer(hwnd_, kTooltipTimerId);
+        ShowTooltipFor(hovered_);
+        return 0;
+      }
       break;
 
     case WM_DESTROY:
+      HideTooltip();
+      if (dialog_mode_ && modal_running_ && MessageLoop::current()) {
+        MessageLoop::current()->Quit();
+      }
       if (anim_clients_ > 0) {
         KillTimer(hwnd_, kAnimTimerId);
         anim_clients_ = 0;
@@ -561,6 +879,7 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       canvas_.Shutdown();
       hwnd_ = nullptr;
       popup_mode_ = false;
+      dialog_mode_ = false;
       mouse_capture_ = nullptr;
       hovered_ = nullptr;
       focused_ = nullptr;
@@ -606,13 +925,36 @@ void Window::HandleImeComposition(LPARAM lparam) {
 RectF Window::ClientRectF() const {
   RECT rc = {};
   GetClientRect(hwnd_, &rc);
-  return RectF{0.f, 0.f, static_cast<float>(rc.right),
-               static_cast<float>(rc.bottom)};
+  return RectF{0.f, 0.f,
+               auralite::DipFromPx(static_cast<float>(rc.right), dpi_),
+               auralite::DipFromPx(static_cast<float>(rc.bottom), dpi_)};
 }
 
 void Window::OnSize(UINT width, UINT height) {
   canvas_.Resize(width, height);
   layout_dirty_ = true;
+  Invalidate();
+}
+
+void Window::ApplyDpiChange(UINT new_dpi, const RECT* suggested) {
+  dpi_ = new_dpi > 0 ? static_cast<float>(new_dpi) : auralite::kDipDpi;
+  canvas_.SetDpi(dpi_);
+  if (!popup_mode_ && suggested) {
+    SetWindowPos(hwnd_, nullptr, suggested->left, suggested->top,
+                 suggested->right - suggested->left,
+                 suggested->bottom - suggested->top,
+                 SWP_NOZORDER | SWP_NOACTIVATE);
+  } else if (popup_mode_ && root_) {
+    const SizeF dip = root_->Measure(400.f, 800.f);
+    SetWindowPos(hwnd_, nullptr, 0, 0, DipToOuterPx(dip.w, dpi_),
+                 DipToOuterPx(dip.h, dpi_),
+                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+  }
+  RECT rc = {};
+  GetClientRect(hwnd_, &rc);
+  canvas_.Resize(static_cast<UINT>(rc.right > 0 ? rc.right : 1),
+                 static_cast<UINT>(rc.bottom > 0 ? rc.bottom : 1));
+  RequestLayout();
   Invalidate();
 }
 
@@ -693,6 +1035,11 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
     return;
   }
 
+  if (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN ||
+      msg == WM_MBUTTONDOWN || msg == WM_MOUSEWHEEL) {
+    HideTooltip();
+  }
+
   if (msg == WM_MOUSEMOVE) {
     EnsureMouseLeaveTracking();
   }
@@ -702,16 +1049,16 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
   ev.shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
   ev.ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
 
-  // Same pixel space as Canvas (kUiDpi) and Node::bounds_ / HitTest.
+  // Client coords from Win32 are physical pixels; Node tree is DIP.
   if (msg == WM_MOUSEWHEEL) {
     POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
     ScreenToClient(hwnd_, &pt);
-    ev.x = static_cast<float>(pt.x);
-    ev.y = static_cast<float>(pt.y);
+    ev.x = auralite::DipFromPx(static_cast<float>(pt.x), dpi_);
+    ev.y = auralite::DipFromPx(static_cast<float>(pt.y), dpi_);
     ev.wheel_delta = GET_WHEEL_DELTA_WPARAM(wparam);
   } else {
-    ev.x = static_cast<float>(GET_X_LPARAM(lparam));
-    ev.y = static_cast<float>(GET_Y_LPARAM(lparam));
+    ev.x = auralite::DipFromPx(static_cast<float>(GET_X_LPARAM(lparam)), dpi_);
+    ev.y = auralite::DipFromPx(static_cast<float>(GET_Y_LPARAM(lparam)), dpi_);
   }
 
   SyncPopupLayout();
@@ -749,6 +1096,7 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
       if (hovered_) {
         hovered_->OnMouseEnter(ev);
       }
+      RestartTooltipTimer();
     }
   }
 
@@ -812,6 +1160,17 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
     ClearPopup();
   }
 
+  // PopupHost menu dismiss after click/Esc — must run before Invalidate so we
+  // do not touch |this| if Flush destroys this Window.
+  if (popup_mode_) {
+    if (PopupHost* host = PopupHost::Current()) {
+      if (host->has_pending_dismiss()) {
+        host->FlushPendingDismiss();
+        return;
+      }
+    }
+  }
+
   Invalidate();
 }
 
@@ -821,30 +1180,34 @@ void Window::DispatchContextMenu(WPARAM /*wparam*/, LPARAM lparam) {
   }
 
   POINT screen = {};
-  POINT client = {};
+  float hit_x = 0.f;
+  float hit_y = 0.f;
   if (lparam == static_cast<LPARAM>(-1)) {
     // Keyboard invocation (Shift+F10 / VK_APPS): use focused node or client
-    // center.
+    // center. bounds_ / ClientRectF are DIP.
     if (focused_) {
       const RectF b = focused_->bounds();
-      client.x = static_cast<LONG>(b.x + b.w * 0.5f);
-      client.y = static_cast<LONG>(b.y + b.h * 0.5f);
+      hit_x = b.x + b.w * 0.5f;
+      hit_y = b.y + b.h * 0.5f;
     } else {
       const RectF c = ClientRectF();
-      client.x = static_cast<LONG>(c.w * 0.5f);
-      client.y = static_cast<LONG>(c.h * 0.5f);
+      hit_x = c.w * 0.5f;
+      hit_y = c.h * 0.5f;
     }
-    screen = client;
+    POINT client_px{static_cast<LONG>(auralite::PxFromDip(hit_x, dpi_)),
+                    static_cast<LONG>(auralite::PxFromDip(hit_y, dpi_))};
+    screen = client_px;
     ClientToScreen(hwnd_, &screen);
   } else {
     screen.x = GET_X_LPARAM(lparam);
     screen.y = GET_Y_LPARAM(lparam);
-    client = screen;
-    ScreenToClient(hwnd_, &client);
+    POINT client_px = screen;
+    ScreenToClient(hwnd_, &client_px);
+    hit_x = auralite::DipFromPx(static_cast<float>(client_px.x), dpi_);
+    hit_y = auralite::DipFromPx(static_cast<float>(client_px.y), dpi_);
   }
 
-  Node* hit = root_->HitTest(static_cast<float>(client.x),
-                             static_cast<float>(client.y));
+  Node* hit = root_->HitTest(hit_x, hit_y);
   if (!hit && focused_) {
     hit = focused_;
   }
@@ -862,9 +1225,16 @@ void Window::DispatchKey(UINT msg, WPARAM wparam) {
       if (d >= 1) {
         host->RequestDismissFrom(d - 1);
       }
-      // |this| may be destroyed; return without touching members.
-      return;
+      if (host->FlushPendingDismiss()) {
+        return;
+      }
     }
+  }
+
+  if (dialog_mode_ && (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) &&
+      wparam == VK_ESCAPE) {
+    EndModal(IDCANCEL);
+    return;
   }
 
   if (!focused_) {
@@ -909,6 +1279,154 @@ void Window::DispatchImeChar(WPARAM wparam) {
   }
   focused_->OnChar(static_cast<wchar_t>(wparam));
   Invalidate();
+}
+
+void Window::RestartTooltipTimer() {
+  HideTooltip();
+  if (!hwnd_ || popup_mode_ || dialog_mode_) {
+    return;
+  }
+  KillTimer(hwnd_, kTooltipTimerId);
+  if (!ResolveTooltipText(hovered_)) {
+    return;
+  }
+  SetTimer(hwnd_, kTooltipTimerId, kTooltipDelayMs, nullptr);
+}
+
+void Window::HideTooltip() {
+  if (hwnd_) {
+    KillTimer(hwnd_, kTooltipTimerId);
+  }
+  if (tooltip_window_ && tooltip_window_->hwnd_) {
+    ShowWindow(tooltip_window_->hwnd_, SW_HIDE);
+  }
+  tooltip_shown_text_ = nullptr;
+  tooltip_text_.clear();
+}
+
+bool Window::EnsureTooltipWindow() {
+  if (tooltip_window_ && tooltip_window_->hwnd_) {
+    return true;
+  }
+
+  tooltip_window_ = std::make_unique<Window>();
+  Window* tip = tooltip_window_.get();
+
+  (void)Theme::Active();
+
+  HINSTANCE instance = GetModuleHandleW(nullptr);
+  if (!EnsureWindowClass(instance)) {
+    tooltip_window_.reset();
+    return false;
+  }
+
+  tip->popup_mode_ = true;
+  tip->quit_on_close_ = false;
+
+  tip->dpi_ = QueryMonitorDpiNearCursor();
+  const int pw = DipToOuterPx(1.f, tip->dpi_);
+  const int ph = DipToOuterPx(1.f, tip->dpi_);
+
+  tip->hwnd_ = CreateWindowExW(
+      WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED |
+          WS_EX_TRANSPARENT,
+      kWindowClassName, L"", WS_POPUP | WS_CLIPCHILDREN, 0, 0, pw, ph, hwnd_,
+      nullptr, instance, tip);
+  if (!tip->hwnd_) {
+    tooltip_window_.reset();
+    return false;
+  }
+
+  tip->dpi_ = QueryHwndDpi(tip->hwnd_);
+  tip->canvas_.SetDpi(tip->dpi_);
+
+  if (!tip->canvas_.InitLayered(tip->hwnd_)) {
+    DestroyWindow(tip->hwnd_);
+    tip->hwnd_ = nullptr;
+    tooltip_window_.reset();
+    return false;
+  }
+
+  ImmAssociateContextEx(tip->hwnd_, NULL, 0);
+
+  tip->theme_sink_ = [tip] { tip->Invalidate(); };
+  Theme::AddInvalidateSink(&tip->theme_sink_);
+
+  tip->layout_dirty_ = true;
+  return true;
+}
+
+void Window::PlaceTooltipWindow(float dip_w, float dip_h) {
+  if (!tooltip_window_ || !tooltip_window_->hwnd_) {
+    return;
+  }
+
+  POINT pt = {};
+  GetCursorPos(&pt);
+  const int offset_y =
+      static_cast<int>(auralite::PxFromDip(16.f, dpi_));
+  int x = pt.x;
+  int y = pt.y + offset_y;
+  const int pw = DipToOuterPx(dip_w, dpi_);
+  const int ph = DipToOuterPx(dip_h, dpi_);
+
+  HMONITOR mon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+  MONITORINFO mi = {};
+  mi.cbSize = sizeof(mi);
+  if (mon && GetMonitorInfoW(mon, &mi)) {
+    const RECT& work = mi.rcWork;
+    if (x + pw > work.right) {
+      x = work.right - pw;
+    }
+    if (y + ph > work.bottom) {
+      y = work.bottom - ph;
+    }
+    if (x < work.left) {
+      x = work.left;
+    }
+    if (y < work.top) {
+      y = work.top;
+    }
+  }
+
+  SetWindowPos(tooltip_window_->hwnd_, HWND_TOPMOST, x, y, pw, ph,
+               SWP_NOACTIVATE);
+}
+
+void Window::ShowTooltipFor(const Node* hit) {
+  const std::wstring* text = ResolveTooltipText(hit);
+  if (!text || !hwnd_) {
+    return;
+  }
+  // Own a copy — ResolveTooltipText returns Node interior storage that must
+  // not outlive Win32 callbacks / tree mutations.
+  tooltip_text_ = *text;
+  if (!EnsureTooltipWindow()) {
+    tooltip_text_.clear();
+    return;
+  }
+  const ThemeTokens& t = Theme::Active();
+  auto label = std::make_unique<Label>();
+  label->text(tooltip_text_)
+      .font_size(t.font_size_sm)
+      .color(t.text)
+      .hug_width()
+      .hug_height();
+  float tw =
+      canvas_.MeasureTextWidth(tooltip_text_, t.font_size_sm, t.font_ui.c_str());
+  const float pad_x = 8.f;
+  const float pad_y = 6.f;
+  tw = (std::min)(tw + pad_x * 2.f, 320.f);
+  const float th = t.font_size_sm + pad_y * 2.f;
+  auto root = std::make_unique<Node>();
+  root->bg(t.surface);
+  root->clip_children(true);
+  root->fixed_width(tw).fixed_height(th);
+  root->AddChild(std::move(label));
+  tooltip_window_->SetRoot(std::move(root));
+  PlaceTooltipWindow(tw, th);
+  ShowWindow(tooltip_window_->hwnd(), SW_SHOWNOACTIVATE);
+  tooltip_shown_text_ = &tooltip_text_;
 }
 
 }  // namespace auralite::ui

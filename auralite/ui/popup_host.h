@@ -14,6 +14,19 @@ namespace auralite::ui {
 
 class Submenu;
 
+// Where |screen| maps on the root popup when calling Show.
+enum class PopupPlacement {
+  kTopLeftAtPoint = 0,
+  kBottomLeftAtPoint = 1,  // like TPM_BOTTOMALIGN (taskbar / tray)
+};
+
+struct PopupShowOptions {
+  PopupPlacement placement = PopupPlacement::kTopLeftAtPoint;
+  // false: clamp to monitor work area; true: full monitor (needed when the
+  // anchor sits on a custom taskbar outside the work area).
+  bool clamp_to_monitor = false;
+};
+
 // Owns a stack of WS_POPUP menu windows (CreatePopup). Explicit instance;
 // TLS Current() is set while the stack is open for Submenu.
 class PopupHost {
@@ -25,6 +38,8 @@ class PopupHost {
   PopupHost& operator=(const PopupHost&) = delete;
 
   void Show(HWND owner, POINT screen, std::unique_ptr<Node> root);
+  void Show(HWND owner, POINT screen, std::unique_ptr<Node> root,
+            PopupShowOptions options);
   void ShowFromYaml(HWND owner, POINT screen, const std::string& path_or_yaml,
                     const HandlerMap& handlers);
   // |return_to|: opener for sibling-dismiss; on DismissFrom of this layer,
@@ -35,11 +50,15 @@ class PopupHost {
                              Submenu* return_to = nullptr);
   void Dismiss();
   void DismissFrom(size_t level);
-  // Defer Dismiss* until after the current Win32/UI handler returns (non-nestable
-  // PostTask). Required when closing from Button::on_click / Esc / hooks —
-  // synchronous DestroyWindow UAF's the popup still on the call stack.
+  // Mark dismiss for after the current popup DispatchMouse/Key returns.
+  // Do not use MessageLoop PostTask: MessageBox nested pumps drain deferred
+  // tasks before OnMouseUp returns (UAF). FlushPendingDismiss from Window.
   void RequestDismiss();
   void RequestDismissFrom(size_t level);
+  // Runs pending dismiss; returns true if the stack was closed (caller must
+  // not touch the popup Window afterward).
+  bool FlushPendingDismiss();
+  bool has_pending_dismiss() const { return dismiss_pending_; }
   bool is_open() const { return !stack_.empty(); }
   size_t depth() const { return stack_.size(); }
   // Index of |window| in the stack; nullopt if not found (never 0 for miss).
@@ -52,7 +71,7 @@ class PopupHost {
   // TLS: set for duration of Show/Push; Submenu uses Current().
   static PopupHost* Current();
 
-  // Optional: wrap handler to RequestDismiss after invoke (safe from on_click).
+  // Optional: request dismiss after invoke; MessageBox-safe (flag + flush).
   std::function<void()> WrapDismiss(std::function<void()> fn);
 
  private:
@@ -66,10 +85,11 @@ class PopupHost {
   bool owner_hooked_ = false;
   WNDPROC owner_old_proc_ = nullptr;
   bool mouse_hooked_ = false;
-  bool dismiss_posted_ = false;
-  size_t dismiss_posted_level_ = 0;
-  // Shared with deferred dismiss tasks so ~PopupHost cannot UAF.
-  std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
+  bool dismiss_pending_ = false;
+  size_t dismiss_pending_level_ = 0;
+  // Run after FlushPendingDismiss closes the stack (e.g. About MessageBox).
+  std::function<void()> after_dismiss_;
+  PopupShowOptions show_options_;
 
   void PlaceRoot(Window* w, POINT screen, SizeF content);
   void PlaceChild(Window* w, const RectF& anchor_screen, SizeF content);

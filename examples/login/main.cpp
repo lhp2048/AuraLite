@@ -119,12 +119,8 @@ bool CreateLoginWindow(auralite::ui::Window* window, const wchar_t* title) {
   if (!window) {
     return false;
   }
-  // Target client: padding 24*2 + field width 352.
-  RECT rc = {0, 0, 400, 360};
-  AdjustWindowRectEx(&rc, WS_OVERLAPPEDWINDOW, FALSE, 0);
-  const int outer_w = rc.right - rc.left;
-  const int outer_h = rc.bottom - rc.top;
-  return window->Create(title, outer_w, outer_h);
+  // DIP outer size (padding 24*2 + field width 352 ≈ 400×360).
+  return window->Create(title, 400, 360);
 }
 
 }  // namespace

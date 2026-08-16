@@ -51,9 +51,17 @@ if(MSVC)
   target_compile_options(auralite_d2d PRIVATE /W3 /utf-8 /permissive-)
 endif()
 
-# ---- Legacy Views libs (Direct2D paint; still used by 1.x / master) ----
-option(AURALITE_BUILD_LEGACY "Build legacy AuraLite.Base + AuraLite.UILegacy (Views)" ON)
+# ---- Base (MessageLoop) vs Views (frozen; opt-in) ----
+option(AURALITE_BUILD_BASE "Build AuraLite.Base (MessageLoop)" ON)
+option(AURALITE_BUILD_UILEGACY "Build AuraLite.UILegacy (Chromium Views)" OFF)
+# Deprecated alias. ON → Base+UILegacy. OFF → UILegacy off (Base stays ON).
+option(AURALITE_BUILD_LEGACY "Deprecated: ON builds Views; OFF disables Views only" OFF)
 if(AURALITE_BUILD_LEGACY)
+  set(AURALITE_BUILD_BASE ON)
+  set(AURALITE_BUILD_UILEGACY ON)
+endif()
+
+if(AURALITE_BUILD_BASE)
   add_library(AuraLite.Base STATIC ${AURALITE_BASE_SOURCES})
   add_library(AuraLite::Base ALIAS AuraLite.Base)
   target_include_directories(AuraLite.Base PUBLIC "${AURALITE_ROOT}")
@@ -91,8 +99,12 @@ if(AURALITE_BUILD_LEGACY)
       PROPERTIES LANGUAGE C
     )
   endif()
+endif()
 
-  # Chromium Views stack (view_framework). Public name is UILegacy; AuraLite::UI is auralite::ui.
+if(AURALITE_BUILD_UILEGACY)
+  if(NOT AURALITE_BUILD_BASE)
+    message(FATAL_ERROR "AURALITE_BUILD_UILEGACY requires AURALITE_BUILD_BASE")
+  endif()
   add_library(AuraLite.UILegacy STATIC ${AURALITE_UI_SOURCES})
   add_library(AuraLite::UILegacy ALIAS AuraLite.UILegacy)
   target_include_directories(AuraLite.UILegacy PUBLIC "${AURALITE_ROOT}")
@@ -204,15 +216,15 @@ target_link_libraries(auralite_ui
     AuraLite::D2D
     yaml-cpp
     imm32
+    shcore
   PRIVATE
     user32
     gdi32
 )
-if(AURALITE_BUILD_LEGACY)
-  target_link_libraries(auralite_ui PUBLIC AuraLite::Base)
-else()
-  message(FATAL_ERROR "Phase 3 auralite_ui requires AURALITE_BUILD_LEGACY for MessageLoop")
+if(NOT AURALITE_BUILD_BASE)
+  message(FATAL_ERROR "auralite_ui requires AURALITE_BUILD_BASE for MessageLoop")
 endif()
+target_link_libraries(auralite_ui PUBLIC AuraLite::Base)
 if(MSVC)
   target_compile_options(auralite_ui PRIVATE /W3 /utf-8 /permissive- /wd4828)
 endif()
@@ -369,17 +381,38 @@ if(AURALITE_BUILD_UI_DEMOS)
   if(MSVC)
     target_compile_options(theme_test PRIVATE /W3 /utf-8 /permissive-)
   endif()
+
+  add_executable(dpi_test examples/dpi_test/main.cpp)
+  target_link_libraries(dpi_test PRIVATE AuraLite::UI)
+  target_compile_definitions(dpi_test PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(dpi_test PRIVATE /W3 /utf-8 /permissive-)
+  endif()
+
+  add_executable(dialog_test examples/dialog_test/main.cpp)
+  target_link_libraries(dialog_test PRIVATE AuraLite::UI)
+  target_compile_definitions(dialog_test PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(dialog_test PRIVATE /W3 /utf-8 /permissive-)
+  endif()
 endif()
 
 option(AURALITE_BUILD_TESTS "Build test_base / test_view" ON)
-if(AURALITE_BUILD_TESTS AND AURALITE_BUILD_LEGACY)
+if(AURALITE_BUILD_TESTS AND AURALITE_BUILD_BASE)
   add_executable(test_base test_base/main.cpp)
   target_link_libraries(test_base PRIVATE AuraLite::Base)
   set_target_properties(test_base PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
   if(MSVC)
     target_compile_options(test_base PRIVATE /W3)
   endif()
-
+endif()
+if(AURALITE_BUILD_TESTS AND AURALITE_BUILD_UILEGACY)
   add_executable(test_view WIN32
     test_view/main.cpp
     test_view/test_view.rc

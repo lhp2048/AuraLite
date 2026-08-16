@@ -124,6 +124,13 @@ bool Image::LoadFromFile(Canvas& canvas, const std::wstring& path) {
 
 Canvas::Canvas() = default;
 
+void Canvas::SetDpi(float dpi) {
+  dpi_ = EffectiveDpi(dpi);
+  if (render_target_) {
+    render_target_->SetDpi(dpi_, dpi_);
+  }
+}
+
 Canvas::~Canvas() {
   Shutdown();
 }
@@ -264,7 +271,7 @@ bool Canvas::CreateDeviceResources() {
         D2D1_RENDER_TARGET_TYPE_DEFAULT,
         D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,
                           D2D1_ALPHA_MODE_PREMULTIPLIED),
-        kUiDpi, kUiDpi);
+        dpi_, dpi_);
     ID2D1DCRenderTarget* dc_render_target = nullptr;
     HRESULT hr = d2d_factory_->CreateDCRenderTarget(&props, &dc_render_target);
     if (FAILED(hr)) {
@@ -281,7 +288,7 @@ bool Canvas::CreateDeviceResources() {
       return false;
     }
 
-    render_target_->SetDpi(kUiDpi, kUiDpi);
+    render_target_->SetDpi(dpi_, dpi_);
     render_target_->SetTextAntialiasMode(
         D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
 
@@ -298,14 +305,12 @@ bool Canvas::CreateDeviceResources() {
       static_cast<UINT32>(rc.right > 0 ? rc.right : 1),
       static_cast<UINT32>(rc.bottom > 0 ? rc.bottom : 1));
 
-  // Pixel-space contract for auralite::ui: layout, hit-test, and paint share
-  // the same units as GetClientRect / WM_MOUSE* (physical pixels). Explicit
-  // 96 DPI overrides the HWND RT default (system DIP), which otherwise scales
-  // drawing and makes every control's hover fire early / margins look uneven.
+  // Layout/hit-test/paint are DIP. Pixel buffer size is GetClientRect.
+  // RT DPI is dpi_ (set by Window) so D2D maps DIP drawing to physical pixels.
   const D2D1_RENDER_TARGET_PROPERTIES rt_props = D2D1::RenderTargetProperties(
       D2D1_RENDER_TARGET_TYPE_DEFAULT,
-      D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_UNKNOWN), kUiDpi,
-      kUiDpi);
+      D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_UNKNOWN), dpi_,
+      dpi_);
   const D2D1_HWND_RENDER_TARGET_PROPERTIES hwnd_props =
       D2D1::HwndRenderTargetProperties(hwnd_, size);
 
@@ -317,8 +322,7 @@ bool Canvas::CreateDeviceResources() {
   }
   render_target_ = hwnd_render_target;
 
-  // Belt-and-suspenders: keep pixel space after device recreate.
-  render_target_->SetDpi(kUiDpi, kUiDpi);
+  render_target_->SetDpi(dpi_, dpi_);
 
   hr = render_target_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black),
                                              &brush_);
@@ -359,7 +363,7 @@ void Canvas::Resize(UINT width, UINT height) {
     const RECT bind = {0, 0, static_cast<LONG>(dib_w_),
                        static_cast<LONG>(dib_h_)};
     dc_render_target->BindDC(dib_dc_, &bind);
-    render_target_->SetDpi(kUiDpi, kUiDpi);
+    render_target_->SetDpi(dpi_, dpi_);
     return;
   }
 
@@ -372,8 +376,7 @@ void Canvas::Resize(UINT width, UINT height) {
     return;
   }
   hwnd_render_target->Resize(D2D1::SizeU(width, height));
-  // Resize must not resurrect system DIP scaling.
-  render_target_->SetDpi(kUiDpi, kUiDpi);
+  render_target_->SetDpi(dpi_, dpi_);
 }
 
 bool Canvas::BeginDraw() {

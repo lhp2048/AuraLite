@@ -156,6 +156,7 @@ namespace base
 - [ ] 成员尾 `_`；禁止拷贝处有 `DISALLOW_COPY_AND_ASSIGN`
 - [ ] 新方法偏向 `Get`/`Set`；不与同类现有风格打架
 - [ ] 未引入 `auralite::ui` 的 fluent API 进 `view::` / `base::`
+- [ ] 未把 `view::` / `AuraLite.UILegacy` 引入新功能或 Family Shell
 - [ ] 注释写清线程与所有权
 
 有冲突时：**同目录最近邻文件 > 本文默认条款**。

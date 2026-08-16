@@ -179,10 +179,16 @@ void Node::Paint(auralite::Canvas& canvas) {
   if (bg_) {
     canvas.FillRect(bounds_, *bg_);
   }
+  if (clip_children_) {
+    canvas.PushAxisAlignedClip(bounds_);
+  }
   for (auto& child : children_) {
     if (child && child->visible()) {
       child->Paint(canvas);
     }
+  }
+  if (clip_children_) {
+    canvas.PopAxisAlignedClip();
   }
 }
 
@@ -219,6 +225,25 @@ Node& Node::set_visible(bool v) {
     host_window_->RequestLayout();
   }
   return *this;
+}
+
+Node& Node::clip_children(bool v) {
+  clip_children_ = v;
+  return *this;
+}
+
+Node& Node::tooltip(std::wstring text) {
+  tooltip_ = std::move(text);
+  return *this;
+}
+
+const std::wstring* ResolveTooltipText(const Node* hit) {
+  for (const Node* n = hit; n; n = n->parent()) {
+    if (!n->tooltip().empty()) {
+      return &n->tooltip();
+    }
+  }
+  return nullptr;
 }
 
 void Node::OwnSubscription(auralite::reactive::Subscription sub) {

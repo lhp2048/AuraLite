@@ -163,7 +163,11 @@ cmake --build build --config Debug --target login_demo ui_gallery auralite_ui ui
 
 **面板背景（YAML）：** 在根容器或子菜单 `content` 的 `Column`/`Row` 上设 `bg: "#RRGGBBAA"`（如 `#F5F7FAE6` 半透明白）绘制填充；省略 `bg` 时仅绘制子控件（适合纯浮动按钮）。子菜单第二层与根层行为相同。经典菜单样式见 `examples/ui_gallery/menu_classic.yaml`（Button：`bg`/`bg_hover`/`text_align`/`corner_radius`）；控件树示例见 `popup_menu.yaml`。
 
-关闭旧库：`-DAURALITE_BUILD_LEGACY=OFF`。旧 `library.sln` 仍可并行使用。
+关闭 Views：默认 **不** 编 `AuraLite.UILegacy`（`-DAURALITE_BUILD_UILEGACY=OFF`）。`AuraLite.Base`（MessageLoop）仍默认编。旧别名 `-DAURALITE_BUILD_LEGACY=ON` 会打开 Views；`OFF` 只关 Views，不关 Base。旧 `library.sln` 仍可并行使用。
+
+**新代码禁止** `#include` `view_framework`、禁止链接 `AuraLite.UILegacy.lib`。只链 `AuraLite::UI` + `AuraLite::Base`。
+
+`auralite::ui` 布局/命中/绘制使用 **DIP**（96 DIP = 1 逻辑英寸）。`Window::Create(w,h)` 的宽高是 DIP；Per-Monitor V2 下 `WM_DPICHANGED` 会重布局。建窗前调用 `Application::EnableDpiAwareness()`（或等价 `SetProcessDpiAwarenessContext`）。
 
 ## 工程结构
 
@@ -281,9 +285,8 @@ msbuild AuraLite.UILegacy\AuraLite.UILegacy.vcxproj /p:Configuration=Debug /p:Pl
 ## 接入 FamilyShell
 
 1. 头文件搜索路径加：`3rd-party\AuraLite`
-2. 链接旧 Views：`AuraLite.UILegacy.lib` + `AuraLite.Base.lib`（及系统库：`d2d1`、`dwrite`、`windowscodecs`、`ole32`、`oleacc`、`dwmapi`、`uxtheme` 等，参见 `test_view`）
-3. 链接新 UI（推荐）：CMake 目标 `AuraLite::UI`（产物 `AuraLite.UI.lib`）
-3. 预处理器建议定义：`AURALITE_STATIC`、`NOMINMAX`、`_WIN32_WINNT=0x0601`
+2. **不要**链接 `AuraLite.UILegacy.lib`。新 UI：`AuraLite.UI.lib` + `AuraLite.Base.lib` + `auralite_d2d.lib`（及 `d2d1`、`dwrite`、`windowscodecs`、`imm32`、`shcore` 等）
+3. 预处理器建议定义：`AURALITE_STATIC`、`NOMINMAX`、`_WIN32_WINNT=0x0A00`（新栈）
 
 ## 依赖说明
 

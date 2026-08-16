@@ -7,6 +7,7 @@ namespace auralite::ui {
 Tile::Tile() {
   fill_width();
   hug_height();
+  clip_children(true);
 }
 
 Tile& Tile::padding(float all) {

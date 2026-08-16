@@ -32,6 +32,12 @@ Column:
     - Submenu:
         text: "More"
         width: fill
+        height: 28
+        corner_radius: 4
+        font_size: 13
+        bg: "#2B303AF5"
+        bg_hover: "#3D4656"
+        text_color: "#E8ECF2"
         content:
           Column:
             bg: "#2B303AF5"

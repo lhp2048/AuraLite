@@ -48,7 +48,10 @@ float MainOffset(float free, Align a) {
 
 }  // namespace
 
-Column::Column() { fill_width(); }
+Column::Column() {
+  fill_width();
+  clip_children(true);
+}
 
 Column& Column::padding(float all) {
   pad_l_ = pad_t_ = pad_r_ = pad_b_ = all;

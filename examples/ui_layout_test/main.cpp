@@ -8,7 +8,11 @@
 #include "auralite/ui/absolute.h"
 #include "auralite/ui/button.h"
 #include "auralite/ui/column.h"
+#include "auralite/ui/factory.h"
+#include "auralite/ui/node.h"
 #include "auralite/ui/row.h"
+#include "auralite/ui/tile.h"
+#include "auralite/ui/yaml_loader.h"
 
 namespace {
 
@@ -17,6 +21,15 @@ int g_failures = 0;
 void ExpectNear(const char* name, float got, float want, float eps = 0.5f) {
   if (std::fabs(got - want) > eps) {
     std::printf("FAIL %s: got=%.2f want=%.2f\n", name, got, want);
+    ++g_failures;
+  } else {
+    std::printf("ok   %s\n", name);
+  }
+}
+
+void Expect(const char* name, bool cond) {
+  if (!cond) {
+    std::printf("FAIL %s\n", name);
     ++g_failures;
   } else {
     std::printf("ok   %s\n", name);
@@ -114,6 +127,67 @@ void TestAbsoluteBottomRight() {
   ExpectNear("abs rb y", p->bounds().y, 72.f);
 }
 
+void TestClipDefaults() {
+  using namespace auralite::ui;
+  Node n;
+  Expect("Node clip default false", !n.clip_children());
+  Absolute abs;
+  Expect("Absolute clip default false", !abs.clip_children());
+  Column col;
+  Row row;
+  Tile tile;
+  Expect("Column clip default true", col.clip_children());
+  Expect("Row clip default true", row.clip_children());
+  Expect("Tile clip default true", tile.clip_children());
+  col.clip_children(false);
+  Expect("Column clip can disable", !col.clip_children());
+}
+
+void TestClipYaml() {
+  using namespace auralite::ui;
+  ViewFactory factory;
+  auto a = LoadYamlString("Column:\n  children: []\n", factory, {});
+  Expect("yaml Column clip default true", a && a->clip_children());
+  auto b = LoadYamlString("Column:\n  clip: false\n  children: []\n", factory, {});
+  Expect("yaml clip false", b && !b->clip_children());
+  auto c = LoadYamlString("Absolute:\n  clip: true\n  children: []\n", factory, {});
+  Expect("yaml Absolute clip true", c && c->clip_children());
+}
+
+void TestHitTestStillClipsToBounds() {
+  using namespace auralite::ui;
+  Column col;
+  col.Layout(RectF{0, 0, 100, 40});
+  auto child = std::make_unique<Button>();
+  child->Layout(RectF{0, 0, 100, 80});
+  Button* p = child.get();
+  col.AddChild(std::move(child));
+  Expect("hit inside parent", col.HitTest(10, 10) != nullptr);
+  Expect("hit outside parent is miss", col.HitTest(10, 50) == nullptr);
+  (void)p;
+}
+
+void TestTooltipResolve() {
+  using namespace auralite::ui;
+  Node parent;
+  parent.tooltip(L"parent");
+  auto child = std::make_unique<Node>();
+  Node* pchild = child.get();
+  parent.AddChild(std::move(child));
+  Expect("child empty uses parent",
+         ResolveTooltipText(pchild) && *ResolveTooltipText(pchild) == L"parent");
+  pchild->tooltip(L"child");
+  Expect("child wins",
+         ResolveTooltipText(pchild) && *ResolveTooltipText(pchild) == L"child");
+  Node bare;
+  Expect("no tooltip is null", ResolveTooltipText(&bare) == nullptr);
+
+  ViewFactory factory;
+  auto n = LoadYamlString(
+      "Button:\n  text: Save\n  tooltip: 保存\n", factory, {});
+  Expect("yaml tooltip", n && n->tooltip() == L"保存");
+}
+
 void TestColumnMainAlignCenter() {
   using namespace auralite::ui;
   auto col = std::make_unique<Column>();
@@ -140,6 +214,10 @@ int main() {
   TestAbsoluteDualAnchor();
   TestAbsoluteBottomRight();
   TestColumnMainAlignCenter();
+  TestClipDefaults();
+  TestClipYaml();
+  TestHitTestStillClipsToBounds();
+  TestTooltipResolve();
   if (g_failures > 0) {
     std::printf("%d failure(s)\n", g_failures);
     return 1;

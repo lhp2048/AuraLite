@@ -7,6 +7,7 @@
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace auralite::ui {
@@ -23,6 +24,21 @@ class Window {
   // Borderless owned popup (menus). Does not post WM_QUIT on destroy.
   bool CreatePopup(HWND owner, int width, int height);
   bool is_popup() const { return popup_mode_; }
+
+  struct DialogOptions {
+    bool topmost = true;
+    bool center_on_owner = true;
+  };
+  // Borderless owned modal dialog. Never named CreateDialog (Win32 macro).
+  bool CreateDialogWindow(HWND owner, int width, int height,
+                          const DialogOptions& opt = {});
+  bool CreateDialogWindow(HWND owner, const wchar_t* title, int width, int height,
+                          const DialogOptions& opt = {});
+  int RunModal();
+  void EndModal(int result);
+  int modal_result() const { return modal_result_; }
+  bool is_dialog() const { return dialog_mode_; }
+
   // When true (default), WM_DESTROY posts WM_QUIT. Host apps that own the
   // message loop (e.g. Family Shell) should set false so closing a UI window
   // does not tear down the process.
@@ -53,6 +69,7 @@ class Window {
   // Shared alive flag for async/coroutines; cleared in destructor.
   std::shared_ptr<std::atomic_bool> alive_flag() const { return alive_; }
   HWND hwnd() const { return hwnd_; }
+  float dpi() const { return dpi_; }
 
   // Ref-counted ~30fps Invalidate for indeterminate ProgressBar etc.
   void RegisterAnimation();
@@ -64,6 +81,9 @@ class Window {
 
  private:
   static constexpr UINT_PTR kAnimTimerId = 1;
+  static constexpr UINT_PTR kTooltipTimerId = 2;
+  static constexpr UINT kTooltipDelayMs = 400;
+
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam,
                                   LPARAM lparam);
   static Window* FromHwnd(HWND hwnd);
@@ -85,11 +105,24 @@ class Window {
   void UpdateImeAssociation();
   void UpdateImeCandidatePos();
   void SyncPopupLayout();
+  void ApplyDpiChange(UINT new_dpi, const RECT* suggested);
+
+  void RestartTooltipTimer();
+  void HideTooltip();
+  void ShowTooltipFor(const Node* hit);
+  bool EnsureTooltipWindow();
+  void PlaceTooltipWindow(float dip_w, float dip_h);
+
+  void PlaceDialogWindow(HWND owner, int width_dip, int height_dip,
+                         const DialogOptions& opt);
+  void ActivateDialogHwnd();
+  void RestoreDialogOwner();
 
   static MouseButton ButtonFromMsg(UINT msg, WPARAM wparam);
   RectF ClientRectF() const;
 
   HWND hwnd_ = nullptr;
+  float dpi_ = auralite::kDipDpi;
   auralite::Canvas canvas_;
   std::unique_ptr<Node> root_;
   std::unique_ptr<Node> popup_;
@@ -99,6 +132,11 @@ class Window {
   bool layout_dirty_ = true;
   bool quit_on_close_ = true;
   bool popup_mode_ = false;
+  bool dialog_mode_ = false;
+  bool modal_running_ = false;
+  HWND dialog_owner_ = nullptr;
+  int modal_result_ = IDCANCEL;
+  DialogOptions dialog_opt_{};
   std::function<void(HWND)> on_deactivate_outside_;
   Node* mouse_capture_ = nullptr;
   Node* hovered_ = nullptr;
@@ -110,6 +148,10 @@ class Window {
   Theme::InvalidateSink theme_sink_;
   std::shared_ptr<std::atomic_bool> alive_ =
       std::make_shared<std::atomic_bool>(true);
+
+  std::unique_ptr<Window> tooltip_window_;
+  std::wstring tooltip_text_;
+  const std::wstring* tooltip_shown_text_ = nullptr;
 };
 
 }  // namespace auralite::ui

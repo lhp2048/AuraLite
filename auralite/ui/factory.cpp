@@ -117,14 +117,15 @@ void BindOnClick(Button* btn, const YAML::Node& props,
   }
 }
 
-void ApplyOptionalColor(Button* btn, const YAML::Node& props, const char* key,
-                        Button& (Button::*setter)(const ColorF&)) {
-  if (!btn || !props[key]) {
+template <typename T>
+void ApplyOptionalColor(T* ctrl, const YAML::Node& props, const char* key,
+                        T& (T::*setter)(const ColorF&)) {
+  if (!ctrl || !props[key]) {
     return;
   }
   ColorF c;
   if (ParseColorHex(props[key].as<std::string>(), &c)) {
-    (btn->*setter)(c);
+    (ctrl->*setter)(c);
   }
 }
 
@@ -148,6 +149,21 @@ void ApplyButtonChrome(Button* btn, const YAML::Node& props) {
     } else {
       btn->text_align(auralite::TextHAlign::Center);
     }
+  }
+}
+
+void ApplySubmenuChrome(Submenu* sm, const YAML::Node& props) {
+  if (!sm) {
+    return;
+  }
+  ApplyOptionalColor(sm, props, "bg", &Submenu::bg);
+  ApplyOptionalColor(sm, props, "bg_hover", &Submenu::bg_hover);
+  ApplyOptionalColor(sm, props, "text_color", &Submenu::text_color);
+  if (props["corner_radius"]) {
+    sm->corner_radius(props["corner_radius"].as<float>());
+  }
+  if (props["font_size"]) {
+    sm->font_size(props["font_size"].as<float>());
   }
 }
 
@@ -711,6 +727,7 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["open_on_hover"]) {
       sm->open_on_hover(props["open_on_hover"].as<bool>());
     }
+    ApplySubmenuChrome(sm.get(), props);
     ApplyWidthHeight(sm.get(), props);
     ApplyWeightCrossAlign(sm.get(), props, false);
     return sm;

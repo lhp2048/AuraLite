@@ -508,6 +508,26 @@ class SubmenuBuilder : public detail::BuilderBase<Submenu> {
     get()->open_on_hover(v);
     return *this;
   }
+  SubmenuBuilder& bg(const ColorF& c) {
+    get()->bg(c);
+    return *this;
+  }
+  SubmenuBuilder& bg_hover(const ColorF& c) {
+    get()->bg_hover(c);
+    return *this;
+  }
+  SubmenuBuilder& text_color(const ColorF& c) {
+    get()->text_color(c);
+    return *this;
+  }
+  SubmenuBuilder& font_size(float size) {
+    get()->font_size(size);
+    return *this;
+  }
+  SubmenuBuilder& corner_radius(float r) {
+    get()->corner_radius(r);
+    return *this;
+  }
 };
 
 class ListViewBuilder : public detail::BuilderBase<ListView> {

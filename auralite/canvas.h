@@ -33,6 +33,21 @@ struct RectF {
 
 enum class TextHAlign { Left, Center, Right };
 
+// 96 DIP = 1 logical inch. Layout/hit-test/paint in auralite::ui use DIP.
+constexpr float kDipDpi = 96.f;
+
+inline float EffectiveDpi(float dpi) {
+  return dpi > 0.f ? dpi : kDipDpi;
+}
+
+inline float PxFromDip(float dip, float dpi) {
+  return dip * EffectiveDpi(dpi) / kDipDpi;
+}
+
+inline float DipFromPx(float px, float dpi) {
+  return px * kDipDpi / EffectiveDpi(dpi);
+}
+
 class Canvas;
 
 // GPU bitmap owned by a Canvas render target. Recreate after device loss.
@@ -125,8 +140,11 @@ class Canvas {
   ID2D1RenderTarget* render_target() const { return render_target_; }
   ID2D1Factory* d2d_factory() const { return d2d_factory_; }
 
-  // UI layout / hit-test / paint all use physical pixels (see CreateDeviceResources).
-  static constexpr float kUiDpi = 96.f;
+  float dpi() const { return dpi_; }
+  void SetDpi(float dpi);
+
+  // Layout/hit-test/paint are DIP. Render-target DPI is dpi_ (set by Window).
+  // Pixel buffer size still comes from GetClientRect.
 
  private:
   friend class Image;
@@ -138,6 +156,7 @@ class Canvas {
 
   HWND hwnd_ = nullptr;
   bool layered_ = false;
+  float dpi_ = kDipDpi;
   HDC dib_dc_ = nullptr;
   HBITMAP dib_bitmap_ = nullptr;
   HBITMAP dib_old_ = nullptr;

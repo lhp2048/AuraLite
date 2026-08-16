@@ -32,6 +32,31 @@ Submenu& Submenu::open_on_hover(bool v) {
   return *this;
 }
 
+Submenu& Submenu::bg(const ColorF& c) {
+  bg_ = c;
+  return *this;
+}
+
+Submenu& Submenu::bg_hover(const ColorF& c) {
+  bg_hover_ = c;
+  return *this;
+}
+
+Submenu& Submenu::text_color(const ColorF& c) {
+  text_color_ = c;
+  return *this;
+}
+
+Submenu& Submenu::font_size(float size) {
+  font_size_ = size;
+  return *this;
+}
+
+Submenu& Submenu::corner_radius(float r) {
+  corner_radius_ = std::max(0.f, r);
+  return *this;
+}
+
 void Submenu::RequestRepaint() {
   if (Window* w = host_window()) {
     w->Invalidate();
@@ -43,20 +68,40 @@ RectF Submenu::AnchorScreenRect() const {
   if (!w || !w->hwnd()) {
     return bounds_;
   }
-  POINT tl{static_cast<LONG>(bounds_.x), static_cast<LONG>(bounds_.y)};
+  const float dpi = w->dpi();
+  POINT tl{static_cast<LONG>(auralite::PxFromDip(bounds_.x, dpi)),
+           static_cast<LONG>(auralite::PxFromDip(bounds_.y, dpi))};
   ClientToScreen(w->hwnd(), &tl);
-  return RectF{static_cast<float>(tl.x), static_cast<float>(tl.y), bounds_.w,
-               bounds_.h};
+  return RectF{static_cast<float>(tl.x), static_cast<float>(tl.y),
+               auralite::PxFromDip(bounds_.w, dpi),
+               auralite::PxFromDip(bounds_.h, dpi)};
 }
 
 SizeF Submenu::Measure(float max_w, float max_h) {
   const ThemeTokens& th = Theme::Active();
-  const float fs = ResolveFontSize(std::nullopt);
+  const float fs = ResolveFontSize(font_size_);
   const float text_w =
       text_.empty() ? 0.f
                     : auralite::MeasureUiTextWidth(text_, fs, th.font_ui.c_str());
   const float hug_w = kPadX + text_w + kChevronGap + kChevronSlot + kPadX;
-  return ResolveSize(max_w, max_h, hug_w, kRowH);
+  const float hug_h = preferred_height() > 0.f ? preferred_height() : kRowH;
+  return ResolveSize(max_w, max_h, hug_w, hug_h);
+}
+
+ColorF Submenu::BgColor() const {
+  const ThemeTokens& th = Theme::Active();
+  if (hovered_) {
+    return bg_hover_.value_or(th.accent_soft);
+  }
+  return bg_.value_or(th.surface);
+}
+
+ColorF Submenu::LabelColor() const {
+  const ThemeTokens& th = Theme::Active();
+  if (text_color_) {
+    return *text_color_;
+  }
+  return th.text;
 }
 
 void Submenu::Paint(auralite::Canvas& canvas) {
@@ -66,19 +111,25 @@ void Submenu::Paint(auralite::Canvas& canvas) {
   const ThemeTokens& th = Theme::Active();
   // Layered popups: fully transparent pixels do not receive mouse hits.
   // Always paint an opaque row so the trigger stays clickable.
-  canvas.FillRect(bounds_, hovered_ ? th.accent_soft : th.surface);
+  const ColorF fill = BgColor();
+  if (corner_radius_ > 0.f) {
+    canvas.FillRoundedRect(bounds_, corner_radius_, corner_radius_, fill);
+  } else {
+    canvas.FillRect(bounds_, fill);
+  }
 
-  const float fs = ResolveFontSize(std::nullopt);
+  const float fs = ResolveFontSize(font_size_);
+  const ColorF label = LabelColor();
   const float chevron_x = bounds_.x + bounds_.w - kPadX - kChevronSlot;
-  const RectF label{bounds_.x + kPadX, bounds_.y,
-                    std::max(0.f, chevron_x - kChevronGap - (bounds_.x + kPadX)),
-                    bounds_.h};
+  const RectF label_r{
+      bounds_.x + kPadX, bounds_.y,
+      std::max(0.f, chevron_x - kChevronGap - (bounds_.x + kPadX)), bounds_.h};
   if (!text_.empty()) {
-    canvas.DrawText(text_, label, th.text, fs, th.font_ui.c_str(),
+    canvas.DrawText(text_, label_r, label, fs, th.font_ui.c_str(),
                     auralite::TextHAlign::Left);
   }
   const RectF chevron{chevron_x, bounds_.y, kChevronSlot, bounds_.h};
-  canvas.DrawText(L"\u203A", chevron, th.text, fs, th.font_ui.c_str(),
+  canvas.DrawText(L"\u203A", chevron, label, fs, th.font_ui.c_str(),
                   auralite::TextHAlign::Right);
 }
 

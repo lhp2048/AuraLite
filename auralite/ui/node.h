@@ -122,6 +122,12 @@ class Node {
   bool visible() const { return visible_; }
   Node& set_visible(bool v);
 
+  Node& clip_children(bool v);
+  bool clip_children() const { return clip_children_; }
+
+  Node& tooltip(std::wstring text);
+  const std::wstring& tooltip() const { return tooltip_; }
+
   Node& bg(const ColorF& c);
   bool has_bg() const { return bg_.has_value(); }
   ColorF bg_color() const { return bg_.value_or(ColorF{}); }
@@ -153,6 +159,8 @@ class Node {
   bool focusable_ = false;
   bool focused_ = false;
   bool visible_ = true;
+  bool clip_children_ = false;
+  std::wstring tooltip_;
   std::vector<auralite::reactive::Subscription> owned_subs_;
   Window* host_window_ = nullptr;
   std::string name_;
@@ -178,5 +186,7 @@ class Node {
   bool has_bottom_ = false;
   std::optional<ColorF> bg_;
 };
+
+const std::wstring* ResolveTooltipText(const Node* hit);
 
 }  // namespace auralite::ui

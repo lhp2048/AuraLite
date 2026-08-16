@@ -430,6 +430,30 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
         status->text(L"Tile: " + text);
         window->Invalidate();
       });
+    } else if (text == L"Open Dialog") {
+      btn->on_click([status, window]() {
+        auralite::ui::Window dlg;
+        if (!dlg.CreateDialogWindow(window->hwnd(), L"Dialog", 320, 180)) {
+          status->text(L"Dialog create failed");
+          window->Invalidate();
+          return;
+        }
+        auto root = std::make_unique<auralite::ui::Column>();
+        root->padding(20.f).spacing(12.f).fill_width().fill_height();
+        auto* lab = new auralite::ui::Label();
+        lab->text(L"Esc 或关闭").font_size(14.f);
+        root->AddChild(std::unique_ptr<auralite::ui::Label>(lab));
+        auto* close = new auralite::ui::Button();
+        close->fixed_height(32.f).fill_width();
+        close->text(L"关闭").on_click([&dlg] {
+          dlg.EndModal(IDOK);
+        });
+        root->AddChild(std::unique_ptr<auralite::ui::Button>(close));
+        dlg.SetRoot(std::move(root));
+        dlg.RunModal();
+        status->text(L"Dialog closed");
+        window->Invalidate();
+      });
     }
   }
   if (auto* tab = dynamic_cast<auralite::ui::Tab*>(node)) {
@@ -776,6 +800,32 @@ std::unique_ptr<auralite::ui::Node> BuildFluentGallery() {
   float_label->hug_height();
   float_label->set_pos(12.f, 48.f);
 
+  auto clipped_label = Label()
+                           .text(L"clipped")
+                           .preferred_height(80.f)
+                           .Build();
+  clipped_label->bg(auralite::ColorF::FromRgb(0xc8, 0x50, 0x50));
+  auto clipped_col = Column().child(std::move(clipped_label)).Build();
+  clipped_col->fixed_width(140.f);
+  clipped_col->fixed_height(48.f);
+
+  auto overflow_label = Label()
+                            .text(L"visible overflow")
+                            .preferred_height(80.f)
+                            .Build();
+  overflow_label->bg(auralite::ColorF::FromRgb(0x50, 0xa0, 0x50));
+  auto overflow_col = Column().child(std::move(overflow_label)).Build();
+  overflow_col->fixed_width(140.f);
+  overflow_col->fixed_height(48.f);
+  overflow_col->clip_children(false);
+
+  auto open_dialog_btn = Button()
+                             .text(L"Open Dialog")
+                             .hug_width()
+                             .fixed_height(32.f)
+                             .Build();
+  open_dialog_btn->tooltip(L"打开无边框对话框");
+
   return ScrollView()
       .fill_width()
       .fill_height()
@@ -1034,6 +1084,15 @@ std::unique_ptr<auralite::ui::Node> BuildFluentGallery() {
                                          .text(L"深色")
                                          .hug_width()
                                          .fixed_height(32.f)))
+                   .child(Label()
+                              .text(L"P1 裁剪 / Tooltip / Dialog")
+                              .font_size(13.f)
+                              .preferred_height(18.f))
+                   .child(Row()
+                              .spacing(12.f)
+                              .child(std::move(clipped_col))
+                              .child(std::move(overflow_col)))
+                   .child(std::move(open_dialog_btn))
                    .child(Label()
                               .text(L"空白处右键 = 经典菜单（menu_classic.yaml）")
                               .font_size(12.f)

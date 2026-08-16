@@ -214,4 +214,20 @@ ScrollView:
               - Button: { name: menu_style_classic, text: "经典扁平", width: hug, height: 32 }
               - Button: { name: menu_style_buttons, text: "按钮风", width: hug, height: 32 }
               - Button: { name: menu_style_dark, text: "深色", width: hug, height: 32 }
+        - Label: { text: "P1 裁剪 / Tooltip / Dialog", font_size: 13, preferred_height: 18 }
+        - Row:
+            spacing: 12
+            children:
+              - Column:
+                  width: 140
+                  height: 48
+                  children:
+                    - Label: { text: "clipped", preferred_height: 80, bg: "#c85050" }
+              - Column:
+                  width: 140
+                  height: 48
+                  clip: false
+                  children:
+                    - Label: { text: "visible overflow", preferred_height: 80, bg: "#50a050" }
+        - Button: { text: "Open Dialog", width: hug, height: 32, tooltip: "打开无边框对话框" }
         - Label: { text: "空白处右键 = 经典菜单（menu_classic.yaml）", font_size: 12, preferred_height: 20 }
