@@ -1,12 +1,17 @@
 #include "auralite/ui/window.h"
 
 #include "auralite/async/task_lambda.h"
-#include "auralite/ui/label.h"
 #include "auralite/ui/popup_host.h"
 #include "auralite/ui/theme.h"
+#include "auralite/ui/title_bar.h"
+#include "auralite/ui/toast.h"
+#include "auralite/ui/toast_overlay.h"
+#include "auralite/ui/tooltip_overlay.h"
+#include "auralite/ui/uia/provider.h"
 #include "message_framework/message_loop.h"
 
 #include <imm.h>
+#include <shellapi.h>
 #include <windowsx.h>
 
 #include <algorithm>
@@ -18,6 +23,7 @@ namespace auralite::ui {
 namespace {
 
 constexpr wchar_t kWindowClassName[] = L"AuraLite.UI.Window";
+constexpr float kDragSlopDip = 4.f;
 
 float QueryMonitorDpiNearCursor() {
   using GetDpiForMonitorFn = HRESULT(WINAPI*)(HMONITOR, int, UINT*, UINT*);
@@ -129,9 +135,15 @@ Window::~Window() {
   }
   Theme::RemoveInvalidateSink(&theme_sink_);
   HideTooltip();
-  tooltip_window_.reset();
+  tooltip_.reset();
+  toast_queue_.clear();
   if (hwnd_) {
-    if (anim_clients_ > 0) {
+    KillTimer(hwnd_, kToastTimerId);
+  }
+  toast_overlay_.reset();
+  DisconnectUia();
+  if (hwnd_) {
+    if (hwnd_) {
       KillTimer(hwnd_, kAnimTimerId);
       anim_clients_ = 0;
     }
@@ -143,9 +155,7 @@ Window::~Window() {
 
 void Window::RegisterAnimation() {
   ++anim_clients_;
-  if (anim_clients_ == 1 && hwnd_) {
-    SetTimer(hwnd_, kAnimTimerId, 33, nullptr);
-  }
+  SyncAnimTimer();
 }
 
 void Window::UnregisterAnimation() {
@@ -153,8 +163,152 @@ void Window::UnregisterAnimation() {
     return;
   }
   --anim_clients_;
-  if (anim_clients_ == 0 && hwnd_) {
+  SyncAnimTimer();
+}
+
+void Window::SyncAnimTimer() {
+  if (!hwnd_) {
+    return;
+  }
+  if (anim_clients_ > 0 || !anim_driver_.empty()) {
+    SetTimer(hwnd_, kAnimTimerId, 33, nullptr);
+  } else {
     KillTimer(hwnd_, kAnimTimerId);
+  }
+}
+
+double Window::NowSec() {
+  static LARGE_INTEGER freq = {};
+  if (freq.QuadPart == 0) {
+    QueryPerformanceFrequency(&freq);
+  }
+  LARGE_INTEGER counter = {};
+  QueryPerformanceCounter(&counter);
+  if (freq.QuadPart == 0) {
+    return 0.0;
+  }
+  return static_cast<double>(counter.QuadPart) /
+         static_cast<double>(freq.QuadPart);
+}
+
+uint64_t Window::Animate(float duration_sec, Easing easing,
+                         AnimationDriver::TickFn on_tick,
+                         AnimationDriver::DoneFn on_done) {
+  const uint64_t id = anim_driver_.Start(duration_sec, easing, std::move(on_tick),
+                                         std::move(on_done), NowSec());
+  SyncAnimTimer();
+  if (id != 0) {
+    Invalidate();
+  }
+  return id;
+}
+
+void Window::CancelAnimation(uint64_t id) {
+  anim_driver_.Cancel(id);
+  SyncAnimTimer();
+}
+
+void Window::set_layered_opacity(float a) {
+  canvas_.set_layered_opacity(a);
+  Invalidate();
+}
+
+float Window::layered_opacity() const {
+  return canvas_.layered_opacity();
+}
+
+void Window::ShowToast(std::unique_ptr<Toast> toast) {
+  if (!toast || !hwnd_) {
+    return;
+  }
+  toast_queue_.push_back(std::move(toast));
+  if (has_toast()) {
+    return;
+  }
+  PresentNextToast();
+}
+
+void Window::ShowToast(std::unique_ptr<Node> node) {
+  Toast* t = dynamic_cast<Toast*>(node.get());
+  if (!t) {
+    return;
+  }
+  node.release();
+  ShowToast(std::unique_ptr<Toast>(t));
+}
+
+void Window::DismissToast() {
+  if (hwnd_) {
+    KillTimer(hwnd_, kToastTimerId);
+  }
+  Toast* cur = toast();
+  const float fade = cur ? cur->effective_fade_sec() : 0.f;
+  if (toast_overlay_ && toast_overlay_->showing() && fade > 0.f &&
+      !toast_fading_) {
+    toast_fading_ = true;
+    toast_overlay_->FadeOut(fade, [this]() {
+      toast_fading_ = false;
+      if (toast_overlay_) {
+        toast_overlay_->Hide();
+      }
+      PresentNextToast();
+    });
+    return;
+  }
+  toast_fading_ = false;
+  if (toast_overlay_) {
+    toast_overlay_->CancelFade();
+    toast_overlay_->Hide();
+  }
+  PresentNextToast();
+}
+
+bool Window::has_toast() const {
+  return toast_fading_ || (toast_overlay_ && toast_overlay_->showing());
+}
+
+Toast* Window::toast() const {
+  return toast_overlay_ ? toast_overlay_->toast() : nullptr;
+}
+
+void Window::SyncToastFade() {
+  if (!toast_fading_) {
+    return;
+  }
+  Toast* cur = toast();
+  if (cur && cur->effective_fade_sec() > 0.f) {
+    return;
+  }
+  toast_fading_ = false;
+  if (toast_overlay_) {
+    toast_overlay_->CancelFade();
+    toast_overlay_->Hide();
+  }
+  PresentNextToast();
+}
+
+void Window::PresentNextToast() {
+  if (!hwnd_ || toast_fading_ || toast_queue_.empty()) {
+    return;
+  }
+  auto toast = std::move(toast_queue_.front());
+  toast_queue_.pop_front();
+  const float dur = toast->duration_sec();
+  toast->on_dismiss([this]() {
+    if (hwnd_) {
+      PostMessageW(hwnd_, kWmDismissToast, 0, 0);
+    }
+  });
+  if (!toast_overlay_) {
+    toast_overlay_ = std::make_unique<ToastOverlay>();
+  }
+  if (!toast_overlay_->Show(hwnd_, dpi_, std::move(toast))) {
+    PresentNextToast();
+    return;
+  }
+  if (dur > 0.f) {
+    const UINT ms = static_cast<UINT>(std::max(1.f, dur * 1000.f));
+    SetTimer(hwnd_, kToastTimerId, ms, nullptr);
   }
 }
 
@@ -181,7 +335,7 @@ bool Window::EnsureWindowClass(HINSTANCE instance) {
   return true;
 }
 
-bool Window::Create(const wchar_t* title, int w, int h) {
+bool Window::Create(const wchar_t* title, int w, int h, const WindowOptions& opt) {
   if (hwnd_) {
     return false;
   }
@@ -193,14 +347,38 @@ bool Window::Create(const wchar_t* title, int w, int h) {
     return false;
   }
 
+  options_ = opt;
+  options_.Normalize();
+  popup_mode_ = false;
+  quit_on_close_ = options_.quit_on_close;
+  dialog_owner_ = options_.owner;
+
   dpi_ = QueryMonitorDpiNearCursor();
   const int pw = DipToOuterPx(static_cast<float>(w), dpi_);
   const int ph = DipToOuterPx(static_cast<float>(h), dpi_);
 
-  hwnd_ = CreateWindowExW(
-      0, kWindowClassName, title ? title : L"AuraLite", WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, CW_USEDEFAULT, pw, ph, nullptr, nullptr, instance, this);
+  DWORD ex = 0;
+  DWORD style = WS_OVERLAPPEDWINDOW;
+  int x = CW_USEDEFAULT;
+  int y = CW_USEDEFAULT;
+  HWND parent = (options_.owner && IsWindow(options_.owner)) ? options_.owner : nullptr;
+  const wchar_t* wnd_title = title ? title : L"AuraLite";
+  if (!options_.caption) {
+    style = WS_POPUP | WS_CLIPCHILDREN;
+    if (options_.topmost) {
+      ex |= WS_EX_TOPMOST;
+    }
+    x = 0;
+    y = 0;
+    if (!title) {
+      wnd_title = L"";
+    }
+  }
+
+  hwnd_ = CreateWindowExW(ex, kWindowClassName, wnd_title, style, x, y, pw, ph,
+                          parent, nullptr, instance, this);
   if (!hwnd_) {
+    ResetCreateState();
     return false;
   }
 
@@ -210,20 +388,36 @@ bool Window::Create(const wchar_t* title, int w, int h) {
   if (!canvas_.Init(hwnd_)) {
     DestroyWindow(hwnd_);
     hwnd_ = nullptr;
+    ResetCreateState();
     return false;
   }
 
-  // Detach default IME until a WantsIme() node receives focus.
   ImmAssociateContextEx(hwnd_, NULL, 0);
 
   theme_sink_ = [this] { Invalidate(); };
   Theme::AddInvalidateSink(&theme_sink_);
 
   layout_dirty_ = true;
+  if (uses_custom_chrome()) {
+    PlaceWindow(options_.owner, w, h);
+    ApplyChromeShape();
+  }
+  ApplyAcceptFiles();
   return true;
 }
 
+void Window::ResetCreateState() {
+  quit_on_close_ = true;
+  dialog_owner_ = nullptr;
+  options_ = WindowOptions{};
+}
+
 bool Window::CreatePopup(HWND owner, int w, int h) {
+  return CreateLayeredTool(owner, w, h,
+                           WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED);
+}
+
+bool Window::CreateLayeredTool(HWND owner, int w, int h, DWORD extra_ex) {
   if (hwnd_) {
     return false;
   }
@@ -242,10 +436,9 @@ bool Window::CreatePopup(HWND owner, int w, int h) {
   const int pw = DipToOuterPx(static_cast<float>(w), dpi_);
   const int ph = DipToOuterPx(static_cast<float>(h), dpi_);
 
-  hwnd_ = CreateWindowExW(
-      WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED, kWindowClassName, L"",
-      WS_POPUP | WS_CLIPCHILDREN, 0, 0, pw, ph, owner, nullptr, instance,
-      this);
+  hwnd_ = CreateWindowExW(extra_ex, kWindowClassName, L"",
+                          WS_POPUP | WS_CLIPCHILDREN, 0, 0, pw, ph, owner,
+                          nullptr, instance, this);
   if (!hwnd_) {
     popup_mode_ = false;
     quit_on_close_ = true;
@@ -272,73 +465,7 @@ bool Window::CreatePopup(HWND owner, int w, int h) {
   return true;
 }
 
-bool Window::CreateDialogWindow(HWND owner, int width, int height,
-                                const DialogOptions& opt) {
-  return CreateDialogWindow(owner, L"", width, height, opt);
-}
-
-bool Window::CreateDialogWindow(HWND owner, const wchar_t* title, int width,
-                                int height, const DialogOptions& opt) {
-  if (hwnd_) {
-    return false;
-  }
-
-  (void)Theme::Active();
-
-  HINSTANCE instance = GetModuleHandleW(nullptr);
-  if (!EnsureWindowClass(instance)) {
-    return false;
-  }
-
-  dialog_mode_ = true;
-  quit_on_close_ = false;
-  popup_mode_ = false;
-  dialog_owner_ = owner;
-  dialog_opt_ = opt;
-
-  dpi_ = QueryMonitorDpiNearCursor();
-  const int pw = DipToOuterPx(static_cast<float>(width), dpi_);
-  const int ph = DipToOuterPx(static_cast<float>(height), dpi_);
-
-  DWORD ex = 0;
-  if (opt.topmost) {
-    ex |= WS_EX_TOPMOST;
-  }
-
-  hwnd_ = CreateWindowExW(ex, kWindowClassName, title ? title : L"",
-                          WS_POPUP | WS_CLIPCHILDREN, 0, 0, pw, ph, owner,
-                          nullptr, instance, this);
-  if (!hwnd_) {
-    dialog_mode_ = false;
-    quit_on_close_ = true;
-    dialog_owner_ = nullptr;
-    return false;
-  }
-
-  dpi_ = QueryHwndDpi(hwnd_);
-  canvas_.SetDpi(dpi_);
-
-  if (!canvas_.Init(hwnd_)) {
-    DestroyWindow(hwnd_);
-    hwnd_ = nullptr;
-    dialog_mode_ = false;
-    quit_on_close_ = true;
-    dialog_owner_ = nullptr;
-    return false;
-  }
-
-  ImmAssociateContextEx(hwnd_, NULL, 0);
-
-  theme_sink_ = [this] { Invalidate(); };
-  Theme::AddInvalidateSink(&theme_sink_);
-
-  layout_dirty_ = true;
-  PlaceDialogWindow(owner, width, height, opt);
-  return true;
-}
-
-void Window::PlaceDialogWindow(HWND owner, int width_dip, int height_dip,
-                               const DialogOptions& opt) {
+void Window::PlaceWindow(HWND owner, int width_dip, int height_dip) {
   if (!hwnd_) {
     return;
   }
@@ -350,7 +477,7 @@ void Window::PlaceDialogWindow(HWND owner, int width_dip, int height_dip,
   int y = 0;
   HMONITOR mon = nullptr;
   const bool center_owner =
-      opt.center_on_owner && owner && IsWindow(owner);
+      options_.center_on_owner && owner && IsWindow(owner);
 
   if (center_owner) {
     RECT orc = {};
@@ -386,11 +513,59 @@ void Window::PlaceDialogWindow(HWND owner, int width_dip, int height_dip,
     }
   }
 
-  SetWindowPos(hwnd_, opt.topmost ? HWND_TOPMOST : HWND_TOP, x, y, pw, ph,
+  SetWindowPos(hwnd_, options_.topmost ? HWND_TOPMOST : HWND_TOP, x, y, pw, ph,
                SWP_FRAMECHANGED);
 }
 
-void Window::ActivateDialogHwnd() {
+void Window::ApplyChromeShape() {
+  if (!hwnd_ || !uses_custom_chrome()) {
+    return;
+  }
+  RECT wr = {};
+  GetWindowRect(hwnd_, &wr);
+  const int w = wr.right - wr.left;
+  const int h = wr.bottom - wr.top;
+  if (w <= 0 || h <= 0) {
+    return;
+  }
+  const float r_dip = options_.corner_radius;
+  if (r_dip <= 0.f) {
+    SetWindowRgn(hwnd_, nullptr, TRUE);
+    return;
+  }
+  int dia = DipToOuterPx(r_dip, dpi_) * 2;
+  const int limit = (std::min)(w, h);
+  if (dia > limit) {
+    dia = limit;
+  }
+  if (dia < 2) {
+    SetWindowRgn(hwnd_, nullptr, TRUE);
+    return;
+  }
+  // CreateRoundRectRgn right/bottom are exclusive; +1 keeps the last pixel.
+  HRGN rgn = CreateRoundRectRgn(0, 0, w + 1, h + 1, dia, dia);
+  SetWindowRgn(hwnd_, rgn, TRUE);
+}
+
+void Window::PaintChrome(auralite::Canvas& canvas) {
+  if (!uses_custom_chrome()) {
+    return;
+  }
+  const float bw = options_.border_width;
+  const float radius = options_.corner_radius;
+  if (bw <= 0.f) {
+    return;
+  }
+  const RectF client = ClientRectF();
+  const float inset = bw * 0.5f;
+  const RectF stroke{client.x + inset, client.y + inset,
+                     std::max(0.f, client.w - bw),
+                     std::max(0.f, client.h - bw)};
+  const float rr = std::max(0.f, radius - inset);
+  canvas.DrawRoundedRect(stroke, rr, rr, Theme::Active().border, bw);
+}
+
+void Window::ActivateHwnd() {
   if (!hwnd_) {
     return;
   }
@@ -402,7 +577,7 @@ void Window::ActivateDialogHwnd() {
   const bool attached =
       (fg_tid != 0 && fg_tid != cur_tid) &&
       AttachThreadInput(cur_tid, fg_tid, TRUE);
-  SetWindowPos(hwnd_, dialog_opt_.topmost ? HWND_TOPMOST : HWND_TOP, 0, 0, 0, 0,
+  SetWindowPos(hwnd_, options_.topmost ? HWND_TOPMOST : HWND_TOP, 0, 0, 0, 0,
                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
   BringWindowToTop(hwnd_);
   SetForegroundWindow(hwnd_);
@@ -413,14 +588,14 @@ void Window::ActivateDialogHwnd() {
   }
 }
 
-void Window::RestoreDialogOwner() {
+void Window::RestoreOwner() {
   if (dialog_owner_ && IsWindow(dialog_owner_)) {
     EnableWindow(dialog_owner_, TRUE);
   }
 }
 
 int Window::RunModal() {
-  if (!hwnd_ || !dialog_mode_) {
+  if (!hwnd_ || !uses_custom_chrome()) {
     return IDABORT;
   }
   MessageLoop* base_loop = MessageLoop::current();
@@ -442,11 +617,11 @@ int Window::RunModal() {
   if (dialog_owner_ && IsWindow(dialog_owner_)) {
     EnableWindow(dialog_owner_, FALSE);
   }
-  ActivateDialogHwnd();
+  ActivateHwnd();
   ModalDispatcher dispatcher(hwnd_);
   loop->Run(&dispatcher);
   modal_running_ = false;
-  RestoreDialogOwner();
+  RestoreOwner();
   if (hwnd_) {
     DestroyWindow(hwnd_);
     hwnd_ = nullptr;
@@ -461,6 +636,18 @@ void Window::EndModal(int result) {
     MessageLoop::current()->Quit();
   }
   if (hwnd_ && !modal_running_) {
+    DestroyWindow(hwnd_);
+    hwnd_ = nullptr;
+  }
+}
+
+void Window::Close() {
+  if (modal_running_) {
+    EndModal(IDCANCEL);
+    return;
+  }
+  HideTooltip();
+  if (hwnd_) {
     DestroyWindow(hwnd_);
     hwnd_ = nullptr;
   }
@@ -594,6 +781,123 @@ void Window::CollectFocusable(Node* node, std::vector<Node*>* out) {
   }
 }
 
+void Window::BeginCaptionDrag() {
+  if (!hwnd_) {
+    return;
+  }
+  mouse_capture_ = nullptr;
+  if (GetCapture() == hwnd_) {
+    ReleaseCapture();
+  }
+  SendMessageW(hwnd_, WM_SYSCOMMAND, static_cast<WPARAM>(SC_MOVE | HTCAPTION),
+               0);
+}
+
+void Window::ArmDrag(Node* hit, const MouseEvent& ev) {
+  CancelDrag();
+  if (!hit || popup_mode_ || ev.button != MouseButton::Left) {
+    return;
+  }
+  if (dynamic_cast<TitleBar*>(hit)) {
+    return;
+  }
+  Node* src = ResolveDraggable(hit);
+  if (!src) {
+    return;
+  }
+  drag_source_ = src;
+  drag_armed_ = true;
+  drag_active_ = false;
+  drag_origin_x_ = ev.x;
+  drag_origin_y_ = ev.y;
+}
+
+void Window::UpdateDrag(const MouseEvent& ev, Node* /*hit*/) {
+  if (!drag_armed_ || !drag_source_ || drag_active_) {
+    return;
+  }
+  const float dx = ev.x - drag_origin_x_;
+  const float dy = ev.y - drag_origin_y_;
+  if (dx * dx + dy * dy < kDragSlopDip * kDragSlopDip) {
+    return;
+  }
+  drag_active_ = true;
+  HideTooltip();
+  if (mouse_capture_) {
+    mouse_capture_->OnMouseLeave(ev);
+  }
+  SetCursor(LoadCursorW(nullptr, IDC_HAND));
+}
+
+void Window::FinishDrag(const MouseEvent& ev, Node* hit) {
+  Node* source = drag_source_;
+  Node* target = drag_active_ ? ResolveDropTarget(hit, source) : nullptr;
+  const bool active = drag_active_;
+  CancelDrag();
+  if (!active || !source || !target) {
+    return;
+  }
+  DragEvent drop;
+  drop.data = source->drag_data();
+  drop.source = source;
+  drop.target = target;
+  drop.x = ev.x;
+  drop.y = ev.y;
+  target->DeliverDrop(drop);
+}
+
+void Window::CancelDrag() {
+  drag_source_ = nullptr;
+  drag_armed_ = false;
+  drag_active_ = false;
+  SetCursor(LoadCursorW(nullptr, IDC_ARROW));
+}
+
+void Window::set_accept_files(bool on) {
+  accept_files_ = on;
+  ApplyAcceptFiles();
+}
+
+void Window::ApplyAcceptFiles() {
+  if (!hwnd_) {
+    return;
+  }
+  DragAcceptFiles(hwnd_, accept_files_ ? TRUE : FALSE);
+}
+
+void Window::HandleDropFiles(HDROP drop) {
+  if (!drop) {
+    return;
+  }
+  FileDropEvent ev;
+  if (accept_files_) {
+    POINT pt = {};
+    DragQueryPoint(drop, &pt);
+    ev.x = auralite::DipFromPx(static_cast<float>(pt.x), dpi_);
+    ev.y = auralite::DipFromPx(static_cast<float>(pt.y), dpi_);
+    const UINT n = DragQueryFileW(drop, 0xFFFFFFFF, nullptr, 0);
+    ev.paths.reserve(n);
+    for (UINT i = 0; i < n; ++i) {
+      const UINT len = DragQueryFileW(drop, i, nullptr, 0);
+      if (len == 0) {
+        continue;
+      }
+      std::wstring path(static_cast<size_t>(len), L'\0');
+      DragQueryFileW(drop, i, path.data(), len + 1);
+      while (!path.empty() && path.back() == L'\0') {
+        path.pop_back();
+      }
+      if (!path.empty()) {
+        ev.paths.push_back(std::move(path));
+      }
+    }
+  }
+  DragFinish(drop);
+  if (accept_files_ && on_files_dropped_ && !ev.paths.empty()) {
+    on_files_dropped_(ev);
+  }
+}
+
 void Window::SetFocusNode(Node* node) {
   if (focused_ == node) {
     return;
@@ -615,6 +919,9 @@ void Window::SetFocusNode(Node* node) {
     }
   }
   UpdateImeAssociation();
+  if (uia_root_) {
+    RaiseAccFocusChanged();
+  }
   Invalidate();
 }
 
@@ -657,7 +964,7 @@ void Window::NotifyDeviceLost() {
 }
 
 void Window::ClearHover() {
-  HideTooltip();
+  DismissTooltip();
   if (!hovered_) {
     return;
   }
@@ -734,6 +1041,20 @@ LRESULT CALLBACK Window::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
 
 LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
   switch (msg) {
+    case kWmDismissToast:
+      DismissToast();
+      return 0;
+
+    case WM_DROPFILES:
+      HandleDropFiles(reinterpret_cast<HDROP>(wparam));
+      return 0;
+
+    case WM_GETOBJECT:
+      if (IsUiaGetObject(lparam)) {
+        return HandleGetObject(wparam, lparam);
+      }
+      break;
+
     case WM_SIZE:
       if (wparam != SIZE_MINIMIZED) {
         OnSize(LOWORD(lparam), HIWORD(lparam));
@@ -843,7 +1164,10 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         return 0;
       }
       if (LOWORD(wparam) == WA_INACTIVE) {
-        HideTooltip();
+        HWND other = reinterpret_cast<HWND>(lparam);
+        if (!(tooltip_ && tooltip_->OwnsHwnd(other))) {
+          HideTooltip();
+        }
       }
       break;
 
@@ -857,6 +1181,10 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
 
     case WM_TIMER:
       if (wparam == kAnimTimerId) {
+        if (!anim_driver_.empty()) {
+          anim_driver_.Tick(NowSec());
+          SyncAnimTimer();
+        }
         Invalidate();
         return 0;
       }
@@ -865,21 +1193,37 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         ShowTooltipFor(hovered_);
         return 0;
       }
+      if (wparam == kToastTimerId) {
+        KillTimer(hwnd_, kToastTimerId);
+        DismissToast();
+        return 0;
+      }
+      break;
+
+    case WM_CAPTURECHANGED:
+      if (drag_armed_ || drag_active_) {
+        if (reinterpret_cast<HWND>(lparam) != hwnd_) {
+          CancelDrag();
+        }
+      }
       break;
 
     case WM_DESTROY:
+      DisconnectUia();
       HideTooltip();
-      if (dialog_mode_ && modal_running_ && MessageLoop::current()) {
+      if (modal_running_ && MessageLoop::current()) {
         MessageLoop::current()->Quit();
       }
-      if (anim_clients_ > 0) {
+      if (anim_clients_ > 0 || !anim_driver_.empty()) {
         KillTimer(hwnd_, kAnimTimerId);
         anim_clients_ = 0;
       }
+      anim_driver_.Clear();
+      KillTimer(hwnd_, kToastTimerId);
       canvas_.Shutdown();
+      CancelDrag();
       hwnd_ = nullptr;
       popup_mode_ = false;
-      dialog_mode_ = false;
       mouse_capture_ = nullptr;
       hovered_ = nullptr;
       focused_ = nullptr;
@@ -933,6 +1277,7 @@ RectF Window::ClientRectF() const {
 void Window::OnSize(UINT width, UINT height) {
   canvas_.Resize(width, height);
   layout_dirty_ = true;
+  ApplyChromeShape();
   Invalidate();
 }
 
@@ -954,6 +1299,7 @@ void Window::ApplyDpiChange(UINT new_dpi, const RECT* suggested) {
   GetClientRect(hwnd_, &rc);
   canvas_.Resize(static_cast<UINT>(rc.right > 0 ? rc.right : 1),
                  static_cast<UINT>(rc.bottom > 0 ? rc.bottom : 1));
+  ApplyChromeShape();
   RequestLayout();
   Invalidate();
 }
@@ -997,6 +1343,7 @@ void Window::OnPaint() {
     SyncPopupLayout();
     popup_->Paint(canvas_);
   }
+  PaintChrome(canvas_);
 
   if (!canvas_.EndDraw()) {
     const bool ok =
@@ -1038,6 +1385,10 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
   if (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN ||
       msg == WM_MBUTTONDOWN || msg == WM_MOUSEWHEEL) {
     HideTooltip();
+  }
+
+  if (msg == WM_MOUSEWHEEL && drag_active_) {
+    CancelDrag();
   }
 
   if (msg == WM_MOUSEMOVE) {
@@ -1087,7 +1438,7 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
     }
   }
 
-  if (msg == WM_MOUSEMOVE && !mouse_capture_) {
+  if (msg == WM_MOUSEMOVE && !mouse_capture_ && !drag_active_) {
     if (hovered_ != hit) {
       if (hovered_) {
         hovered_->OnMouseLeave(ev);
@@ -1118,10 +1469,22 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
         SetFocusNode(target);
       }
       target->OnMouseDown(ev);
+      if (msg == WM_LBUTTONDOWN) {
+        ArmDrag(target, ev);
+      }
       break;
     case WM_LBUTTONUP:
     case WM_RBUTTONUP:
     case WM_MBUTTONUP:
+      if (msg == WM_LBUTTONUP && drag_active_) {
+        FinishDrag(ev, hit);
+        if (GetCapture() == hwnd_) {
+          ReleaseCapture();
+        }
+        mouse_capture_ = nullptr;
+        break;
+      }
+      CancelDrag();
       target->OnMouseUp(ev);
       if (GetCapture() == hwnd_) {
         ReleaseCapture();
@@ -1139,7 +1502,10 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
       }
       break;
     case WM_MOUSEMOVE:
-      target->OnMouseMove(ev);
+      UpdateDrag(ev, hit);
+      if (!drag_active_) {
+        target->OnMouseMove(ev);
+      }
       break;
     case WM_MOUSEWHEEL: {
       // Prefer first scrollable ancestor from the hit node (ScrollView).
@@ -1231,7 +1597,18 @@ void Window::DispatchKey(UINT msg, WPARAM wparam) {
     }
   }
 
-  if (dialog_mode_ && (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) &&
+  if ((drag_armed_ || drag_active_) &&
+      (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) && wparam == VK_ESCAPE) {
+    CancelDrag();
+    if (GetCapture() == hwnd_) {
+      ReleaseCapture();
+    }
+    mouse_capture_ = nullptr;
+    Invalidate();
+    return;
+  }
+
+  if (modal_running_ && (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) &&
       wparam == VK_ESCAPE) {
     EndModal(IDCANCEL);
     return;
@@ -1282,115 +1659,37 @@ void Window::DispatchImeChar(WPARAM wparam) {
 }
 
 void Window::RestartTooltipTimer() {
-  HideTooltip();
-  if (!hwnd_ || popup_mode_ || dialog_mode_) {
+  if (hwnd_) {
+    KillTimer(hwnd_, kTooltipTimerId);
+  }
+  if (!hwnd_ || popup_mode_ || modal_running_ || drag_active_) {
+    HideTooltip();
     return;
   }
-  KillTimer(hwnd_, kTooltipTimerId);
-  if (!ResolveTooltipText(hovered_)) {
+  if (ResolveTooltipText(hovered_)) {
+    HideTooltip();
+    SetTimer(hwnd_, kTooltipTimerId, kTooltipDelayMs, nullptr);
     return;
   }
-  SetTimer(hwnd_, kTooltipTimerId, kTooltipDelayMs, nullptr);
+  DismissTooltip();
 }
 
 void Window::HideTooltip() {
   if (hwnd_) {
     KillTimer(hwnd_, kTooltipTimerId);
   }
-  if (tooltip_window_ && tooltip_window_->hwnd_) {
-    ShowWindow(tooltip_window_->hwnd_, SW_HIDE);
+  if (tooltip_) {
+    tooltip_->Hide();
   }
-  tooltip_shown_text_ = nullptr;
-  tooltip_text_.clear();
 }
 
-bool Window::EnsureTooltipWindow() {
-  if (tooltip_window_ && tooltip_window_->hwnd_) {
-    return true;
+void Window::DismissTooltip() {
+  if (hwnd_) {
+    KillTimer(hwnd_, kTooltipTimerId);
   }
-
-  tooltip_window_ = std::make_unique<Window>();
-  Window* tip = tooltip_window_.get();
-
-  (void)Theme::Active();
-
-  HINSTANCE instance = GetModuleHandleW(nullptr);
-  if (!EnsureWindowClass(instance)) {
-    tooltip_window_.reset();
-    return false;
+  if (tooltip_) {
+    tooltip_->Dismiss();
   }
-
-  tip->popup_mode_ = true;
-  tip->quit_on_close_ = false;
-
-  tip->dpi_ = QueryMonitorDpiNearCursor();
-  const int pw = DipToOuterPx(1.f, tip->dpi_);
-  const int ph = DipToOuterPx(1.f, tip->dpi_);
-
-  tip->hwnd_ = CreateWindowExW(
-      WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED |
-          WS_EX_TRANSPARENT,
-      kWindowClassName, L"", WS_POPUP | WS_CLIPCHILDREN, 0, 0, pw, ph, hwnd_,
-      nullptr, instance, tip);
-  if (!tip->hwnd_) {
-    tooltip_window_.reset();
-    return false;
-  }
-
-  tip->dpi_ = QueryHwndDpi(tip->hwnd_);
-  tip->canvas_.SetDpi(tip->dpi_);
-
-  if (!tip->canvas_.InitLayered(tip->hwnd_)) {
-    DestroyWindow(tip->hwnd_);
-    tip->hwnd_ = nullptr;
-    tooltip_window_.reset();
-    return false;
-  }
-
-  ImmAssociateContextEx(tip->hwnd_, NULL, 0);
-
-  tip->theme_sink_ = [tip] { tip->Invalidate(); };
-  Theme::AddInvalidateSink(&tip->theme_sink_);
-
-  tip->layout_dirty_ = true;
-  return true;
-}
-
-void Window::PlaceTooltipWindow(float dip_w, float dip_h) {
-  if (!tooltip_window_ || !tooltip_window_->hwnd_) {
-    return;
-  }
-
-  POINT pt = {};
-  GetCursorPos(&pt);
-  const int offset_y =
-      static_cast<int>(auralite::PxFromDip(16.f, dpi_));
-  int x = pt.x;
-  int y = pt.y + offset_y;
-  const int pw = DipToOuterPx(dip_w, dpi_);
-  const int ph = DipToOuterPx(dip_h, dpi_);
-
-  HMONITOR mon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-  MONITORINFO mi = {};
-  mi.cbSize = sizeof(mi);
-  if (mon && GetMonitorInfoW(mon, &mi)) {
-    const RECT& work = mi.rcWork;
-    if (x + pw > work.right) {
-      x = work.right - pw;
-    }
-    if (y + ph > work.bottom) {
-      y = work.bottom - ph;
-    }
-    if (x < work.left) {
-      x = work.left;
-    }
-    if (y < work.top) {
-      y = work.top;
-    }
-  }
-
-  SetWindowPos(tooltip_window_->hwnd_, HWND_TOPMOST, x, y, pw, ph,
-               SWP_NOACTIVATE);
 }
 
 void Window::ShowTooltipFor(const Node* hit) {
@@ -1398,35 +1697,10 @@ void Window::ShowTooltipFor(const Node* hit) {
   if (!text || !hwnd_) {
     return;
   }
-  // Own a copy — ResolveTooltipText returns Node interior storage that must
-  // not outlive Win32 callbacks / tree mutations.
-  tooltip_text_ = *text;
-  if (!EnsureTooltipWindow()) {
-    tooltip_text_.clear();
-    return;
+  if (!tooltip_) {
+    tooltip_ = std::make_unique<TooltipOverlay>();
   }
-  const ThemeTokens& t = Theme::Active();
-  auto label = std::make_unique<Label>();
-  label->text(tooltip_text_)
-      .font_size(t.font_size_sm)
-      .color(t.text)
-      .hug_width()
-      .hug_height();
-  float tw =
-      canvas_.MeasureTextWidth(tooltip_text_, t.font_size_sm, t.font_ui.c_str());
-  const float pad_x = 8.f;
-  const float pad_y = 6.f;
-  tw = (std::min)(tw + pad_x * 2.f, 320.f);
-  const float th = t.font_size_sm + pad_y * 2.f;
-  auto root = std::make_unique<Node>();
-  root->bg(t.surface);
-  root->clip_children(true);
-  root->fixed_width(tw).fixed_height(th);
-  root->AddChild(std::move(label));
-  tooltip_window_->SetRoot(std::move(root));
-  PlaceTooltipWindow(tw, th);
-  ShowWindow(tooltip_window_->hwnd(), SW_SHOWNOACTIVATE);
-  tooltip_shown_text_ = &tooltip_text_;
+  tooltip_->Show(hwnd_, dpi_, *text, hit && hit->animate());
 }
 
 }  // namespace auralite::ui

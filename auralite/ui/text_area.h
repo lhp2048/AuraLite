@@ -26,6 +26,11 @@ class TextArea : public Node {
   const std::wstring& text() const { return text_; }
   void set_text(const std::wstring& t);
 
+  AccRole acc_role() const override;
+  std::wstring AccValue() const override;
+  bool AccSetValue(const std::wstring& value) override;
+  std::wstring AccDefaultName() const override;
+
   SizeF Measure(float max_w, float max_h) override;
   void Layout(const RectF& final_rect) override;
   void Paint(auralite::Canvas& canvas) override;

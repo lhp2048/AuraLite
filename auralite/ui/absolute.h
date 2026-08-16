@@ -4,8 +4,10 @@
 
 namespace auralite::ui {
 
-// Absolute / float host (DuiLib float style).
-// Children: edge anchors (left/top/right/bottom) preferred; else set_pos + size.
+// Per axis: dual-edge > single-edge > x/y > h_align / v_align > origin 0.
+// Dual-edge sets that axis' size and ignores width/height (and control defaults).
+// No compile-time conflict if both are written; anchors win.
+// Free axis: Node::h_align / v_align Start/Center/End (e.g. right + v_align center).
 class Absolute : public Node {
  public:
   Absolute();

@@ -21,6 +21,10 @@ class ImageButton : public Node {
   ImageButton& set_enabled(bool e);
   bool enabled() const { return enabled_; }
 
+  AccRole acc_role() const override;
+  AccState acc_state() const override;
+  bool AccInvoke() override;
+
   SizeF Measure(float max_w, float max_h) override;
   void Paint(auralite::Canvas& canvas) override;
 

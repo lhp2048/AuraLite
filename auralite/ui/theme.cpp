@@ -50,6 +50,10 @@ ThemeTokens MakeBuiltInLightTokens() {
   t.scroll_track = ColorF::FromRgb(220, 220, 220);
   t.scroll_thumb = ColorF::FromRgb(150, 150, 150);
   t.glyph = ColorF::FromRgb(40, 110, 200);
+  t.danger = ColorF::FromRgb(180, 50, 50);
+  t.danger_hover = ColorF::FromRgb(200, 70, 70);
+  t.danger_pressed = ColorF::FromRgb(140, 40, 40);
+  t.warning = ColorF::FromRgb(210, 160, 60);
   t.font_ui = L"Microsoft YaHei UI";
   t.font_size = 14.f;
   t.font_size_sm = 13.f;
@@ -75,6 +79,10 @@ ThemeTokens MakeBuiltInDarkTokens() {
   t.scroll_track = ColorF::FromRgb(58, 58, 58);
   t.scroll_thumb = ColorF::FromRgb(136, 136, 136);
   t.glyph = ColorF::FromRgb(76, 139, 245);
+  t.danger = ColorF::FromRgb(130, 48, 48);
+  t.danger_hover = ColorF::FromRgb(160, 60, 60);
+  t.danger_pressed = ColorF::FromRgb(100, 36, 36);
+  t.warning = ColorF::FromRgb(210, 160, 60);
   t.font_ui = L"Microsoft YaHei UI";
   t.font_size = 14.f;
   t.font_size_sm = 13.f;

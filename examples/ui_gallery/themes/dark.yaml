@@ -17,6 +17,10 @@ colors:
   scroll_track: "#3a3a3a"
   scroll_thumb: "#888888"
   glyph: "#4c8bf5"
+  danger: "#823030"
+  danger_hover: "#a03c3c"
+  danger_pressed: "#642424"
+  warning: "#d2a03c"
 fonts:
   ui: "Microsoft YaHei UI"
   size: 14

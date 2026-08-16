@@ -24,6 +24,12 @@ class Radio : public Node {
   int group_id() const { return group_id_; }
   bool checked() const { return checked_; }
 
+  AccRole acc_role() const override;
+  AccState acc_state() const override;
+  bool AccInvoke() override;
+  bool AccToggle() override;
+  std::wstring AccDefaultName() const override;
+
   SizeF Measure(float max_w, float max_h) override;
   void Paint(auralite::Canvas& canvas) override;
 

@@ -1,6 +1,7 @@
 #include "auralite/ui/switch_control.h"
 
 #include "auralite/ui/theme.h"
+#include "auralite/ui/window.h"
 
 #include <algorithm>
 
@@ -25,6 +26,7 @@ Switch& Switch::on(bool v) {
     return *this;
   }
   on_ = v;
+  SyncThumb(false);
   if (on_changed_) {
     on_changed_(on_);
   }
@@ -59,13 +61,20 @@ void Switch::Paint(auralite::Canvas& canvas) {
   }
   const ThemeTokens& th = Theme::Active();
   const RectF track = TrackRect();
-  const ColorF track_color = on_ ? th.accent : th.border;
+  const float t = std::clamp(thumb_t_, 0.f, 1.f);
+  const ColorF track_color{
+      th.border.r + (th.accent.r - th.border.r) * t,
+      th.border.g + (th.accent.g - th.border.g) * t,
+      th.border.b + (th.accent.b - th.border.b) * t,
+      th.border.a + (th.accent.a - th.border.a) * t,
+  };
   const float radius = kTrackHeight * 0.5f;
   canvas.FillRoundedRect(track, radius, radius, track_color);
 
   const float thumb_y = track.y + (kTrackHeight - kThumbSize) * 0.5f;
-  const float thumb_x =
-      on_ ? (track.x + kTrackWidth - kThumbSize - 2.f) : (track.x + 2.f);
+  const float x0 = track.x + 2.f;
+  const float x1 = track.x + kTrackWidth - kThumbSize - 2.f;
+  const float thumb_x = x0 + (x1 - x0) * t;
   const RectF thumb{thumb_x, thumb_y, kThumbSize, kThumbSize};
   canvas.FillEllipse(thumb, th.surface);
   canvas.DrawEllipse(thumb, th.border, 1.f);
@@ -86,8 +95,34 @@ void Switch::Paint(auralite::Canvas& canvas) {
 
 void Switch::Toggle() {
   on_ = !on_;
+  SyncThumb(false);
   if (on_changed_) {
     on_changed_(on_);
+  }
+}
+
+void Switch::SyncThumb(bool instant) {
+  const float to = on_ ? 1.f : 0.f;
+  if (instant || !CanTween()) {
+    thumb_tween_.Cancel();
+    thumb_t_ = to;
+    return;
+  }
+  const float from = thumb_t_;
+  if (from == to) {
+    return;
+  }
+  thumb_tween_.Start(
+      host_window(), kUiAnimSec, Easing::EaseOutCubic,
+      [this, from, to](float t) { thumb_t_ = from + (to - from) * t; },
+      [this, to] { thumb_t_ = to; });
+}
+
+void Switch::OnAnimateChanged() { SyncThumb(true); }
+
+void Switch::OnHostWindowChanged() {
+  if (!CanTween()) {
+    SyncThumb(true);
   }
 }
 
@@ -116,6 +151,25 @@ void Switch::OnKey(const KeyEvent& e) {
   if (e.vk == VK_SPACE || e.vk == VK_RETURN) {
     Toggle();
   }
+}
+
+AccRole Switch::acc_role() const {
+  return AccRole::CheckBox;
+}
+
+std::wstring Switch::AccDefaultName() const {
+  return text_;
+}
+
+AccState Switch::acc_state() const {
+  AccState s = Node::acc_state();
+  s.checked = on_;
+  return s;
+}
+
+bool Switch::AccToggle() {
+  Toggle();
+  return true;
 }
 
 }  // namespace auralite::ui

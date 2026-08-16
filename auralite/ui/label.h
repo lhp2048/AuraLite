@@ -22,8 +22,12 @@ class Label : public Node {
   float font_size() const;
   TextAlign align() const { return align_; }
 
+  AccRole acc_role() const override;
+
   SizeF Measure(float max_w, float max_h) override;
   void Paint(auralite::Canvas& canvas) override;
+
+  std::wstring AccDefaultName() const override;
 
  private:
   static auralite::TextHAlign ToCanvasAlign(TextAlign a);

@@ -4,7 +4,7 @@
 
 namespace auralite::ui {
 
-// Horizontal flex container: main axis = X, cross axis = Y.
+// Horizontal stack. v_align = children top/bottom default; h_align = pack when no Fill.
 class Row : public Node {
  public:
   Row();
@@ -12,12 +12,10 @@ class Row : public Node {
   Row& padding(float all);
   Row& padding(float left, float top, float right, float bottom);
   Row& spacing(float s);
-  Row& child_align(Align a);
-  Row& main_align(Align a);
+  Row& h_align(Align a) override;
+  Row& v_align(Align a) override;
 
   float spacing() const { return spacing_; }
-  Align child_align() const { return child_align_; }
-  Align main_align() const { return main_align_; }
 
   SizeF Measure(float max_w, float max_h) override;
   void Layout(const RectF& final_rect) override;
@@ -28,8 +26,8 @@ class Row : public Node {
   float pad_r_ = 0.f;
   float pad_b_ = 0.f;
   float spacing_ = 0.f;
-  Align child_align_ = Align::Start;
-  Align main_align_ = Align::Start;
+  Align pack_h_align_ = Align::Start;
+  Align child_v_align_ = Align::Start;
 };
 
 }  // namespace auralite::ui

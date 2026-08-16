@@ -73,4 +73,12 @@ void Label::Paint(auralite::Canvas& canvas) {
                   th.font_ui.c_str(), ToCanvasAlign(align_));
 }
 
+AccRole Label::acc_role() const {
+  return AccRole::Text;
+}
+
+std::wstring Label::AccDefaultName() const {
+  return text_;
+}
+
 }  // namespace auralite::ui

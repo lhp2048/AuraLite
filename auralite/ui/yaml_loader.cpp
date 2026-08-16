@@ -81,22 +81,127 @@ void AttachSplitPanes(SplitView* split, const YAML::Node& props,
   }
 }
 
-// Root may be a typed node, or a wrapper map with optional `theme:`.
+bool ParseAccRole(const std::string& raw, AccRole* out) {
+  if (!out) {
+    return false;
+  }
+  std::string k = raw;
+  for (char& ch : k) {
+    if (ch >= 'A' && ch <= 'Z') {
+      ch = static_cast<char>(ch - 'A' + 'a');
+    }
+  }
+  if (k == "ignore") {
+    *out = AccRole::Ignore;
+  } else if (k == "group") {
+    *out = AccRole::Group;
+  } else if (k == "button") {
+    *out = AccRole::Button;
+  } else if (k == "text") {
+    *out = AccRole::Text;
+  } else if (k == "edit") {
+    *out = AccRole::Edit;
+  } else if (k == "checkbox") {
+    *out = AccRole::CheckBox;
+  } else if (k == "radiobutton" || k == "radio") {
+    *out = AccRole::RadioButton;
+  } else if (k == "combobox" || k == "combo") {
+    *out = AccRole::ComboBox;
+  } else if (k == "menuitem" || k == "menu_item") {
+    *out = AccRole::MenuItem;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+void ParseWindowYaml(const YAML::Node& n, WindowYaml* out) {
+  if (!out || !n || !n.IsMap()) {
+    return;
+  }
+  out->present = true;
+  if (n["title"] && n["title"].IsScalar()) {
+    out->title = Utf8ToWide(n["title"].as<std::string>());
+  }
+  if (n["width"]) {
+    out->width = n["width"].as<int>();
+  }
+  if (n["height"]) {
+    out->height = n["height"].as<int>();
+  }
+  if (n["kind"] && n["kind"].IsScalar()) {
+    std::string k = n["kind"].as<std::string>();
+    for (char& ch : k) {
+      if (ch >= 'A' && ch <= 'Z') {
+        ch = static_cast<char>(ch - 'A' + 'a');
+      }
+    }
+    if (k == "dialog") {
+      out->kind = WindowYaml::Kind::Dialog;
+      out->options = Window::WindowOptions::Dialog();
+    } else if (k == "popup") {
+      out->kind = WindowYaml::Kind::Popup;
+    } else if (k == "main" || k == "window") {
+      out->kind = WindowYaml::Kind::Main;
+    }
+  }
+  if (n["caption"]) {
+    out->options.caption = n["caption"].as<bool>();
+  }
+  if (n["quit_on_close"]) {
+    out->options.quit_on_close = n["quit_on_close"].as<bool>();
+  }
+  if (n["topmost"]) {
+    out->options.topmost = n["topmost"].as<bool>();
+  }
+  if (n["center_on_owner"]) {
+    out->options.center_on_owner = n["center_on_owner"].as<bool>();
+  }
+  if (n["corner_radius"]) {
+    out->options.corner_radius = n["corner_radius"].as<float>();
+  }
+  if (n["border_width"]) {
+    out->options.border_width = n["border_width"].as<float>();
+  }
+}
+
+YAML::Node StripRootMetaKeys(const YAML::Node& root) {
+  YAML::Node peeled(YAML::NodeType::Map);
+  for (auto it = root.begin(); it != root.end(); ++it) {
+    const std::string k = it->first.as<std::string>();
+    if (k != "theme" && k != "window") {
+      peeled[it->first] = it->second;
+    }
+  }
+  return peeled;
+}
+
+// Root may be a typed node, or a wrapper map with optional `theme:` / `window:`.
 // `root["theme"]` is safe here: `root` is const (yaml-cpp const [] does
 // not insert a missing key, which would break UnwrapTypedNode).
-YAML::Node PeelThemeAndActivate(const YAML::Node& root) {
-  if (!root || !root.IsMap() || !root["theme"] || !root["theme"].IsScalar()) {
+YAML::Node PeelRootMeta(const YAML::Node& root, WindowYaml* window_out) {
+  if (!root || !root.IsMap()) {
     return root;
   }
-  Theme::SetActive(root["theme"].as<std::string>());
+  if (root["theme"] && root["theme"].IsScalar()) {
+    Theme::SetActive(root["theme"].as<std::string>());
+  }
+  if (root["window"] && root["window"].IsMap()) {
+    WindowYaml parsed;
+    ParseWindowYaml(root["window"], &parsed);
+    if (window_out) {
+      *window_out = parsed;
+    }
+  }
+  if (!root["theme"] && !root["window"]) {
+    return root;
+  }
   if (root.size() <= 1) {
     return root;
   }
-  YAML::Node peeled(YAML::NodeType::Map);
-  for (auto it = root.begin(); it != root.end(); ++it) {
-    if (it->first.as<std::string>() != "theme") {
-      peeled[it->first] = it->second;
-    }
+  YAML::Node peeled = StripRootMetaKeys(root);
+  if (!peeled || peeled.size() == 0) {
+    return root;
   }
   return peeled;
 }
@@ -153,6 +258,30 @@ std::unique_ptr<Node> LoadYamlNode(const YAML::Node& node,
     built->tooltip(Utf8ToWide(props["tooltip"].as<std::string>()));
   }
 
+  if (props["animate"]) {
+    built->animate(props["animate"].as<bool>());
+  }
+
+  if (props["draggable"]) {
+    built->draggable(props["draggable"].as<bool>());
+  }
+  if (props["drag_data"]) {
+    built->drag_data(Utf8ToWide(props["drag_data"].as<std::string>()));
+  }
+  if (props["drop_target"]) {
+    built->drop_target(props["drop_target"].as<bool>());
+  }
+
+  if (props["acc_name"]) {
+    built->acc_name(Utf8ToWide(props["acc_name"].as<std::string>()));
+  }
+  if (props["acc_role"] && props["acc_role"].IsScalar()) {
+    AccRole role = AccRole::Ignore;
+    if (ParseAccRole(props["acc_role"].as<std::string>(), &role)) {
+      built->set_acc_role(role);
+    }
+  }
+
   // Absolute placement: anchors preferred; x/y as fallback origin.
   if (props["x"] || props["y"]) {
     const float x = props["x"] ? props["x"].as<float>() : 0.f;
@@ -172,8 +301,8 @@ std::unique_ptr<Node> LoadYamlNode(const YAML::Node& node,
     built->bottom(props["bottom"].as<float>());
   }
 
-  if (type == "Column" || type == "Row" || type == "Tile" || type == "Tab" ||
-      type == "Absolute") {
+  if (type == "Column" || type == "Row" || type == "TitleBar" ||
+      type == "Tile" || type == "Tab" || type == "Absolute") {
     AttachChildren(built.get(), props, factory, handlers);
   } else if (type == "ScrollView") {
     if (auto* scroll = dynamic_cast<ScrollView*>(built.get())) {
@@ -194,15 +323,17 @@ std::unique_ptr<Node> LoadYamlNode(const YAML::Node& node,
 
 std::unique_ptr<Node> LoadYamlString(const std::string& yaml,
                                      const ViewFactory& factory,
-                                     const HandlerMap& handlers) {
+                                     const HandlerMap& handlers,
+                                     WindowYaml* window_out) {
   const YAML::Node root = YAML::Load(yaml);
-  return LoadYamlNode(PeelThemeAndActivate(root), factory, handlers);
+  return LoadYamlNode(PeelRootMeta(root, window_out), factory, handlers);
 }
 
 std::unique_ptr<Node> LoadYamlFile(const std::string& path,
                                    const ViewFactory& factory,
-                                   const HandlerMap& handlers) {
-  return LoadYamlString(ReadFileUtf8(path), factory, handlers);
+                                   const HandlerMap& handlers,
+                                   WindowYaml* window_out) {
+  return LoadYamlString(ReadFileUtf8(path), factory, handlers, window_out);
 }
 
 }  // namespace auralite::ui

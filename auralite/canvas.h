@@ -109,6 +109,8 @@ class Canvas {
   void FillRoundedRect(const RectF& rect, float radius_x, float radius_y,
                        const ColorF& color);
   void DrawRect(const RectF& rect, const ColorF& color, float stroke_width = 1.f);
+  void DrawRoundedRect(const RectF& rect, float radius_x, float radius_y,
+                       const ColorF& color, float stroke_width = 1.f);
   // Focus rings etc. Uses D2D dash style.
   void DrawDashedRect(const RectF& rect, const ColorF& color,
                       float stroke_width = 1.f);
@@ -137,6 +139,8 @@ class Canvas {
 
   bool is_valid() const { return render_target_ != nullptr; }
   bool is_layered() const { return layered_; }
+  void set_layered_opacity(float a);
+  float layered_opacity() const { return layered_opacity_; }
   ID2D1RenderTarget* render_target() const { return render_target_; }
   ID2D1Factory* d2d_factory() const { return d2d_factory_; }
 
@@ -156,6 +160,7 @@ class Canvas {
 
   HWND hwnd_ = nullptr;
   bool layered_ = false;
+  float layered_opacity_ = 1.f;
   float dpi_ = kDipDpi;
   HDC dib_dc_ = nullptr;
   HBITMAP dib_bitmap_ = nullptr;

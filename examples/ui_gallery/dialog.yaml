@@ -1,0 +1,27 @@
+window:
+  title: Dialog
+  width: 320
+  height: 220
+  kind: dialog
+  caption: false
+  corner_radius: 8
+  border_width: 1
+Column:
+  width: fill
+  height: fill
+  children:
+    - TitleBar:
+        height: 36
+        padding: [12, 0, 4, 0]
+        v_align: center
+        children:
+          - Label: { text: "Dialog", font_size: 13, width: fill }
+          - Button: { text: "×", width: 32, height: 28, on_click: dialog_close }
+    - Column:
+        padding: 20
+        spacing: 12
+        width: fill
+        height: fill
+        children:
+          - Label: { text: "拖标题栏可移动窗口", font_size: 14 }
+          - Button: { text: "关闭", variant: secondary, width: fill, height: 32, on_click: dialog_close }

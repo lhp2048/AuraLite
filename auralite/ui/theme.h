@@ -25,6 +25,10 @@ struct ThemeTokens {
   ColorF scroll_track;
   ColorF scroll_thumb;
   ColorF glyph;
+  ColorF danger;
+  ColorF danger_hover;
+  ColorF danger_pressed;
+  ColorF warning;
   std::wstring font_ui;
   float font_size = 14.f;
   float font_size_sm = 13.f;

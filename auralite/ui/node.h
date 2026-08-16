@@ -1,6 +1,7 @@
 #pragma once
 
 #include "auralite/reactive/observe.h"
+#include "auralite/ui/acc.h"
 #include "auralite/ui/types.h"
 
 #include <functional>
@@ -12,6 +13,16 @@
 namespace auralite::ui {
 
 class Window;
+class Node;
+
+// In-process Node drag. Not OLE / WM_DROPFILES.
+struct DragEvent {
+  std::wstring data;
+  Node* source = nullptr;
+  Node* target = nullptr;
+  float x = 0.f;
+  float y = 0.f;
+};
 
 class Node {
  public:
@@ -49,11 +60,16 @@ class Node {
   Node& weight(float w);
   float weight() const { return weight_; }
 
-  // Cross-axis align; if unset, Column/Row use their child_align default.
-  // Named cross_align (not align) so Label can keep align(TextAlign) for text.
-  Node& cross_align(Align a);
-  Align cross_align() const { return cross_align_; }
-  bool has_cross_align() const { return has_cross_align_; }
+  // Screen-axis placement in leftover space (not Label::align text).
+  // Unset → parent Column uses h_align default, parent Row uses v_align default.
+  // Absolute: only on an axis with no anchor and no x/y.
+  // Column/Row override also sets container child-default / packing on that axis.
+  virtual Node& h_align(Align a);
+  virtual Node& v_align(Align a);
+  Align h_align() const { return h_align_; }
+  Align v_align() const { return v_align_; }
+  bool has_h_align() const { return has_h_align_; }
+  bool has_v_align() const { return has_v_align_; }
 
   // Absolute parent: child origin relative to parent content (ignored by Column/Row).
   Node& set_pos(float x, float y);
@@ -61,8 +77,9 @@ class Node {
   float pos_y() const { return pos_y_; }
   bool has_pos() const { return has_pos_; }
 
-  // Absolute edge anchors (distance to parent edges). Prefer over set_pos / own size
-  // when both edges on an axis are set. Ignored by Column/Row/Tile/Tab.
+  // Absolute edge anchors (distance to parent content edges).
+  // Per axis: dual-edge wins over set_pos and over width/height (incl. defaults).
+  // No compiler diagnostic if both are set. Ignored by Column/Row/Tile/Tab.
   Node& left(float v);
   Node& top(float v);
   Node& right(float v);
@@ -128,6 +145,40 @@ class Node {
   Node& tooltip(std::wstring text);
   const std::wstring& tooltip() const { return tooltip_; }
 
+  // Decorative motion (Switch thumb, Toast fade, …). Default on. Not caret blink.
+  Node& animate(bool on);
+  bool animate() const { return animate_; }
+
+  // Opt-in in-process drag. Default off; not every control is draggable.
+  Node& draggable(bool on);
+  bool draggable() const { return draggable_; }
+  Node& drag_data(std::wstring data);
+  const std::wstring& drag_data() const { return drag_data_; }
+  Node& drop_target(bool on);
+  bool drop_target() const { return drop_target_; }
+  using DropHandler = std::function<void(const DragEvent&)>;
+  Node& on_drop(DropHandler handler);
+
+  // Accessibility read API. UIA glue queries these; no mirrored tree.
+
+  // Accessibility read API. UIA glue queries these; no mirrored tree.
+  // acc_name overrides control text; tooltip is last-resort name.
+  Node& acc_name(std::wstring name);
+  const std::wstring& acc_name() const { return acc_name_; }
+  // Sparse override; unset → control default (Button, Edit, …).
+  Node& set_acc_role(AccRole role);
+  virtual AccRole acc_role() const;
+  std::wstring AccName() const;
+  virtual std::wstring AccDefaultName() const;
+  virtual std::wstring AccValue() const;
+  virtual AccState acc_state() const;
+  virtual bool AccInvoke();
+  virtual bool AccToggle();
+  virtual bool AccSetValue(const std::wstring& value);
+  bool AccIncluded() const;
+  int acc_id() const { return acc_id_; }
+  int EnsureAccId() const;
+
   Node& bg(const ColorF& c);
   bool has_bg() const { return bg_.has_value(); }
   ColorF bg_color() const { return bg_.value_or(ColorF{}); }
@@ -147,6 +198,10 @@ class Node {
  protected:
   friend class Window;
   void set_focused(bool v) { focused_ = v; }
+  virtual void OnAnimateChanged() {}
+  virtual void OnHostWindowChanged() {}
+  bool CanTween() const;
+  void DeliverDrop(const DragEvent& e);
 
   static bool ContainsPoint(const RectF& r, float x, float y);
 
@@ -160,7 +215,15 @@ class Node {
   bool focused_ = false;
   bool visible_ = true;
   bool clip_children_ = false;
+  bool animate_ = true;
+  bool draggable_ = false;
+  bool drop_target_ = false;
+  std::wstring drag_data_;
+  DropHandler on_drop_;
   std::wstring tooltip_;
+  std::wstring acc_name_;
+  std::optional<AccRole> acc_role_override_;
+  mutable int acc_id_ = 0;
   std::vector<auralite::reactive::Subscription> owned_subs_;
   Window* host_window_ = nullptr;
   std::string name_;
@@ -171,8 +234,10 @@ class Node {
   float preferred_w_ = 0.f;
   float preferred_h_ = 0.f;
   float weight_ = 0.f;
-  Align cross_align_ = Align::Start;
-  bool has_cross_align_ = false;
+  Align h_align_ = Align::Start;
+  bool has_h_align_ = false;
+  Align v_align_ = Align::Start;
+  bool has_v_align_ = false;
   float pos_x_ = 0.f;
   float pos_y_ = 0.f;
   bool has_pos_ = false;
@@ -188,5 +253,7 @@ class Node {
 };
 
 const std::wstring* ResolveTooltipText(const Node* hit);
+Node* ResolveDraggable(Node* hit);
+Node* ResolveDropTarget(Node* hit, const Node* source);
 
 }  // namespace auralite::ui

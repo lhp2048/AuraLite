@@ -15,8 +15,8 @@ float FlexWeightOf(const Node* c) {
   return c->weight() > 0.f ? c->weight() : 1.f;
 }
 
-Align ResolveCross(const Node* c, Align fallback) {
-  return c->has_cross_align() ? c->cross_align() : fallback;
+Align ResolveH(const Node* c, Align fallback) {
+  return c->has_h_align() ? c->h_align() : fallback;
 }
 
 float CrossX(float inner_x, float inner_w, float child_w, Align a) {
@@ -71,13 +71,15 @@ Column& Column::spacing(float s) {
   return *this;
 }
 
-Column& Column::child_align(Align a) {
-  child_align_ = a;
+Column& Column::h_align(Align a) {
+  child_h_align_ = a;
+  Node::h_align(a);
   return *this;
 }
 
-Column& Column::main_align(Align a) {
-  main_align_ = a;
+Column& Column::v_align(Align a) {
+  pack_v_align_ = a;
+  Node::v_align(a);
   return *this;
 }
 
@@ -151,7 +153,7 @@ void Column::Layout(const RectF& final_rect) {
   float remaining = std::max(0.f, inner_h - fixed_h - gaps);
   float y = inner_y;
   if (!any_flex) {
-    y += MainOffset(remaining, main_align_);
+    y += MainOffset(remaining, pack_v_align_);
   }
 
   for (size_t i = 0; i < live.size(); ++i) {
@@ -175,7 +177,7 @@ void Column::Layout(const RectF& final_rect) {
     }
 
     const float x =
-        CrossX(inner_x, inner_w, child_w, ResolveCross(child, child_align_));
+        CrossX(inner_x, inner_w, child_w, ResolveH(child, child_h_align_));
     child->Layout(RectF{x, y, child_w, child_h});
 
     y += child_h;

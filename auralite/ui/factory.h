@@ -22,6 +22,8 @@ using NodeBuilder =
     std::function<std::unique_ptr<Node>(const YAML::Node& props,
                                         const HandlerMap& handlers)>;
 
+struct WindowYaml;
+
 class ViewFactory {
  public:
   ViewFactory();
@@ -35,11 +37,14 @@ class ViewFactory {
 
   // If |path_or_yaml| names an existing file, load it; otherwise parse as YAML.
   std::unique_ptr<Node> CreateFromYaml(const std::string& path_or_yaml,
-                                       const HandlerMap& handlers) const;
+                                       const HandlerMap& handlers,
+                                       WindowYaml* window_out = nullptr) const;
   std::unique_ptr<Node> CreateFromYamlFile(const std::string& path,
-                                           const HandlerMap& handlers) const;
+                                           const HandlerMap& handlers,
+                                           WindowYaml* window_out = nullptr) const;
   std::unique_ptr<Node> CreateFromYamlString(const std::string& yaml,
-                                             const HandlerMap& handlers) const;
+                                             const HandlerMap& handlers,
+                                             WindowYaml* window_out = nullptr) const;
 
   // Debug: type names + key text props, indented by depth.
   static std::string DumpTree(const Node* root);

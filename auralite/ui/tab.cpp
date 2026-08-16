@@ -1,6 +1,7 @@
 #include "auralite/ui/tab.h"
 
 #include "auralite/ui/theme.h"
+#include "auralite/ui/window.h"
 
 #include <algorithm>
 
@@ -39,9 +40,13 @@ Tab& Tab::set_selected(int index) {
   const int n = page_count();
   if (n <= 0) {
     selected_ = 0;
+    SyncPageVisibility();
+    SyncIndicator(true);
     return *this;
   }
   selected_ = std::clamp(index, 0, n - 1);
+  SyncPageVisibility();
+  SyncIndicator(false);
   return *this;
 }
 
@@ -108,8 +113,20 @@ SizeF Tab::Measure(float max_w, float max_h) {
   return ResolveSize(max_w, max_h, hug_w, hug_h);
 }
 
+void Tab::SyncPageVisibility() {
+  int i = 0;
+  for (auto& c : children_) {
+    if (!c) {
+      continue;
+    }
+    c->set_visible(i == selected_);
+    ++i;
+  }
+}
+
 void Tab::Layout(const RectF& final_rect) {
   bounds_ = final_rect;
+  SyncPageVisibility();
   const float hh = HeaderH();
   header_bounds_ = has_headers()
                        ? RectF{final_rect.x, final_rect.y, final_rect.w, hh}
@@ -132,12 +149,15 @@ void Tab::Paint(auralite::Canvas& canvas) {
     const float slot =
         n > 0 ? header_bounds_.w / static_cast<float>(n) : header_bounds_.w;
     canvas.FillRect(header_bounds_, th.surface_alt);
+    if (n > 0 && slot > 0.f) {
+      const RectF hi{header_bounds_.x + slot * visual_selected_,
+                     header_bounds_.y, slot, header_bounds_.h};
+      canvas.FillRect(hi, th.accent_soft);
+      canvas.FillRect(RectF{hi.x, hi.y + hi.h - 3.f, hi.w, 3.f}, th.accent);
+    }
     for (int i = 0; i < n; ++i) {
       const RectF cell{header_bounds_.x + slot * static_cast<float>(i),
                        header_bounds_.y, slot, header_bounds_.h};
-      if (i == selected_) {
-        canvas.FillRect(cell, th.accent_soft);
-      }
       canvas.DrawText(headers_[static_cast<size_t>(i)], cell, th.text,
                       th.font_size, th.font_ui.c_str(),
                       auralite::TextHAlign::Center);
@@ -180,6 +200,31 @@ void Tab::OnMouseDown(const MouseEvent& e) {
     if (on_selected_) {
       on_selected_(selected_);
     }
+  }
+}
+
+void Tab::SyncIndicator(bool instant) {
+  const float to = static_cast<float>(selected_);
+  if (instant || !CanTween()) {
+    indicator_tween_.Cancel();
+    visual_selected_ = to;
+    return;
+  }
+  const float from = visual_selected_;
+  if (from == to) {
+    return;
+  }
+  indicator_tween_.Start(
+      host_window(), kUiAnimSec, Easing::EaseOutCubic,
+      [this, from, to](float t) { visual_selected_ = from + (to - from) * t; },
+      [this, to] { visual_selected_ = to; });
+}
+
+void Tab::OnAnimateChanged() { SyncIndicator(true); }
+
+void Tab::OnHostWindowChanged() {
+  if (!CanTween()) {
+    SyncIndicator(true);
   }
 }
 

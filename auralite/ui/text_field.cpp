@@ -556,4 +556,27 @@ void TextField::OnImeEnd() {
   composition_.clear();
 }
 
+AccRole TextField::acc_role() const {
+  return AccRole::Edit;
+}
+
+std::wstring TextField::AccDefaultName() const {
+  return placeholder_;
+}
+
+AccState TextField::acc_state() const {
+  AccState s = Node::acc_state();
+  s.password = password_;
+  return s;
+}
+
+std::wstring TextField::AccValue() const {
+  return password_ ? std::wstring{} : text_;
+}
+
+bool TextField::AccSetValue(const std::wstring& value) {
+  set_text(value);
+  return true;
+}
+
 }  // namespace auralite::ui

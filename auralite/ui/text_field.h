@@ -49,6 +49,12 @@ class TextField : public Node {
   void OnImeResult(const std::wstring& result) override;
   void OnImeEnd() override;
 
+  AccRole acc_role() const override;
+  AccState acc_state() const override;
+  std::wstring AccValue() const override;
+  bool AccSetValue(const std::wstring& value) override;
+  std::wstring AccDefaultName() const override;
+
  private:
   static constexpr float kPadX = 10.f;
   static constexpr wchar_t kPasswordChar = L'\x25CF';

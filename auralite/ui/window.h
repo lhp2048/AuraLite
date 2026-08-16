@@ -1,16 +1,30 @@
 #pragma once
 
 #include "auralite/canvas.h"
+#include "auralite/ui/anim.h"
 #include "auralite/ui/node.h"
 #include "auralite/ui/theme.h"
 
 #include <atomic>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace auralite::ui {
+
+class PopupHost;
+class Toast;
+class ToastOverlay;
+class TooltipOverlay;
+class UiaProvider;
+
+struct FileDropEvent {
+  std::vector<std::wstring> paths;
+  float x = 0.f;
+  float y = 0.f;
+};
 
 class Window {
  public:
@@ -20,31 +34,81 @@ class Window {
   Window(const Window&) = delete;
   Window& operator=(const Window&) = delete;
 
-  bool Create(const wchar_t* title, int w, int h);
-  // Borderless owned popup (menus). Does not post WM_QUIT on destroy.
-  bool CreatePopup(HWND owner, int width, int height);
-  bool is_popup() const { return popup_mode_; }
-
-  struct DialogOptions {
-    bool topmost = true;
+  struct WindowOptions {
+    HWND owner = nullptr;
+    bool caption = true;
+    bool quit_on_close = true;
+    bool topmost = false;
     bool center_on_owner = true;
+    // Custom chrome (caption=false) only. Captioned windows ignore these —
+    // the host may round the HWND with DWM or any other OS API.
+    float corner_radius = 0.f;
+    float border_width = 0.f;
+
+    // Captioned windows drop radius/border. Clamps negatives to 0.
+    void Normalize() {
+      if (corner_radius < 0.f) {
+        corner_radius = 0.f;
+      }
+      if (border_width < 0.f) {
+        border_width = 0.f;
+      }
+      if (caption) {
+        corner_radius = 0.f;
+        border_width = 0.f;
+      }
+    }
+
+    static WindowOptions Dialog(HWND owner = nullptr, float corner_radius = 8.f) {
+      WindowOptions o;
+      o.owner = owner;
+      o.caption = false;
+      o.quit_on_close = false;
+      o.topmost = true;
+      o.center_on_owner = true;
+      o.corner_radius = corner_radius;
+      o.border_width = 1.f;
+      o.Normalize();
+      return o;
+    }
   };
-  // Borderless owned modal dialog. Never named CreateDialog (Win32 macro).
-  bool CreateDialogWindow(HWND owner, int width, int height,
-                          const DialogOptions& opt = {});
-  bool CreateDialogWindow(HWND owner, const wchar_t* title, int width, int height,
-                          const DialogOptions& opt = {});
+
+  bool Create(const wchar_t* title, int w, int h,
+              const WindowOptions& opt = {});
+
+  const WindowOptions& options() const { return options_; }
+
   int RunModal();
   void EndModal(int result);
+  // Destroy this HWND. If RunModal is nested, same as EndModal(IDCANCEL).
+  void Close();
   int modal_result() const { return modal_result_; }
-  bool is_dialog() const { return dialog_mode_; }
+  // True while a caption=false Window HWND exists (Dialog preset or modeless).
+  bool is_dialog() const {
+    return hwnd_ && !popup_mode_ && !options_.caption;
+  }
+  bool is_popup() const { return popup_mode_; }
+  bool is_dragging() const { return drag_active_; }
 
   // When true (default), WM_DESTROY posts WM_QUIT. Host apps that own the
   // message loop (e.g. Family Shell) should set false so closing a UI window
   // does not tear down the process.
-  void set_quit_on_close(bool quit) { quit_on_close_ = quit; }
+  void set_quit_on_close(bool quit) {
+    quit_on_close_ = quit;
+    options_.quit_on_close = quit;
+  }
   bool quit_on_close() const { return quit_on_close_; }
+
+  // Opt-in Explorer / shell file drop (WM_DROPFILES). Default off.
+  // Independent of Node::draggable / on_drop.
+  void set_accept_files(bool on);
+  bool accept_files() const { return accept_files_; }
+  using FilesDroppedHandler = std::function<void(const FileDropEvent&)>;
+  void set_on_files_dropped(FilesDroppedHandler handler) {
+    on_files_dropped_ = std::move(handler);
+  }
   void SetRoot(std::unique_ptr<Node> root);
+  Node* root() const { return root_.get(); }
   // Detach root without destroying the window (Submenu return / PopupHost).
   std::unique_ptr<Node> ReleaseRoot();
   // Floating layer above root (Combo dropdown). |on_dismiss| runs on ClearPopup.
@@ -74,14 +138,45 @@ class Window {
   // Ref-counted ~30fps Invalidate for indeterminate ProgressBar etc.
   void RegisterAnimation();
   void UnregisterAnimation();
+  // t in on_tick is eased [0,1]. duration_sec<=0 runs tick(1)+done immediately.
+  uint64_t Animate(float duration_sec, Easing easing, AnimationDriver::TickFn on_tick,
+                   AnimationDriver::DoneFn on_done = {});
+  void CancelAnimation(uint64_t id);
+  void set_layered_opacity(float a);
+  float layered_opacity() const;
+
+  // Overlay a Toast Node (does not insert into the window tree). Queues if one
+  // is already visible. duration_sec()<=0 stays until click / DismissToast.
+  void ShowToast(std::unique_ptr<Toast> toast);
+  void ShowToast(std::unique_ptr<Node> toast);
+  void DismissToast();
+  bool has_toast() const;
+  Toast* toast() const;
+  // If the showing toast turned animate off mid-fade, finish dismiss now.
+  void SyncToastFade();
 
   void SetFocusNode(Node* node);
   Node* focused_node() const { return focused_; }
   void FocusNext(bool reverse);
 
+  // TitleBar: release capture and let DefWindowProc move this HWND.
+  void BeginCaptionDrag();
+
  private:
+  friend class PopupHost;
+  friend class ToastOverlay;
+  friend class TooltipOverlay;
+  friend class UiaProvider;
+
+  // Layered tool HWND for menus. Not a WindowOptions style — use PopupHost.
+  bool CreatePopup(HWND owner, int width, int height);
+  bool CreateLayeredTool(HWND owner, int width_dip, int height_dip,
+                         DWORD extra_ex);
+
   static constexpr UINT_PTR kAnimTimerId = 1;
   static constexpr UINT_PTR kTooltipTimerId = 2;
+  static constexpr UINT_PTR kToastTimerId = 3;
+  static constexpr UINT kWmDismissToast = WM_APP + 54;
   static constexpr UINT kTooltipDelayMs = 400;
 
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam,
@@ -109,14 +204,31 @@ class Window {
 
   void RestartTooltipTimer();
   void HideTooltip();
+  void DismissTooltip();
   void ShowTooltipFor(const Node* hit);
-  bool EnsureTooltipWindow();
-  void PlaceTooltipWindow(float dip_w, float dip_h);
+  void ArmDrag(Node* hit, const MouseEvent& ev);
+  void UpdateDrag(const MouseEvent& ev, Node* hit);
+  void FinishDrag(const MouseEvent& ev, Node* hit);
+  void CancelDrag();
+  void ApplyAcceptFiles();
+  void HandleDropFiles(HDROP drop);
+  void PresentNextToast();
+  void SyncAnimTimer();
+  static double NowSec();
 
-  void PlaceDialogWindow(HWND owner, int width_dip, int height_dip,
-                         const DialogOptions& opt);
-  void ActivateDialogHwnd();
-  void RestoreDialogOwner();
+  bool uses_custom_chrome() const {
+    return !popup_mode_ && !options_.caption;
+  }
+  void PlaceWindow(HWND owner, int width_dip, int height_dip);
+  void ApplyChromeShape();
+  void PaintChrome(auralite::Canvas& canvas);
+  void ActivateHwnd();
+  void RestoreOwner();
+  void ResetCreateState();
+
+  LRESULT HandleGetObject(WPARAM wparam, LPARAM lparam);
+  void DisconnectUia();
+  void RaiseAccFocusChanged();
 
   static MouseButton ButtonFromMsg(UINT msg, WPARAM wparam);
   RectF ClientRectF() const;
@@ -131,12 +243,18 @@ class Window {
   bool clear_popup_pending_ = false;
   bool layout_dirty_ = true;
   bool quit_on_close_ = true;
+  bool accept_files_ = false;
+  FilesDroppedHandler on_files_dropped_;
   bool popup_mode_ = false;
-  bool dialog_mode_ = false;
   bool modal_running_ = false;
+  Node* drag_source_ = nullptr;
+  bool drag_armed_ = false;
+  bool drag_active_ = false;
+  float drag_origin_x_ = 0.f;
+  float drag_origin_y_ = 0.f;
   HWND dialog_owner_ = nullptr;
   int modal_result_ = IDCANCEL;
-  DialogOptions dialog_opt_{};
+  WindowOptions options_{};
   std::function<void(HWND)> on_deactivate_outside_;
   Node* mouse_capture_ = nullptr;
   Node* hovered_ = nullptr;
@@ -144,14 +262,17 @@ class Window {
   bool tracking_mouse_leave_ = false;
   size_t ime_char_suppress_ = 0;
   int anim_clients_ = 0;
+  AnimationDriver anim_driver_;
+  bool toast_fading_ = false;
   bool invalidate_posted_ = false;
   Theme::InvalidateSink theme_sink_;
   std::shared_ptr<std::atomic_bool> alive_ =
       std::make_shared<std::atomic_bool>(true);
 
-  std::unique_ptr<Window> tooltip_window_;
-  std::wstring tooltip_text_;
-  const std::wstring* tooltip_shown_text_ = nullptr;
+  std::unique_ptr<TooltipOverlay> tooltip_;
+  std::unique_ptr<ToastOverlay> toast_overlay_;
+  std::deque<std::unique_ptr<Toast>> toast_queue_;
+  UiaProvider* uia_root_ = nullptr;
 };
 
 }  // namespace auralite::ui

@@ -9,9 +9,12 @@
 #include "auralite/ui/button.h"
 #include "auralite/ui/column.h"
 #include "auralite/ui/factory.h"
+#include "auralite/ui/label.h"
 #include "auralite/ui/node.h"
 #include "auralite/ui/row.h"
+#include "auralite/ui/theme.h"
 #include "auralite/ui/tile.h"
+#include "auralite/ui/title_bar.h"
 #include "auralite/ui/yaml_loader.h"
 
 namespace {
@@ -34,6 +37,12 @@ void Expect(const char* name, bool cond) {
   } else {
     std::printf("ok   %s\n", name);
   }
+}
+
+bool ColorEq(const auralite::ColorF& a, const auralite::ColorF& b,
+             float eps = 0.01f) {
+  return std::fabs(a.r - b.r) < eps && std::fabs(a.g - b.g) < eps &&
+         std::fabs(a.b - b.b) < eps && std::fabs(a.a - b.a) < eps;
 }
 
 void TestRowWeight() {
@@ -192,7 +201,7 @@ void TestColumnMainAlignCenter() {
   using namespace auralite::ui;
   auto col = std::make_unique<Column>();
   col->spacing(0.f);
-  col->main_align(Align::Center);
+  col->v_align(Align::Center);
 
   auto a = std::make_unique<Button>();
   a->text(L"a");
@@ -203,12 +212,170 @@ void TestColumnMainAlignCenter() {
   col->AddChild(std::move(a));
   col->Layout(RectF{0, 0, 100, 100});
 
-  ExpectNear("main_align center y", pa->bounds().y, 40.f);
+  ExpectNear("v_align center y", pa->bounds().y, 40.f);
 }
 
 }  // namespace
 
+void TestWindowYaml() {
+  using namespace auralite::ui;
+  ViewFactory factory;
+  WindowYaml spec;
+  auto n = LoadYamlString(
+      "window:\n"
+      "  title: 对话框\n"
+      "  width: 320\n"
+      "  height: 180\n"
+      "  kind: dialog\n"
+      "  corner_radius: 12\n"
+      "  border_width: 2\n"
+      "  topmost: false\n"
+      "Column:\n"
+      "  children: []\n",
+      factory, {}, &spec);
+  Expect("window yaml tree is Column", n != nullptr);
+  Expect("window present", spec.present);
+  Expect("window title", spec.title == L"对话框");
+  Expect("window width", spec.width == 320);
+  Expect("window height", spec.height == 180);
+  Expect("window kind dialog", spec.kind == WindowYaml::Kind::Dialog);
+  Expect("window caption false", !spec.options.caption);
+  Expect("window corner_radius", spec.options.corner_radius == 12.f);
+  Expect("window border_width", spec.options.border_width == 2.f);
+  Expect("window topmost false", !spec.options.topmost);
+  Expect("create_options keeps radius",
+         spec.create_options(nullptr).corner_radius == 12.f);
+  Expect("window width_or", spec.width_or(100) == 320);
+
+  WindowYaml main_spec;
+  auto main_n = LoadYamlString(
+      "window:\n"
+      "  kind: main\n"
+      "  corner_radius: 8\n"
+      "  border_width: 1\n"
+      "Column:\n"
+      "  children: []\n",
+      factory, {}, &main_spec);
+  Expect("main yaml tree", main_n != nullptr);
+  Expect("main kind", main_spec.kind == WindowYaml::Kind::Main);
+  Expect("main still captioned", main_spec.options.caption);
+  Expect("create_options drops radius on captioned",
+         main_spec.create_options(nullptr).corner_radius == 0.f);
+  Expect("create_options drops border on captioned",
+         main_spec.create_options(nullptr).border_width == 0.f);
+
+  WindowYaml square_spec;
+  auto square_n = LoadYamlString(
+      "window:\n"
+      "  kind: dialog\n"
+      "  corner_radius: 0\n"
+      "Column:\n"
+      "  children: []\n",
+      factory, {}, &square_spec);
+  Expect("square yaml tree", square_n != nullptr);
+  Expect("square kind dialog", square_spec.kind == WindowYaml::Kind::Dialog);
+  Expect("square caption false", !square_spec.options.caption);
+  Expect("square radius 0", square_spec.create_options(nullptr).corner_radius == 0.f);
+
+  WindowYaml missing;
+  auto plain = LoadYamlString("Column:\n  children: []\n", factory, {},
+                              &missing);
+  Expect("plain yaml still loads", plain != nullptr);
+  Expect("no window key", !missing.present);
+}
+
+void TestTitleBarHitTest() {
+  using namespace auralite::ui;
+  TitleBar bar;
+  auto lab = std::make_unique<Label>();
+  lab->text(L"Title").fill_width().fixed_height(36.f);
+  auto btn = std::make_unique<Button>();
+  btn->text(L"x").fixed_width(40.f).fixed_height(28.f);
+  Button* pb = btn.get();
+  bar.AddChild(std::move(lab));
+  bar.AddChild(std::move(btn));
+  bar.Layout(RectF{0.f, 0.f, 200.f, 36.f});
+  Expect("label area is TitleBar (drag)", bar.HitTest(20.f, 18.f) == &bar);
+  Expect("button keeps click", bar.HitTest(pb->bounds().x + 8.f, 18.f) == pb);
+
+  ViewFactory factory;
+  auto n = LoadYamlString(
+      "TitleBar:\n"
+      "  children:\n"
+      "    - Label: { text: T }\n",
+      factory, {});
+  Expect("yaml TitleBar", dynamic_cast<TitleBar*>(n.get()) != nullptr);
+}
+
+void TestButtonVariant() {
+  using namespace auralite::ui;
+  Theme::RegisterBuiltInLight();
+  Theme::RegisterBuiltInDark();
+  Expect("set dark", Theme::SetActive("dark"));
+
+  Button primary;
+  Expect("default is Primary", primary.variant() == ButtonVariant::Primary);
+  Expect("primary bg accent", ColorEq(primary.resolved_bg(), Theme::Active().accent));
+  Expect("primary label on accent",
+         ColorEq(primary.resolved_label(), Theme::Active().text_on_accent));
+
+  Button secondary;
+  secondary.variant(ButtonVariant::Secondary);
+  Expect("secondary bg surface",
+         ColorEq(secondary.resolved_bg(), Theme::Active().surface));
+  Expect("secondary label text",
+         ColorEq(secondary.resolved_label(), Theme::Active().text));
+  secondary.OnMouseEnter(MouseEvent{});
+  Expect("secondary hover accent_soft",
+         ColorEq(secondary.resolved_bg(), Theme::Active().accent_soft));
+  secondary.OnMouseLeave(MouseEvent{});
+
+  Button danger;
+  danger.variant(ButtonVariant::Danger);
+  Expect("danger bg", ColorEq(danger.resolved_bg(), Theme::Active().danger));
+  Expect("danger label on accent",
+         ColorEq(danger.resolved_label(), Theme::Active().text_on_accent));
+
+  const ColorF dark_surface = Theme::Active().surface;
+  Expect("switch light", Theme::SetActive("light"));
+  Expect("secondary follows new theme",
+         ColorEq(secondary.resolved_bg(), Theme::Active().surface));
+  Expect("secondary not frozen to dark",
+         !ColorEq(secondary.resolved_bg(), dark_surface));
+
+  Button frozen;
+  frozen.bg(Theme::Active().danger);
+  frozen.variant(ButtonVariant::Primary);
+  Expect("variant clears bg override",
+         ColorEq(frozen.resolved_bg(), Theme::Active().accent));
+
+  Button custom;
+  custom.variant(ButtonVariant::Secondary)
+      .bg(auralite::ColorF::FromRgb(255, 0, 0));
+  Expect("explicit bg still wins",
+         ColorEq(custom.resolved_bg(), auralite::ColorF::FromRgb(255, 0, 0)));
+  Expect("custom bg uses body text",
+         ColorEq(custom.resolved_label(), Theme::Active().text));
+
+  Button disabled;
+  disabled.variant(ButtonVariant::Danger).set_enabled(false);
+  Expect("disabled bg surface_alt",
+         ColorEq(disabled.resolved_bg(), Theme::Active().surface_alt));
+  Expect("disabled label muted",
+         ColorEq(disabled.resolved_label(), Theme::Active().text_muted));
+
+  ViewFactory factory;
+  auto n = LoadYamlString(
+      "Button:\n  text: Del\n  variant: danger\n", factory, {});
+  auto* yaml_btn = dynamic_cast<Button*>(n.get());
+  Expect("yaml danger variant",
+         yaml_btn && yaml_btn->variant() == ButtonVariant::Danger);
+  Expect("yaml danger bg",
+         yaml_btn && ColorEq(yaml_btn->resolved_bg(), Theme::Active().danger));
+}
+
 int main() {
+  TestButtonVariant();
   TestRowWeight();
   TestWeightIgnoredWithoutFill();
   TestAbsoluteDualAnchor();
@@ -218,6 +385,8 @@ int main() {
   TestClipYaml();
   TestHitTestStillClipsToBounds();
   TestTooltipResolve();
+  TestWindowYaml();
+  TestTitleBarHitTest();
   if (g_failures > 0) {
     std::printf("%d failure(s)\n", g_failures);
     return 1;

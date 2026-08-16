@@ -1,5 +1,7 @@
 #include "auralite/ui/scroll_view.h"
 
+#include "auralite/ui/window.h"
+
 #include <algorithm>
 
 namespace auralite::ui {
@@ -20,7 +22,9 @@ ScrollView& ScrollView::preferred_size(float w, float h) {
 
 ScrollView& ScrollView::set_content(std::unique_ptr<Node> content) {
   children_.clear();
+  scroll_tween_.Cancel();
   scroll_offset_ = 0.f;
+  scroll_target_ = 0.f;
   if (content) {
     AddChild(std::move(content));
   }
@@ -42,16 +46,48 @@ void ScrollView::SyncVScrollBar() {
 }
 
 void ScrollView::set_scroll_offset(float offset) {
-  const float old = scroll_offset_;
-  scroll_offset_ = offset;
-  ClampScrollOffset();
-  if (old == scroll_offset_) {
-    return;
-  }
+  ApplyScroll(offset, false);
+}
+
+void ScrollView::RelayoutContent() {
   if (Node* c = content()) {
     const float cw = ViewportWidth();
     const float ch = std::max(content_h_, ViewportHeight());
     c->Layout(RectF{bounds_.x, bounds_.y - scroll_offset_, cw, ch});
+  }
+}
+
+void ScrollView::ApplyScroll(float offset, bool instant) {
+  scroll_target_ = offset;
+  ClampScrollOffset();
+  const float to = scroll_target_;
+  if (instant || !CanTween()) {
+    scroll_tween_.Cancel();
+    scroll_offset_ = to;
+    RelayoutContent();
+    return;
+  }
+  const float from = scroll_offset_;
+  if (from == to) {
+    return;
+  }
+  scroll_tween_.Start(
+      host_window(), kUiAnimSec, Easing::EaseOutCubic,
+      [this, from, to](float t) {
+        scroll_offset_ = from + (to - from) * t;
+        RelayoutContent();
+      },
+      [this, to] {
+        scroll_offset_ = to;
+        RelayoutContent();
+      });
+}
+
+void ScrollView::OnAnimateChanged() { ApplyScroll(scroll_target_, true); }
+
+void ScrollView::OnHostWindowChanged() {
+  if (!CanTween()) {
+    ApplyScroll(scroll_target_, true);
   }
 }
 
@@ -84,11 +120,11 @@ void ScrollView::Layout(const RectF& final_rect) {
     const SizeF cs = c->Measure(cw, 1.0e6f);
     content_h_ = cs.h;
     ClampScrollOffset();
-    const float ch = std::max(content_h_, ViewportHeight());
-    c->Layout(RectF{bounds_.x, bounds_.y - scroll_offset_, cw, ch});
+    RelayoutContent();
   } else {
     content_h_ = 0.f;
     scroll_offset_ = 0.f;
+    scroll_target_ = 0.f;
   }
 }
 
@@ -131,19 +167,19 @@ void ScrollView::OnMouseWheel(const MouseEvent& e) {
   }
   const float lines =
       static_cast<float>(e.wheel_delta) / static_cast<float>(WHEEL_DELTA);
-  set_scroll_offset(scroll_offset_ - lines * kDefaultLineScroll);
+  set_scroll_offset(scroll_target_ - lines * kDefaultLineScroll);
 }
 
 void ScrollView::OnMouseDown(const MouseEvent& e) {
   SyncVScrollBar();
   if (vscroll_.OnMouseDown(e)) {
-    set_scroll_offset(vscroll_.scroll_offset());
+    ApplyScroll(vscroll_.scroll_offset(), true);
   }
 }
 
 void ScrollView::OnMouseMove(const MouseEvent& e) {
   if (vscroll_.OnMouseMove(e)) {
-    set_scroll_offset(vscroll_.scroll_offset());
+    ApplyScroll(vscroll_.scroll_offset(), true);
   }
 }
 
@@ -171,8 +207,12 @@ bool ScrollView::NeedsScrollbar() const {
 }
 
 void ScrollView::ClampScrollOffset() {
-  scroll_offset_ =
-      std::max(0.f, std::min(scroll_offset_, MaxScrollOffset()));
+  scroll_target_ =
+      std::max(0.f, std::min(scroll_target_, MaxScrollOffset()));
+  if (!scroll_tween_.running()) {
+    scroll_offset_ =
+        std::max(0.f, std::min(scroll_offset_, MaxScrollOffset()));
+  }
 }
 
 RectF ScrollView::ViewportRect() const {

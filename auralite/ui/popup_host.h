@@ -27,8 +27,8 @@ struct PopupShowOptions {
   bool clamp_to_monitor = false;
 };
 
-// Owns a stack of WS_POPUP menu windows (CreatePopup). Explicit instance;
-// TLS Current() is set while the stack is open for Submenu.
+// Owns a stack of layered menu windows. Explicit instance; TLS Current() is
+// set while the stack is open for Submenu. Not created via Window::Create.
 class PopupHost {
  public:
   PopupHost();

@@ -39,6 +39,9 @@ class Combo : public Node {
   const std::vector<std::wstring>& items() const { return items_; }
   bool is_open() const { return open_; }
 
+  AccRole acc_role() const override;
+  std::wstring AccDefaultName() const override;
+
   SizeF Measure(float max_w, float max_h) override;
   void Paint(auralite::Canvas& canvas) override;
 

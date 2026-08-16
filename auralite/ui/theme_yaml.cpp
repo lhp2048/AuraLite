@@ -79,6 +79,10 @@ void ApplyThemeYaml(const YAML::Node& root, ThemeTokens* tokens) {
     ApplyColorField(colors, "scroll_track", &tokens->scroll_track);
     ApplyColorField(colors, "scroll_thumb", &tokens->scroll_thumb);
     ApplyColorField(colors, "glyph", &tokens->glyph);
+    ApplyColorField(colors, "danger", &tokens->danger);
+    ApplyColorField(colors, "danger_hover", &tokens->danger_hover);
+    ApplyColorField(colors, "danger_pressed", &tokens->danger_pressed);
+    ApplyColorField(colors, "warning", &tokens->warning);
   }
 
   if (const YAML::Node fonts = root["fonts"]) {

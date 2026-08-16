@@ -6,6 +6,8 @@ Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放
 
 **编码风格：** 见 [`CODING.md`](CODING.md)（`base` / `gfx` / `message_framework` / `view_framework` 以 Chromium 老 Views 习惯为准；`auralite/` 新栈见文中例外）。
 
+**布局（Column/Row/Absolute、`h_align` / `v_align`、锚点）：** 见 [`LAYOUT.md`](LAYOUT.md)。
+
 ## 分支策略
 
 | 分支 | 用途 |
@@ -99,11 +101,15 @@ FireAndForget Load(std::shared_ptr<std::atomic_bool> alive) {
 - 2 空格缩进；`TypeName:` 作为唯一 map key（如 `Column:` / `Button:`）  
 - 容器：`children:` 列表；`ScrollView.content`；`SplitView.leading` / `trailing`  
 - 布局容器：`Column` / `Row`（流式）、`Tile`（网格，对应 DuiLib TileLayout）、`Tab`（叠页，对应 TabLayout）、`Absolute`（浮动 / 四边锚定，对应 float）  
+- 根级可选 `theme: dark`（加载时 `Theme::SetActive`）  
+- 根级可选 `window:`（HWND 元数据，不进控件树）：`title` / `width` / `height` / `kind`（`main`|`dialog`|`popup`）/ `corner_radius` / `border_width` / `topmost` / `center_on_owner`。Gallery 对话框见 `dialog.yaml`  
+- `TitleBar`：内置标题栏容器，布局同 `Row`；空白 / `Label` 可拖动宿主窗口，`Button` 等可聚焦子控件仍走自己的点击。`window.title` 仍只用于任务栏，可见标题写在 `TitleBar` 里的 `Label`  
 - `on_click: handler_name` → Demo 侧 `HandlerMap`  
+- 布局细则（选容器、`h_align` / `v_align`、锚点优先级、何时无效）：见 [`LAYOUT.md`](LAYOUT.md)  
 - 尺寸策略：`width` / `height` 可为数字（Fixed）、`fill`（吃满父布局可用轴）、`hug`（内容固有尺寸）。省略时控件有默认（如 TextField/Button：**宽 fill、高 fixed**；Checkbox：**hug×hug**；Label：**宽 fill、高 hug/preferred_height**）  
-- `Column` / `Row`：仅主轴 **`fill`** 的子项参与 `weight` 分剩余（Fixed/Hug 上的 weight 忽略）；`cross_align` / `child_align`；无 fill 子项时可用 `main_align` 打包（start|center|end）。Label 的 `align` 仍是**文本**对齐  
+- `Column` / `Row`：仅主轴 **`fill`** 的子项参与 `weight` 分剩余（Fixed/Hug 上的 weight 忽略）；`h_align` / `v_align` 按屏幕轴（左右 / 上下），不是 main/cross。Label 的 `align` 仍是**文本**对齐
 - 横排工具按钮请显式 `width: hug`（Button 默认宽 fill，适合表单）  
-- `Absolute`：锚定优先 `left`/`top`/`right`/`bottom`；否则 `x`/`y` + 自有宽高  
+- `Absolute`：每轴 **双边锚点 > 单边 > `x`/`y` > `h_align`/`v_align` > 0**。左+右忽略该轴 `width`（无编译期提示）。完整规则见 [`LAYOUT.md`](LAYOUT.md) 
 - `Tab`：可选 `headers` / `header_height` 页签栏；`selected`  
 - `Tile`：`columns` / `item_size` / `spacing`  
 - 新增控件：`ProgressBar`（`value` / `indeterminate`，不确定态需 `BindWindow`）、`Slider`（`orientation` / `step` / `tick_count`）、`Combo`（单选/多选 `multi`、可筛选 `editable`，需 `BindWindow`）、`TextArea`（多行，`wrap` 软换行）、`VirtualList` / `ItemList`（`columns` + `show_header`；排序 / 拖列宽 / `frozen_count`；Shift+滚轮横滑）、`TreeView`（展开折叠；`checkable` 三态勾选；`lazy` + `on_load_children` / `NotifyChildrenLoaded`）
@@ -116,7 +122,7 @@ FireAndForget Load(std::shared_ptr<std::atomic_bool> alive) {
 
 | DuiLib | AuraLite |
 |--------|----------|
-| Vertical / HorizontalLayout | `Column` / `Row` + weight + cross/main_align |
+| Vertical / HorizontalLayout | `Column` / `Row` + weight + h_align / v_align |
 | TileLayout | `Tile` |
 | TabLayout | `Tab`（可带 `headers`） |
 | float + 边距 | `Absolute` + 四边锚定 / `x`·`y` |

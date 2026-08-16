@@ -1,6 +1,7 @@
 #include "auralite/ui/slider.h"
 
 #include "auralite/ui/theme.h"
+#include "auralite/ui/window.h"
 
 #include <algorithm>
 
@@ -25,6 +26,7 @@ void Slider::ApplyDefaultSize() {
 
 Slider& Slider::value(float v) {
   value_ = std::clamp(v, 0.f, 1.f);
+  SyncVisual(dragging_);
   return *this;
 }
 
@@ -71,6 +73,7 @@ void Slider::SetValueFromPointer(float x, float y) {
   }
   const float prev = value_;
   value_ = std::clamp(v, 0.f, 1.f);
+  SyncVisual(true);
   if (value_ != prev) {
     Notify();
   }
@@ -80,6 +83,7 @@ void Slider::AdjustValue(float delta) {
   const float prev = value_;
   value_ = std::clamp(value_ + delta, 0.f, 1.f);
   if (value_ != prev) {
+    SyncVisual(false);
     Notify();
   }
 }
@@ -120,7 +124,7 @@ void Slider::Paint(auralite::Canvas& canvas) {
     const float cx = bounds_.x + bounds_.w * 0.5f - (tick_count_ >= 2 ? 4.f : 0.f);
     track = RectF{cx - track_thickness * 0.5f, TrackOrigin(), track_thickness,
                   TrackLength()};
-    const float thumb_y = TrackOrigin() + TrackLength() * (1.f - value_);
+    const float thumb_y = TrackOrigin() + TrackLength() * (1.f - visual_value_);
     fill = RectF{track.x, thumb_y, track.w,
                  std::max(0.f, track.y + track.h - thumb_y)};
     thumb = RectF{cx - kThumbR, thumb_y - kThumbR, kThumbR * 2.f, kThumbR * 2.f};
@@ -139,8 +143,8 @@ void Slider::Paint(auralite::Canvas& canvas) {
     track = RectF{TrackOrigin(), cy - track_thickness * 0.5f, TrackLength(),
                   track_thickness};
     fill = track;
-    fill.w = track.w * value_;
-    const float tx = TrackOrigin() + TrackLength() * value_;
+    fill.w = track.w * visual_value_;
+    const float tx = TrackOrigin() + TrackLength() * visual_value_;
     thumb = RectF{tx - kThumbR, cy - kThumbR, kThumbR * 2.f, kThumbR * 2.f};
 
     if (tick_count_ >= 2) {
@@ -209,6 +213,31 @@ void Slider::OnKey(const KeyEvent& e) {
     } else if (e.vk == VK_END) {
       AdjustValue(1.f - value_);
     }
+  }
+}
+
+void Slider::SyncVisual(bool instant) {
+  const float to = value_;
+  if (instant || !CanTween()) {
+    value_tween_.Cancel();
+    visual_value_ = to;
+    return;
+  }
+  const float from = visual_value_;
+  if (from == to) {
+    return;
+  }
+  value_tween_.Start(
+      host_window(), kUiAnimSec, Easing::EaseOutCubic,
+      [this, from, to](float t) { visual_value_ = from + (to - from) * t; },
+      [this, to] { visual_value_ = to; });
+}
+
+void Slider::OnAnimateChanged() { SyncVisual(true); }
+
+void Slider::OnHostWindowChanged() {
+  if (!CanTween()) {
+    SyncVisual(true);
   }
 }
 

@@ -1,0 +1,238 @@
+// Console tests for accessibility read APIs (no UIA / HWND).
+#include <cstdio>
+#include <cstdlib>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "auralite/ui/acc.h"
+#include "auralite/ui/button.h"
+#include "auralite/ui/checkbox.h"
+#include "auralite/ui/column.h"
+#include "auralite/ui/combo.h"
+#include "auralite/ui/factory.h"
+#include "auralite/ui/label.h"
+#include "auralite/ui/radio.h"
+#include "auralite/ui/switch_control.h"
+#include "auralite/ui/tab.h"
+#include "auralite/ui/text_area.h"
+#include "auralite/ui/text_field.h"
+#include "auralite/ui/yaml_loader.h"
+
+namespace {
+
+int g_failures = 0;
+
+void Expect(const char* name, bool cond) {
+  if (!cond) {
+    std::printf("FAIL %s\n", name);
+    ++g_failures;
+  } else {
+    std::printf("ok   %s\n", name);
+  }
+}
+
+void TestLayoutIgnored() {
+  using namespace auralite::ui;
+  Column col;
+  Expect("column ignored", col.acc_role() == AccRole::Ignore);
+  Expect("column not included", !col.AccIncluded());
+
+  col.acc_name(L"登录");
+  Expect("named column is group", col.acc_role() == AccRole::Group);
+  Expect("named column included", col.AccIncluded());
+  Expect("named column name", col.AccName() == L"登录");
+}
+
+void TestButton() {
+  using namespace auralite::ui;
+  Button btn;
+  btn.text(L"确定");
+  Expect("button role", btn.acc_role() == AccRole::Button);
+  Expect("button name from text", btn.AccName() == L"确定");
+  Expect("button included", btn.AccIncluded());
+
+  int clicks = 0;
+  btn.on_click([&] { ++clicks; });
+  Expect("button invoke", btn.AccInvoke());
+  Expect("button invoke fired", clicks == 1);
+
+  btn.set_enabled(false);
+  Expect("disabled state", btn.acc_state().disabled);
+  Expect("disabled invoke false", !btn.AccInvoke());
+  Expect("no extra click", clicks == 1);
+
+  Button named;
+  named.text(L"X").acc_name(L"关闭");
+  Expect("acc_name overrides text", named.AccName() == L"关闭");
+
+  Button icon;
+  icon.tooltip(L"设置");
+  Expect("tooltip fallback name", icon.AccName() == L"设置");
+}
+
+void TestLabelTextField() {
+  using namespace auralite::ui;
+  Label lab;
+  lab.text(L"用户名");
+  Expect("label role", lab.acc_role() == AccRole::Text);
+  Expect("label name", lab.AccName() == L"用户名");
+
+  TextField field;
+  field.placeholder(L"请输入").text(L"abc");
+  Expect("edit role", field.acc_role() == AccRole::Edit);
+  Expect("edit name from placeholder", field.AccName() == L"请输入");
+  Expect("edit value", field.AccValue() == L"abc");
+  Expect("edit set value", field.AccSetValue(L"xyz"));
+  Expect("edit value updated", field.text() == L"xyz");
+
+  field.password(true);
+  Expect("password state", field.acc_state().password);
+  Expect("password value hidden", field.AccValue().empty());
+}
+
+void TestToggleControls() {
+  using namespace auralite::ui;
+  Checkbox box;
+  box.text(L"记住我");
+  Expect("checkbox role", box.acc_role() == AccRole::CheckBox);
+  Expect("checkbox name", box.AccName() == L"记住我");
+  Expect("checkbox off", !box.acc_state().checked);
+  Expect("checkbox toggle", box.AccToggle());
+  Expect("checkbox on", box.checked() && box.acc_state().checked);
+
+  Radio radio;
+  radio.text(L"选项A");
+  Expect("radio role", radio.acc_role() == AccRole::RadioButton);
+  Expect("radio invoke selects", radio.AccInvoke());
+  Expect("radio checked", radio.checked());
+
+  Switch sw;
+  sw.text(L"通知");
+  Expect("switch as checkbox", sw.acc_role() == AccRole::CheckBox);
+  Expect("switch toggle", sw.AccToggle());
+  Expect("switch on", sw.is_on());
+}
+
+void TestCollectAndHidden() {
+  using namespace auralite::ui;
+  auto root = std::make_unique<Column>();
+  auto btn = std::make_unique<Button>();
+  btn->text(L"A");
+  auto hidden = std::make_unique<Button>();
+  hidden->text(L"B");
+  hidden->set_visible(false);
+  auto lab = std::make_unique<Label>();
+  lab->text(L"C");
+
+  root->AddChild(std::move(btn));
+  root->AddChild(std::move(hidden));
+  root->AddChild(std::move(lab));
+
+  std::vector<const Node*> acc;
+  CollectAccNodes(root.get(), &acc);
+  Expect("collect skips column and hidden", acc.size() == 2);
+  Expect("collect button first", acc[0]->AccName() == L"A");
+  Expect("collect label second", acc[1]->AccName() == L"C");
+  Expect("acc id assigned", acc[0]->acc_id() != 0);
+  Expect("find by id", FindAccNode(root.get(), acc[0]->acc_id()) == acc[0]);
+}
+
+void TestFindSkipsHidden() {
+  using namespace auralite::ui;
+  auto root = std::make_unique<Column>();
+  auto btn = std::make_unique<Button>();
+  btn->text(L"X");
+  Button* p = btn.get();
+  root->AddChild(std::move(btn));
+
+  std::vector<Node*> acc;
+  CollectAccNodes(root.get(), &acc);
+  Expect("collect visible button", acc.size() == 1);
+  const int id = p->acc_id();
+  Expect("id assigned before hide", id != 0);
+  p->set_visible(false);
+  Expect("find skips hidden", FindAccNode(root.get(), id) == nullptr);
+}
+
+void TestTabOffstageHidden() {
+  using namespace auralite::ui;
+  Tab tab;
+  auto page0 = std::make_unique<Column>();
+  auto a = std::make_unique<Button>();
+  a->text(L"A");
+  page0->AddChild(std::move(a));
+  auto page1 = std::make_unique<Column>();
+  auto b = std::make_unique<Button>();
+  b->text(L"B");
+  page1->AddChild(std::move(b));
+  tab.AddChild(std::move(page0));
+  tab.AddChild(std::move(page1));
+  tab.set_selected(0);
+
+  std::vector<const Node*> acc;
+  CollectAccNodes(&tab, &acc);
+  Expect("tab page0 only", acc.size() == 1 && acc[0]->AccName() == L"A");
+
+  tab.set_selected(1);
+  acc.clear();
+  CollectAccNodes(&tab, &acc);
+  Expect("tab page1 only", acc.size() == 1 && acc[0]->AccName() == L"B");
+}
+
+void TestYamlAccName() {
+  using namespace auralite::ui;
+  ViewFactory factory;
+  auto n = LoadYamlString(
+      "Button:\n  text: OK\n  acc_name: 确认\n", factory, {});
+  Expect("yaml built", n != nullptr);
+  Expect("yaml acc_name", n && n->AccName() == L"确认");
+  Expect("yaml role", n && n->acc_role() == AccRole::Button);
+
+  auto menu = LoadYamlString(
+      "Button:\n  text: Refresh\n  acc_role: menuitem\n", factory, {});
+  Expect("yaml menuitem role",
+         menu && menu->acc_role() == AccRole::MenuItem);
+  Expect("yaml menuitem name", menu && menu->AccName() == L"Refresh");
+  int clicks = 0;
+  if (auto* btn = dynamic_cast<Button*>(menu.get())) {
+    btn->on_click([&] { ++clicks; });
+  }
+  Expect("yaml menuitem invoke", menu && menu->AccInvoke() && clicks == 1);
+}
+
+void TestComboTextArea() {
+  using namespace auralite::ui;
+  Combo combo;
+  combo.items({L"红", L"绿"});
+  combo.selected(1);
+  Expect("combo role", combo.acc_role() == AccRole::ComboBox);
+  Expect("combo name selected", combo.AccName() == L"绿");
+
+  TextArea area;
+  area.placeholder(L"备注").text(L"hello");
+  Expect("textarea edit", area.acc_role() == AccRole::Edit);
+  Expect("textarea name", area.AccName() == L"备注");
+  Expect("textarea value", area.AccValue() == L"hello");
+}
+
+}  // namespace
+
+int main() {
+  setvbuf(stdout, nullptr, _IONBF, 0);
+  TestLayoutIgnored();
+  TestButton();
+  TestLabelTextField();
+  TestToggleControls();
+  TestCollectAndHidden();
+  TestFindSkipsHidden();
+  TestTabOffstageHidden();
+  TestYamlAccName();
+  TestComboTextArea();
+  if (g_failures) {
+    std::printf("%d failed\n", g_failures);
+    return EXIT_FAILURE;
+  }
+  std::printf("all ok\n");
+  return EXIT_SUCCESS;
+}

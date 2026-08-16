@@ -30,6 +30,11 @@ void ProgressBar::BindWindow(Window* window) {
 
 ProgressBar& ProgressBar::value(float v) {
   value_ = std::clamp(v, 0.f, 1.f);
+  if (!indeterminate_) {
+    SyncVisual(false);
+  } else {
+    visual_value_ = value_;
+  }
   return *this;
 }
 
@@ -82,12 +87,42 @@ void ProgressBar::Paint(auralite::Canvas& canvas) {
     return;
   }
 
-  if (value_ <= 0.f) {
+  if (value_ <= 0.f && visual_value_ <= 0.f) {
     return;
   }
   RectF fill = bounds_;
-  fill.w = std::max(0.f, bounds_.w * value_);
+  fill.w = std::max(0.f, bounds_.w * visual_value_);
   canvas.FillRoundedRect(fill, r, r, th.accent);
+}
+
+Window* ProgressBar::AnimWindow() const {
+  return host_window() ? host_window() : window_;
+}
+
+void ProgressBar::SyncVisual(bool instant) {
+  const float to = value_;
+  Window* w = AnimWindow();
+  if (instant || !animate() || !w || !w->hwnd()) {
+    value_tween_.Cancel();
+    visual_value_ = to;
+    return;
+  }
+  const float from = visual_value_;
+  if (from == to) {
+    return;
+  }
+  value_tween_.Start(
+      w, kUiAnimSec, Easing::EaseOutCubic,
+      [this, from, to](float t) { visual_value_ = from + (to - from) * t; },
+      [this, to] { visual_value_ = to; });
+}
+
+void ProgressBar::OnAnimateChanged() { SyncVisual(true); }
+
+void ProgressBar::OnHostWindowChanged() {
+  if (!CanTween() && !(window_ && window_->hwnd() && animate())) {
+    SyncVisual(true);
+  }
 }
 
 }  // namespace auralite::ui

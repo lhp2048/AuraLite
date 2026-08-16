@@ -64,6 +64,12 @@ void TestRegisterSetActive() {
 
   Expect(Theme::SetActive("dark"), "set dark");
   Expect(Theme::ActiveName() == "dark", "active name dark");
+  Expect(ColorNear(Theme::Active().danger, 130.f / 255.f, 48.f / 255.f, 48.f / 255.f,
+                   1.f),
+         "builtin dark danger");
+  Expect(ColorNear(Theme::Active().warning, 210.f / 255.f, 160.f / 255.f, 60.f / 255.f,
+                   1.f),
+         "builtin dark warning");
   Expect(!Theme::SetActive("nope"), "unknown theme");
   Expect(Theme::ActiveName() == "dark", "still dark after fail");
 

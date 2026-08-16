@@ -1,6 +1,7 @@
 #include "auralite/ui/button.h"
 
 #include "auralite/ui/theme.h"
+#include "auralite/ui/window.h"
 
 #include <algorithm>
 
@@ -32,6 +33,15 @@ Button& Button::on_click(ClickHandler handler) {
 Button& Button::preferred_size(float w, float h) {
   fixed_width(w);
   fixed_height(h);
+  return *this;
+}
+
+Button& Button::variant(ButtonVariant v) {
+  variant_ = v;
+  bg_.reset();
+  bg_hover_.reset();
+  bg_pressed_.reset();
+  text_color_.reset();
   return *this;
 }
 
@@ -101,13 +111,42 @@ ColorF Button::BgColor() const {
   if (!enabled_) {
     return th.surface_alt;
   }
+  auto variant_fill = [&](bool hover, bool pressed) -> ColorF {
+    switch (variant_) {
+      case ButtonVariant::Secondary:
+        if (pressed) {
+          return th.window_bg;
+        }
+        if (hover) {
+          return th.accent_soft;
+        }
+        return th.surface;
+      case ButtonVariant::Danger:
+        if (pressed) {
+          return th.danger_pressed;
+        }
+        if (hover) {
+          return th.danger_hover;
+        }
+        return th.danger;
+      case ButtonVariant::Primary:
+      default:
+        if (pressed) {
+          return th.accent_pressed;
+        }
+        if (hover) {
+          return th.accent_hover;
+        }
+        return th.accent;
+    }
+  };
   if (pressed_) {
-    return bg_pressed_.value_or(th.accent_pressed);
+    return bg_pressed_.value_or(variant_fill(false, true));
   }
   if (hovered_) {
-    return bg_hover_.value_or(th.accent_hover);
+    return bg_hover_.value_or(variant_fill(true, false));
   }
-  return bg_.value_or(th.accent);
+  return bg_.value_or(variant_fill(false, false));
 }
 
 ColorF Button::LabelColor() const {
@@ -120,6 +159,9 @@ ColorF Button::LabelColor() const {
   }
   // Custom bg (e.g. menu rows) usually sits on a light panel → use body text.
   if (bg_) {
+    return th.text;
+  }
+  if (variant_ == ButtonVariant::Secondary) {
     return th.text;
   }
   return th.text_on_accent;
@@ -210,6 +252,36 @@ void Button::OnKey(const KeyEvent& e) {
 void Button::OnDeviceLost() {
   icon_.Reset();
   Node::OnDeviceLost();
+}
+
+AccRole Button::acc_role() const {
+  if (acc_role_override_) {
+    return *acc_role_override_;
+  }
+  if (host_window_ && host_window_->is_popup()) {
+    return AccRole::MenuItem;
+  }
+  return AccRole::Button;
+}
+
+std::wstring Button::AccDefaultName() const {
+  return text_;
+}
+
+AccState Button::acc_state() const {
+  AccState s = Node::acc_state();
+  s.disabled = !enabled_;
+  return s;
+}
+
+bool Button::AccInvoke() {
+  if (!enabled_) {
+    return false;
+  }
+  if (on_click_) {
+    on_click_();
+  }
+  return true;
 }
 
 }  // namespace auralite::ui

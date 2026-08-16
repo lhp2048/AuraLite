@@ -2,6 +2,7 @@
 #include "auralite/ui/window.h"
 
 #include <algorithm>
+#include <atomic>
 
 namespace auralite::ui {
 
@@ -19,7 +20,11 @@ void Node::AddChild(std::unique_ptr<Node> child) {
 }
 
 void Node::set_host_window(Window* w) {
+  const bool changed = host_window_ != w;
   host_window_ = w;
+  if (changed) {
+    OnHostWindowChanged();
+  }
   for (auto& child : children_) {
     if (child) {
       child->set_host_window(w);
@@ -84,9 +89,15 @@ Node& Node::weight(float w) {
   return *this;
 }
 
-Node& Node::cross_align(Align a) {
-  cross_align_ = a;
-  has_cross_align_ = true;
+Node& Node::h_align(Align a) {
+  h_align_ = a;
+  has_h_align_ = true;
+  return *this;
+}
+
+Node& Node::v_align(Align a) {
+  v_align_ = a;
+  has_v_align_ = true;
   return *this;
 }
 
@@ -237,10 +248,136 @@ Node& Node::tooltip(std::wstring text) {
   return *this;
 }
 
+Node& Node::animate(bool on) {
+  if (animate_ == on) {
+    return *this;
+  }
+  animate_ = on;
+  OnAnimateChanged();
+  return *this;
+}
+
+bool Node::CanTween() const {
+  return animate_ && host_window_ && host_window_->hwnd();
+}
+
+Node& Node::draggable(bool on) {
+  draggable_ = on;
+  return *this;
+}
+
+Node& Node::drag_data(std::wstring data) {
+  drag_data_ = std::move(data);
+  return *this;
+}
+
+Node& Node::drop_target(bool on) {
+  drop_target_ = on;
+  return *this;
+}
+
+Node& Node::on_drop(DropHandler handler) {
+  on_drop_ = std::move(handler);
+  if (on_drop_) {
+    drop_target_ = true;
+  }
+  return *this;
+}
+
+void Node::DeliverDrop(const DragEvent& e) {
+  if (on_drop_) {
+    on_drop_(e);
+  }
+}
+
+Node& Node::acc_name(std::wstring name) {
+  acc_name_ = std::move(name);
+  return *this;
+}
+
+Node& Node::set_acc_role(AccRole role) {
+  acc_role_override_ = role;
+  return *this;
+}
+
+AccRole Node::acc_role() const {
+  if (acc_role_override_) {
+    return *acc_role_override_;
+  }
+  return acc_name_.empty() ? AccRole::Ignore : AccRole::Group;
+}
+
+std::wstring Node::AccName() const {
+  if (!acc_name_.empty()) {
+    return acc_name_;
+  }
+  std::wstring def = AccDefaultName();
+  if (!def.empty()) {
+    return def;
+  }
+  return tooltip_;
+}
+
+std::wstring Node::AccDefaultName() const {
+  return {};
+}
+
+std::wstring Node::AccValue() const {
+  return {};
+}
+
+AccState Node::acc_state() const {
+  AccState s;
+  s.focused = focused_;
+  return s;
+}
+
+bool Node::AccInvoke() {
+  return false;
+}
+
+bool Node::AccToggle() {
+  return false;
+}
+
+bool Node::AccSetValue(const std::wstring&) {
+  return false;
+}
+
+bool Node::AccIncluded() const {
+  return visible_ && acc_role() != AccRole::Ignore;
+}
+
+int Node::EnsureAccId() const {
+  static std::atomic<int> next{1};
+  if (acc_id_ == 0) {
+    acc_id_ = next.fetch_add(1, std::memory_order_relaxed);
+  }
+  return acc_id_;
+}
+
 const std::wstring* ResolveTooltipText(const Node* hit) {
   for (const Node* n = hit; n; n = n->parent()) {
     if (!n->tooltip().empty()) {
       return &n->tooltip();
+    }
+  }
+  return nullptr;
+}
+
+Node* ResolveDraggable(Node* hit) {
+  for (Node* n = hit; n; n = n->parent()) {
+    if (n->draggable()) {
+      return n;
+    }
+  }
+  return nullptr;
+}
+
+Node* ResolveDropTarget(Node* hit, const Node* source) {
+  for (Node* n = hit; n; n = n->parent()) {
+    if (n != source && n->drop_target()) {
+      return n;
     }
   }
   return nullptr;

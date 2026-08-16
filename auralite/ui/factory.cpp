@@ -25,6 +25,8 @@
 #include "auralite/ui/text_area.h"
 #include "auralite/ui/text_field.h"
 #include "auralite/ui/tile.h"
+#include "auralite/ui/title_bar.h"
+#include "auralite/ui/toast.h"
 #include "auralite/ui/user_control.h"
 #include "auralite/ui/yaml_loader.h"
 #include "auralite/ui/theme_yaml.h"
@@ -69,7 +71,7 @@ TextAlign ParseTextAlign(const std::string& s) {
   return TextAlign::Left;
 }
 
-Align ParseCrossAlign(const std::string& s) {
+Align ParseAlign(const std::string& s) {
   if (s == "center" || s == "Center") {
     return Align::Center;
   }
@@ -133,6 +135,16 @@ void ApplyButtonChrome(Button* btn, const YAML::Node& props) {
   if (!btn) {
     return;
   }
+  if (props["variant"]) {
+    const std::string v = props["variant"].as<std::string>();
+    if (v == "secondary" || v == "Secondary") {
+      btn->variant(ButtonVariant::Secondary);
+    } else if (v == "danger" || v == "Danger") {
+      btn->variant(ButtonVariant::Danger);
+    } else if (v == "primary" || v == "Primary") {
+      btn->variant(ButtonVariant::Primary);
+    }
+  }
   ApplyOptionalColor(btn, props, "bg", &Button::bg);
   ApplyOptionalColor(btn, props, "bg_hover", &Button::bg_hover);
   ApplyOptionalColor(btn, props, "bg_pressed", &Button::bg_pressed);
@@ -149,6 +161,9 @@ void ApplyButtonChrome(Button* btn, const YAML::Node& props) {
     } else {
       btn->text_align(auralite::TextHAlign::Center);
     }
+  }
+  if (props["enabled"]) {
+    btn->set_enabled(props["enabled"].as<bool>());
   }
 }
 
@@ -263,19 +278,18 @@ void ApplyListColumnsHeader(auto* list, const YAML::Node& props) {
   }
 }
 
-void ApplyWeightCrossAlign(Node* node, const YAML::Node& props,
-                           bool label_text_align) {
+void ApplyWeightHVAlign(Node* node, const YAML::Node& props) {
   if (!node) {
     return;
   }
   if (props["weight"]) {
     node->weight(props["weight"].as<float>());
   }
-  if (props["cross_align"]) {
-    node->cross_align(ParseCrossAlign(props["cross_align"].as<std::string>()));
-  } else if (!label_text_align && props["align"]) {
-    // Non-Label: align is layout cross_align alias (DuiLib-ish).
-    node->cross_align(ParseCrossAlign(props["align"].as<std::string>()));
+  if (props["h_align"]) {
+    node->h_align(ParseAlign(props["h_align"].as<std::string>()));
+  }
+  if (props["v_align"]) {
+    node->v_align(ParseAlign(props["v_align"].as<std::string>()));
   }
 }
 
@@ -327,6 +341,9 @@ std::string NodeTypeName(const Node* n) {
   if (dynamic_cast<const Column*>(n)) {
     return "Column";
   }
+  if (dynamic_cast<const TitleBar*>(n)) {
+    return "TitleBar";
+  }
   if (dynamic_cast<const Row*>(n)) {
     return "Row";
   }
@@ -341,6 +358,12 @@ std::string NodeTypeName(const Node* n) {
   }
   if (dynamic_cast<const Label*>(n)) {
     return "Label";
+  }
+  if (dynamic_cast<const Toast*>(n)) {
+    return "Toast";
+  }
+  if (dynamic_cast<const UserControl*>(n)) {
+    return "UserControl";
   }
   if (dynamic_cast<const Button*>(n)) {
     return "Button";
@@ -402,6 +425,9 @@ std::string NodeTypeName(const Node* n) {
 std::string NodeDetail(const Node* n) {
   if (const auto* label = dynamic_cast<const Label*>(n)) {
     return " text=\"" + WideToUtf8(label->text()) + "\"";
+  }
+  if (const auto* toast = dynamic_cast<const Toast*>(n)) {
+    return " text=\"" + WideToUtf8(toast->text()) + "\"";
   }
   if (const auto* btn = dynamic_cast<const Button*>(n)) {
     return " text=\"" + WideToUtf8(btn->text()) + "\"";
@@ -478,14 +504,8 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["spacing"]) {
       col->spacing(props["spacing"].as<float>());
     }
-    if (props["child_align"]) {
-      col->child_align(ParseCrossAlign(props["child_align"].as<std::string>()));
-    }
-    if (props["main_align"]) {
-      col->main_align(ParseCrossAlign(props["main_align"].as<std::string>()));
-    }
     ApplyWidthHeight(col.get(), props);
-    ApplyWeightCrossAlign(col.get(), props, false);
+    ApplyWeightHVAlign(col.get(), props);
     return col;
   });
 
@@ -495,15 +515,20 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["spacing"]) {
       row->spacing(props["spacing"].as<float>());
     }
-    if (props["child_align"]) {
-      row->child_align(ParseCrossAlign(props["child_align"].as<std::string>()));
-    }
-    if (props["main_align"]) {
-      row->main_align(ParseCrossAlign(props["main_align"].as<std::string>()));
-    }
     ApplyWidthHeight(row.get(), props);
-    ApplyWeightCrossAlign(row.get(), props, false);
+    ApplyWeightHVAlign(row.get(), props);
     return row;
+  });
+
+  Register("TitleBar", [](const YAML::Node& props, const HandlerMap&) {
+    auto bar = std::make_unique<TitleBar>();
+    ApplyPaddingRow(bar.get(), props);
+    if (props["spacing"]) {
+      bar->spacing(props["spacing"].as<float>());
+    }
+    ApplyWidthHeight(bar.get(), props);
+    ApplyWeightHVAlign(bar.get(), props);
+    return bar;
   });
 
   Register("Tile", [](const YAML::Node& props, const HandlerMap&) {
@@ -545,7 +570,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       tile->item_size(iw, ih);
     }
     ApplyWidthHeight(tile.get(), props);
-    ApplyWeightCrossAlign(tile.get(), props, false);
+    ApplyWeightHVAlign(tile.get(), props);
     return tile;
   });
 
@@ -565,14 +590,14 @@ void ViewFactory::RegisterBuiltinTypes() {
       tab->set_headers(std::move(titles));
     }
     ApplyWidthHeight(tab.get(), props);
-    ApplyWeightCrossAlign(tab.get(), props, false);
+    ApplyWeightHVAlign(tab.get(), props);
     return tab;
   });
 
   Register("Absolute", [](const YAML::Node& props, const HandlerMap&) {
     auto abs = std::make_unique<Absolute>();
     ApplyWidthHeight(abs.get(), props);
-    ApplyWeightCrossAlign(abs.get(), props, false);
+    ApplyWeightHVAlign(abs.get(), props);
     return abs;
   });
 
@@ -591,8 +616,40 @@ void ViewFactory::RegisterBuiltinTypes() {
       label->preferred_height(props["preferred_height"].as<float>());
     }
     ApplyWidthHeight(label.get(), props);
-    ApplyWeightCrossAlign(label.get(), props, true);
+    ApplyWeightHVAlign(label.get(), props);
     return label;
+  });
+
+  Register("Toast", [](const YAML::Node& props, const HandlerMap&) {
+    auto toast = std::make_unique<Toast>();
+    if (props["text"]) {
+      toast->text(Utf8ToWide(props["text"].as<std::string>()));
+    }
+    if (props["font_size"]) {
+      toast->font_size(props["font_size"].as<float>());
+    }
+    if (props["variant"]) {
+      const std::string v = props["variant"].as<std::string>();
+      if (v == "success" || v == "Success") {
+        toast->variant(ToastVariant::Success);
+      } else if (v == "danger" || v == "Danger") {
+        toast->variant(ToastVariant::Danger);
+      } else {
+        toast->variant(ToastVariant::Info);
+      }
+    }
+    if (props["duration"]) {
+      toast->duration_sec(props["duration"].as<float>());
+    }
+    if (props["animate"]) {
+      toast->animate(props["animate"].as<bool>());
+    }
+    if (props["fade"]) {
+      toast->fade_sec(props["fade"].as<float>());
+    }
+    ApplyWidthHeight(toast.get(), props);
+    ApplyWeightHVAlign(toast.get(), props);
+    return toast;
   });
 
   Register("Button", [](const YAML::Node& props, const HandlerMap& handlers) {
@@ -605,7 +662,7 @@ void ViewFactory::RegisterBuiltinTypes() {
     }
     ApplyButtonChrome(btn.get(), props);
     ApplyWidthHeight(btn.get(), props);
-    ApplyWeightCrossAlign(btn.get(), props, false);
+    ApplyWeightHVAlign(btn.get(), props);
     BindOnClick(btn.get(), props, handlers);
     return btn;
   });
@@ -613,7 +670,7 @@ void ViewFactory::RegisterBuiltinTypes() {
   Register("UserControl", [](const YAML::Node& props, const HandlerMap&) {
     auto view = std::make_unique<UserControl>();
     ApplyWidthHeight(view.get(), props);
-    ApplyWeightCrossAlign(view.get(), props, false);
+    ApplyWeightHVAlign(view.get(), props);
     return view;
   });
 
@@ -632,7 +689,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       field->font_size(props["font_size"].as<float>());
     }
     ApplyWidthHeight(field.get(), props);
-    ApplyWeightCrossAlign(field.get(), props, false);
+    ApplyWeightHVAlign(field.get(), props);
     return field;
   });
 
@@ -642,7 +699,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       image->LoadFromFile(Utf8ToWide(props["path"].as<std::string>()));
     }
     ApplyWidthHeight(image.get(), props);
-    ApplyWeightCrossAlign(image.get(), props, false);
+    ApplyWeightHVAlign(image.get(), props);
     return image;
   });
 
@@ -650,7 +707,10 @@ void ViewFactory::RegisterBuiltinTypes() {
            [](const YAML::Node& props, const HandlerMap& handlers) {
              auto btn = std::make_unique<ImageButton>();
              ApplyWidthHeight(btn.get(), props);
-             ApplyWeightCrossAlign(btn.get(), props, false);
+             ApplyWeightHVAlign(btn.get(), props);
+             if (props["enabled"]) {
+               btn->set_enabled(props["enabled"].as<bool>());
+             }
              BindOnClick(btn.get(), props, handlers);
              return btn;
            });
@@ -667,7 +727,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       cb->checked(props["checked"].as<bool>());
     }
     ApplyWidthHeight(cb.get(), props);
-    ApplyWeightCrossAlign(cb.get(), props, false);
+    ApplyWeightHVAlign(cb.get(), props);
     return cb;
   });
 
@@ -686,7 +746,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       radio->checked(props["checked"].as<bool>());
     }
     ApplyWidthHeight(radio.get(), props);
-    ApplyWeightCrossAlign(radio.get(), props, false);
+    ApplyWeightHVAlign(radio.get(), props);
     return radio;
   });
 
@@ -707,7 +767,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       sw->on(props["on"].as<bool>());
     }
     ApplyWidthHeight(sw.get(), props);
-    ApplyWeightCrossAlign(sw.get(), props, false);
+    ApplyWeightHVAlign(sw.get(), props);
     return sw;
   });
 
@@ -715,7 +775,7 @@ void ViewFactory::RegisterBuiltinTypes() {
     auto scroll = std::make_unique<ScrollView>();
     scroll->fill_width();
     ApplyWidthHeight(scroll.get(), props);
-    ApplyWeightCrossAlign(scroll.get(), props, false);
+    ApplyWeightHVAlign(scroll.get(), props);
     return scroll;
   });
 
@@ -729,7 +789,7 @@ void ViewFactory::RegisterBuiltinTypes() {
     }
     ApplySubmenuChrome(sm.get(), props);
     ApplyWidthHeight(sm.get(), props);
-    ApplyWeightCrossAlign(sm.get(), props, false);
+    ApplyWeightHVAlign(sm.get(), props);
     return sm;
   });
 
@@ -743,11 +803,21 @@ void ViewFactory::RegisterBuiltinTypes() {
         list->AddItem(Utf8ToWide(item.as<std::string>()));
       }
     }
+    if (props["checkable"]) {
+      list->checkable(props["checkable"].as<bool>());
+    }
     if (props["selected"]) {
       list->set_selected_index(props["selected"].as<int>());
     }
+    if (props["checked"] && props["checked"].IsSequence()) {
+      std::vector<int> idxs;
+      for (const auto& c : props["checked"]) {
+        idxs.push_back(c.as<int>());
+      }
+      list->set_checked_indices(idxs);
+    }
     ApplyWidthHeight(list.get(), props);
-    ApplyWeightCrossAlign(list.get(), props, false);
+    ApplyWeightHVAlign(list.get(), props);
     return list;
   });
 
@@ -755,7 +825,7 @@ void ViewFactory::RegisterBuiltinTypes() {
     auto split = std::make_unique<SplitView>();
     split->fill_width();
     ApplyWidthHeight(split.get(), props);
-    ApplyWeightCrossAlign(split.get(), props, false);
+    ApplyWeightHVAlign(split.get(), props);
     if (props["ratio"]) {
       split->set_ratio(props["ratio"].as<float>());
     }
@@ -771,7 +841,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       bar->indeterminate(props["indeterminate"].as<bool>());
     }
     ApplyWidthHeight(bar.get(), props);
-    ApplyWeightCrossAlign(bar.get(), props, false);
+    ApplyWeightHVAlign(bar.get(), props);
     return bar;
   });
 
@@ -795,7 +865,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       }
     }
     ApplyWidthHeight(slider.get(), props);
-    ApplyWeightCrossAlign(slider.get(), props, false);
+    ApplyWeightHVAlign(slider.get(), props);
     return slider;
   });
 
@@ -829,7 +899,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       }
     }
     ApplyWidthHeight(combo.get(), props);
-    ApplyWeightCrossAlign(combo.get(), props, false);
+    ApplyWeightHVAlign(combo.get(), props);
     return combo;
   });
 
@@ -848,7 +918,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       area->wrap(props["wrap"].as<bool>());
     }
     ApplyWidthHeight(area.get(), props);
-    ApplyWeightCrossAlign(area.get(), props, false);
+    ApplyWeightHVAlign(area.get(), props);
     return area;
   });
 
@@ -883,7 +953,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       });
     }
     ApplyWidthHeight(list.get(), props);
-    ApplyWeightCrossAlign(list.get(), props, false);
+    ApplyWeightHVAlign(list.get(), props);
     return list;
   });
 
@@ -947,7 +1017,7 @@ void ViewFactory::RegisterBuiltinTypes() {
       load(-1, props["nodes"]);
     }
     ApplyWidthHeight(tree.get(), props);
-    ApplyWeightCrossAlign(tree.get(), props, false);
+    ApplyWeightHVAlign(tree.get(), props);
     return tree;
   });
 
@@ -985,30 +1055,33 @@ void ViewFactory::RegisterBuiltinTypes() {
       list->set_selected_index(props["selected"].as<int>(), false);
     }
     ApplyWidthHeight(list.get(), props);
-    ApplyWeightCrossAlign(list.get(), props, false);
+    ApplyWeightHVAlign(list.get(), props);
     return list;
   });
 }
 
 std::unique_ptr<Node> ViewFactory::CreateFromYamlFile(
-    const std::string& path, const HandlerMap& handlers) const {
-  return LoadYamlFile(path, *this, handlers);
+    const std::string& path, const HandlerMap& handlers,
+    WindowYaml* window_out) const {
+  return LoadYamlFile(path, *this, handlers, window_out);
 }
 
 std::unique_ptr<Node> ViewFactory::CreateFromYamlString(
-    const std::string& yaml, const HandlerMap& handlers) const {
-  return LoadYamlString(yaml, *this, handlers);
+    const std::string& yaml, const HandlerMap& handlers,
+    WindowYaml* window_out) const {
+  return LoadYamlString(yaml, *this, handlers, window_out);
 }
 
 std::unique_ptr<Node> ViewFactory::CreateFromYaml(
-    const std::string& path_or_yaml, const HandlerMap& handlers) const {
+    const std::string& path_or_yaml, const HandlerMap& handlers,
+    WindowYaml* window_out) const {
   namespace fs = std::filesystem;
   std::error_code ec;
   const fs::path as_path(path_or_yaml);
   if (fs::exists(as_path, ec) && fs::is_regular_file(as_path, ec)) {
-    return CreateFromYamlFile(path_or_yaml, handlers);
+    return CreateFromYamlFile(path_or_yaml, handlers, window_out);
   }
-  return CreateFromYamlString(path_or_yaml, handlers);
+  return CreateFromYamlString(path_or_yaml, handlers, window_out);
 }
 
 std::string ViewFactory::DumpTree(const Node* root) {

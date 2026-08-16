@@ -1,5 +1,7 @@
 #include "auralite/canvas.h"
 
+#include <algorithm>
+#include <cmath>
 #include <wincodec.h>
 
 #pragma comment(lib, "d2d1.lib")
@@ -197,6 +199,11 @@ void Canvas::Shutdown() {
   SafeRelease(d2d_factory_);
   hwnd_ = nullptr;
   layered_ = false;
+  layered_opacity_ = 1.f;
+}
+
+void Canvas::set_layered_opacity(float a) {
+  layered_opacity_ = std::clamp(a, 0.f, 1.f);
 }
 
 void Canvas::DestroyLayeredSurface() {
@@ -415,7 +422,8 @@ bool Canvas::EndDraw() {
     pt_dst.y = wr.top;
     BLENDFUNCTION blend = {};
     blend.BlendOp = AC_SRC_OVER;
-    blend.SourceConstantAlpha = 255;
+    blend.SourceConstantAlpha =
+        static_cast<BYTE>(std::lround(layered_opacity_ * 255.f));
     blend.AlphaFormat = AC_SRC_ALPHA;
     UpdateLayeredWindow(hwnd_, nullptr, &pt_dst, &size, dib_dc_, &pt_src, 0,
                         &blend, ULW_ALPHA);
@@ -473,6 +481,20 @@ void Canvas::DrawRect(const RectF& rect, const ColorF& color,
     return;
   }
   render_target_->DrawRectangle(ToD2D(rect), brush, stroke_width);
+}
+
+void Canvas::DrawRoundedRect(const RectF& rect, float radius_x, float radius_y,
+                             const ColorF& color, float stroke_width) {
+  if (!render_target_ || stroke_width <= 0.f) {
+    return;
+  }
+  ID2D1SolidColorBrush* brush = BrushFor(color);
+  if (!brush) {
+    return;
+  }
+  const D2D1_ROUNDED_RECT rr =
+      D2D1::RoundedRect(ToD2D(rect), radius_x, radius_y);
+  render_target_->DrawRoundedRectangle(rr, brush, stroke_width);
 }
 
 void Canvas::DrawDashedRect(const RectF& rect, const ColorF& color,

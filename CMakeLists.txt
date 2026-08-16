@@ -160,10 +160,15 @@ FetchContent_MakeAvailable(yaml-cpp)
 # ---- Declarative UI (auralite::ui); public CMake alias AuraLite::UI ----
 add_library(auralite_ui STATIC
   auralite/ui/node.cpp
+  auralite/ui/acc.cpp
+  auralite/ui/anim.cpp
   auralite/ui/column.cpp
   auralite/ui/row.cpp
   auralite/ui/tile.cpp
   auralite/ui/tab.cpp
+  auralite/ui/title_bar.cpp
+  auralite/ui/toast.cpp
+  auralite/ui/toast_overlay.cpp
   auralite/ui/absolute.cpp
   auralite/ui/label.cpp
   auralite/ui/button.cpp
@@ -190,6 +195,8 @@ add_library(auralite_ui STATIC
   auralite/ui/context_menu.cpp
   auralite/ui/popup_host.cpp
   auralite/ui/submenu.cpp
+  auralite/ui/tooltip_overlay.cpp
+  auralite/ui/uia/provider.cpp
   auralite/ui/window.cpp
   auralite/ui/theme.cpp
   auralite/ui/theme_yaml.cpp
@@ -217,9 +224,15 @@ target_link_libraries(auralite_ui
     yaml-cpp
     imm32
     shcore
+    UIAutomationCore
+    oleacc
+    oleaut32
+    ole32
+    uuid
   PRIVATE
     user32
     gdi32
+    shell32
 )
 if(NOT AURALITE_BUILD_BASE)
   message(FATAL_ERROR "auralite_ui requires AURALITE_BUILD_BASE for MessageLoop")
@@ -313,6 +326,18 @@ if(AURALITE_BUILD_UI_DEMOS)
   )
   add_custom_command(TARGET ui_gallery POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${AURALITE_ROOT}/examples/ui_gallery/dialog.yaml"
+      "$<TARGET_FILE_DIR:ui_gallery>/dialog.yaml"
+    COMMENT "Copy dialog.yaml next to ui_gallery"
+  )
+  add_custom_command(TARGET ui_gallery POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${AURALITE_ROOT}/examples/ui_gallery/dialog_square.yaml"
+      "$<TARGET_FILE_DIR:ui_gallery>/dialog_square.yaml"
+    COMMENT "Copy dialog_square.yaml next to ui_gallery"
+  )
+  add_custom_command(TARGET ui_gallery POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "${AURALITE_ROOT}/examples/ui_gallery/popup_menu.yaml"
       "$<TARGET_FILE_DIR:ui_gallery>/popup_menu.yaml"
     COMMENT "Copy popup_menu.yaml next to ui_gallery"
@@ -382,6 +407,56 @@ if(AURALITE_BUILD_UI_DEMOS)
     target_compile_options(theme_test PRIVATE /W3 /utf-8 /permissive-)
   endif()
 
+  add_executable(control_anim_test examples/control_anim_test/main.cpp)
+  target_link_libraries(control_anim_test PRIVATE AuraLite::UI)
+  target_compile_definitions(control_anim_test PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(control_anim_test PRIVATE /W3 /utf-8 /permissive-)
+  endif()
+
+  add_executable(anim_test examples/anim_test/main.cpp)
+  target_link_libraries(anim_test PRIVATE AuraLite::UI)
+  target_compile_definitions(anim_test PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(anim_test PRIVATE /W3 /utf-8 /permissive-)
+  endif()
+
+  add_executable(toast_test examples/toast_test/main.cpp)
+  target_link_libraries(toast_test PRIVATE AuraLite::UI)
+  target_compile_definitions(toast_test PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(toast_test PRIVATE /W3 /utf-8 /permissive-)
+  endif()
+
+  add_executable(acc_test examples/acc_test/main.cpp)
+  target_link_libraries(acc_test PRIVATE AuraLite::UI)
+  target_compile_definitions(acc_test PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(acc_test PRIVATE /W3 /utf-8 /permissive-)
+  endif()
+
+  add_executable(uia_test examples/uia_test/main.cpp)
+  target_link_libraries(uia_test PRIVATE AuraLite::UI)
+  target_compile_definitions(uia_test PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(uia_test PRIVATE /W3 /utf-8 /permissive-)
+  endif()
+
   add_executable(dpi_test examples/dpi_test/main.cpp)
   target_link_libraries(dpi_test PRIVATE AuraLite::UI)
   target_compile_definitions(dpi_test PRIVATE
@@ -400,6 +475,16 @@ if(AURALITE_BUILD_UI_DEMOS)
   )
   if(MSVC)
     target_compile_options(dialog_test PRIVATE /W3 /utf-8 /permissive-)
+  endif()
+
+  add_executable(drag_test examples/drag_test/main.cpp)
+  target_link_libraries(drag_test PRIVATE AuraLite::UI)
+  target_compile_definitions(drag_test PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(drag_test PRIVATE /W3 /utf-8 /permissive-)
   endif()
 endif()
 

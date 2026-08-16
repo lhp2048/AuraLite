@@ -119,4 +119,23 @@ void Checkbox::OnKey(const KeyEvent& e) {
   }
 }
 
+AccRole Checkbox::acc_role() const {
+  return AccRole::CheckBox;
+}
+
+std::wstring Checkbox::AccDefaultName() const {
+  return text_;
+}
+
+AccState Checkbox::acc_state() const {
+  AccState s = Node::acc_state();
+  s.checked = checked_;
+  return s;
+}
+
+bool Checkbox::AccToggle() {
+  Toggle();
+  return true;
+}
+
 }  // namespace auralite::ui

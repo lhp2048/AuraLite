@@ -14,7 +14,7 @@ struct SizeF {
 
 enum class TextAlign { Left, Center, Right };
 
-// Cross-axis alignment inside Column/Row (main-axis packing stays Start).
+// Placement along one screen axis (not Label text align).
 enum class Align { Start, Center, End };
 
 // Layout size along one axis:

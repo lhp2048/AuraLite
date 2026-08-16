@@ -1,5 +1,6 @@
 #pragma once
 
+#include "auralite/ui/anim.h"
 #include "auralite/ui/node.h"
 
 #include <functional>
@@ -15,6 +16,7 @@ class Tab : public Node {
 
   Tab& set_selected(int index);
   int selected() const { return selected_; }
+  float visual_selected() const { return visual_selected_; }
   int page_count() const;
 
   Tab& set_headers(std::vector<std::wstring> titles);
@@ -37,8 +39,14 @@ class Tab : public Node {
   float HeaderH() const;
   RectF PageRect() const;
   int HeaderIndexAt(float x, float y) const;
+  void SyncPageVisibility();
+  void SyncIndicator(bool instant);
+  void OnAnimateChanged() override;
+  void OnHostWindowChanged() override;
 
   int selected_ = 0;
+  float visual_selected_ = 0.f;
+  Tween indicator_tween_;
   std::vector<std::wstring> headers_;
   float header_height_ = 36.f;
   RectF header_bounds_{};

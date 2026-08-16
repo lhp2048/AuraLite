@@ -24,6 +24,8 @@
 #include "auralite/ui/text_area.h"
 #include "auralite/ui/text_field.h"
 #include "auralite/ui/tile.h"
+#include "auralite/ui/title_bar.h"
+#include "auralite/ui/toast.h"
 #include "auralite/ui/user_control.h"
 
 #include <memory>
@@ -84,16 +86,20 @@ class ColumnBuilder : public detail::ChildHost<ColumnBuilder, Column> {
     get()->spacing(s);
     return *this;
   }
-  ColumnBuilder& child_align(Align a) {
-    get()->child_align(a);
+  ColumnBuilder& h_align(Align a) {
+    get()->h_align(a);
     return *this;
   }
-  ColumnBuilder& main_align(Align a) {
-    get()->main_align(a);
+  ColumnBuilder& v_align(Align a) {
+    get()->v_align(a);
     return *this;
   }
   ColumnBuilder& fill_width() {
     get()->fill_width();
+    return *this;
+  }
+  ColumnBuilder& fill_height() {
+    get()->fill_height();
     return *this;
   }
   ColumnBuilder& fixed_height(float h) {
@@ -116,12 +122,12 @@ class RowBuilder : public detail::ChildHost<RowBuilder, Row> {
     get()->spacing(s);
     return *this;
   }
-  RowBuilder& child_align(Align a) {
-    get()->child_align(a);
+  RowBuilder& h_align(Align a) {
+    get()->h_align(a);
     return *this;
   }
-  RowBuilder& main_align(Align a) {
-    get()->main_align(a);
+  RowBuilder& v_align(Align a) {
+    get()->v_align(a);
     return *this;
   }
   RowBuilder& fill_width() {
@@ -129,6 +135,38 @@ class RowBuilder : public detail::ChildHost<RowBuilder, Row> {
     return *this;
   }
   RowBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
+};
+
+class TitleBarBuilder : public detail::ChildHost<TitleBarBuilder, TitleBar> {
+ public:
+  TitleBarBuilder& padding(float all) {
+    get()->padding(all);
+    return *this;
+  }
+  TitleBarBuilder& padding(float l, float t, float r, float b) {
+    get()->padding(l, t, r, b);
+    return *this;
+  }
+  TitleBarBuilder& spacing(float s) {
+    get()->spacing(s);
+    return *this;
+  }
+  TitleBarBuilder& h_align(Align a) {
+    get()->h_align(a);
+    return *this;
+  }
+  TitleBarBuilder& v_align(Align a) {
+    get()->v_align(a);
+    return *this;
+  }
+  TitleBarBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  TitleBarBuilder& fixed_height(float h) {
     get()->fixed_height(h);
     return *this;
   }
@@ -184,8 +222,16 @@ class TabBuilder : public detail::ChildHost<TabBuilder, Tab> {
     get()->on_selected(std::move(handler));
     return *this;
   }
+  TabBuilder& name(std::string n) {
+    get()->set_name(std::move(n));
+    return *this;
+  }
   TabBuilder& fill_width() {
     get()->fill_width();
+    return *this;
+  }
+  TabBuilder& fill_height() {
+    get()->fill_height();
     return *this;
   }
   TabBuilder& fixed_height(float h) {
@@ -200,6 +246,10 @@ class AbsoluteBuilder : public detail::ChildHost<AbsoluteBuilder, Absolute> {
     get()->fill_width();
     return *this;
   }
+  AbsoluteBuilder& fill_height() {
+    get()->fill_height();
+    return *this;
+  }
   AbsoluteBuilder& fixed_height(float h) {
     get()->fixed_height(h);
     return *this;
@@ -208,6 +258,10 @@ class AbsoluteBuilder : public detail::ChildHost<AbsoluteBuilder, Absolute> {
 
 class LabelBuilder : public detail::BuilderBase<Label> {
  public:
+  LabelBuilder& name(std::string n) {
+    get()->set_name(std::move(n));
+    return *this;
+  }
   LabelBuilder& text(const std::wstring& t) {
     get()->text(t);
     return *this;
@@ -224,8 +278,12 @@ class LabelBuilder : public detail::BuilderBase<Label> {
     get()->align(a);
     return *this;
   }
-  LabelBuilder& cross_align(Align a) {
-    get()->cross_align(a);
+  LabelBuilder& h_align(Align a) {
+    get()->h_align(a);
+    return *this;
+  }
+  LabelBuilder& v_align(Align a) {
+    get()->v_align(a);
     return *this;
   }
   LabelBuilder& weight(float w) {
@@ -264,6 +322,10 @@ class ButtonBuilder : public detail::BuilderBase<Button> {
     get()->set_name(std::move(n));
     return *this;
   }
+  ButtonBuilder& acc_name(std::wstring n) {
+    get()->acc_name(std::move(n));
+    return *this;
+  }
   ButtonBuilder& font_size(float size) {
     get()->font_size(size);
     return *this;
@@ -296,8 +358,12 @@ class ButtonBuilder : public detail::BuilderBase<Button> {
     get()->weight(w);
     return *this;
   }
-  ButtonBuilder& cross_align(Align a) {
-    get()->cross_align(a);
+  ButtonBuilder& h_align(Align a) {
+    get()->h_align(a);
+    return *this;
+  }
+  ButtonBuilder& v_align(Align a) {
+    get()->v_align(a);
     return *this;
   }
   ButtonBuilder& fill_height() {
@@ -318,6 +384,10 @@ class ButtonBuilder : public detail::BuilderBase<Button> {
   }
   ButtonBuilder& on_click(Button::ClickHandler handler) {
     get()->on_click(std::move(handler));
+    return *this;
+  }
+  ButtonBuilder& variant(ButtonVariant v) {
+    get()->variant(v);
     return *this;
   }
   ButtonBuilder& bg(const ColorF& c) {
@@ -342,6 +412,10 @@ class ButtonBuilder : public detail::BuilderBase<Button> {
   }
   ButtonBuilder& corner_radius(float r) {
     get()->corner_radius(r);
+    return *this;
+  }
+  ButtonBuilder& enabled(bool e) {
+    get()->set_enabled(e);
     return *this;
   }
 };
@@ -372,6 +446,10 @@ class TextFieldBuilder : public detail::BuilderBase<TextField> {
     get()->on_change(std::move(handler));
     return *this;
   }
+  TextFieldBuilder& on_submit(std::function<void()> handler) {
+    get()->on_submit(std::move(handler));
+    return *this;
+  }
 };
 
 class ImageViewBuilder : public detail::BuilderBase<ImageView> {
@@ -388,12 +466,24 @@ class ImageViewBuilder : public detail::BuilderBase<ImageView> {
 
 class ImageButtonBuilder : public detail::BuilderBase<ImageButton> {
  public:
+  ImageButtonBuilder& name(std::string n) {
+    get()->set_name(std::move(n));
+    return *this;
+  }
   ImageButtonBuilder& preferred_size(float w, float h) {
     get()->preferred_size(w, h);
     return *this;
   }
+  ImageButtonBuilder& enabled(bool e) {
+    get()->set_enabled(e);
+    return *this;
+  }
   ImageButtonBuilder& on_click(ImageButton::ClickHandler handler) {
     get()->on_click(std::move(handler));
+    return *this;
+  }
+  ImageButtonBuilder& acc_name(std::wstring n) {
+    get()->acc_name(std::move(n));
     return *this;
   }
 };
@@ -544,6 +634,18 @@ class ListViewBuilder : public detail::BuilderBase<ListView> {
     get()->on_selection_changed(std::move(handler));
     return *this;
   }
+  ListViewBuilder& checkable(bool v) {
+    get()->checkable(v);
+    return *this;
+  }
+  ListViewBuilder& selected(int index) {
+    get()->set_selected_index(index);
+    return *this;
+  }
+  ListViewBuilder& checked(std::vector<int> indices) {
+    get()->set_checked_indices(std::move(indices));
+    return *this;
+  }
 };
 
 class SplitViewBuilder : public detail::BuilderBase<SplitView> {
@@ -584,11 +686,58 @@ class SplitViewBuilder : public detail::BuilderBase<SplitView> {
 
 inline ColumnBuilder Column() { return ColumnBuilder(); }
 inline RowBuilder Row() { return RowBuilder(); }
+inline TitleBarBuilder TitleBar() { return TitleBarBuilder(); }
 inline TileBuilder Tile() { return TileBuilder(); }
 inline TabBuilder Tab() { return TabBuilder(); }
 inline AbsoluteBuilder Absolute() { return AbsoluteBuilder(); }
 inline LabelBuilder Label() { return LabelBuilder(); }
 inline ButtonBuilder Button() { return ButtonBuilder(); }
+
+class ToastBuilder : public detail::BuilderBase<Toast> {
+ public:
+  ToastBuilder& text(const std::wstring& t) {
+    get()->text(t);
+    return *this;
+  }
+  ToastBuilder& variant(ToastVariant v) {
+    get()->variant(v);
+    return *this;
+  }
+  ToastBuilder& duration_sec(float s) {
+    get()->duration_sec(s);
+    return *this;
+  }
+  ToastBuilder& animate(bool on) {
+    get()->animate(on);
+    return *this;
+  }
+  ToastBuilder& fade_sec(float s) {
+    get()->fade_sec(s);
+    return *this;
+  }
+  ToastBuilder& font_size(float size) {
+    get()->font_size(size);
+    return *this;
+  }
+  ToastBuilder& hug_width() {
+    get()->hug_width();
+    return *this;
+  }
+  ToastBuilder& hug_height() {
+    get()->hug_height();
+    return *this;
+  }
+  ToastBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  ToastBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
+};
+
+inline ToastBuilder Toast() { return ToastBuilder(); }
 
 class UserControlBuilder : public detail::BuilderBase<UserControl> {
  public:
@@ -620,12 +769,20 @@ class UserControlBuilder : public detail::BuilderBase<UserControl> {
     get()->wants_mouse_wheel(want);
     return *this;
   }
+  UserControlBuilder& name(std::string n) {
+    get()->set_name(std::move(n));
+    return *this;
+  }
   UserControlBuilder& fill_width() {
     get()->fill_width();
     return *this;
   }
   UserControlBuilder& fill_height() {
     get()->fill_height();
+    return *this;
+  }
+  UserControlBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
     return *this;
   }
   UserControlBuilder& weight(float w) {

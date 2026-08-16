@@ -1,5 +1,6 @@
 #pragma once
 
+#include "auralite/ui/anim.h"
 #include "auralite/ui/node.h"
 
 #include <functional>
@@ -17,6 +18,7 @@ class Slider : public Node {
 
   Slider& value(float v);
   float value() const { return value_; }
+  float visual_value() const { return visual_value_; }
   Slider& orientation(SliderOrientation o);
   SliderOrientation orientation() const { return orientation_; }
   // Keyboard / Page step; 0 = default 0.05.
@@ -46,8 +48,13 @@ class Slider : public Node {
   void AdjustValue(float delta);
   void Notify();
   void ApplyDefaultSize();
+  void SyncVisual(bool instant);
+  void OnAnimateChanged() override;
+  void OnHostWindowChanged() override;
 
   float value_ = 0.f;
+  float visual_value_ = 0.f;
+  Tween value_tween_;
   float step_ = 0.05f;
   int tick_count_ = 0;
   bool dragging_ = false;

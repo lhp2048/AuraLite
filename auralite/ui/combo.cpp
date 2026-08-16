@@ -497,4 +497,18 @@ void Combo::OnChar(wchar_t ch) {
   }
 }
 
+AccRole Combo::acc_role() const {
+  return AccRole::ComboBox;
+}
+
+std::wstring Combo::AccDefaultName() const {
+  if (multi_) {
+    return SummaryLabel();
+  }
+  if (selected_ >= 0 && selected_ < static_cast<int>(items_.size())) {
+    return items_[static_cast<size_t>(selected_)];
+  }
+  return {};
+}
+
 }  // namespace auralite::ui

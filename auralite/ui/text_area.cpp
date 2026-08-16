@@ -553,4 +553,21 @@ void TextArea::OnImeResult(const std::wstring& result) {
 
 void TextArea::OnImeEnd() { composition_.clear(); }
 
+AccRole TextArea::acc_role() const {
+  return AccRole::Edit;
+}
+
+std::wstring TextArea::AccDefaultName() const {
+  return placeholder_;
+}
+
+std::wstring TextArea::AccValue() const {
+  return text_;
+}
+
+bool TextArea::AccSetValue(const std::wstring& value) {
+  set_text(value);
+  return true;
+}
+
 }  // namespace auralite::ui

@@ -119,4 +119,24 @@ void ImageButton::OnDeviceLost() {
   Node::OnDeviceLost();
 }
 
+AccRole ImageButton::acc_role() const {
+  return AccRole::Button;
+}
+
+AccState ImageButton::acc_state() const {
+  AccState s = Node::acc_state();
+  s.disabled = !enabled_;
+  return s;
+}
+
+bool ImageButton::AccInvoke() {
+  if (!enabled_) {
+    return false;
+  }
+  if (on_click_) {
+    on_click_();
+  }
+  return true;
+}
+
 }  // namespace auralite::ui

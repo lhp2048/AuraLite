@@ -5,6 +5,25 @@
 namespace auralite::ui {
 namespace {
 
+float AlignFree(float parent, float size, bool has_align, Align align,
+                bool has_pos, float pos_fallback) {
+  if (has_pos) {
+    return pos_fallback;
+  }
+  if (!has_align) {
+    return 0.f;
+  }
+  switch (align) {
+    case Align::Center:
+      return std::max(0.f, (parent - size) * 0.5f);
+    case Align::End:
+      return std::max(0.f, parent - size);
+    case Align::Start:
+    default:
+      return 0.f;
+  }
+}
+
 // Resolve child rect inside parent content size (parent origin at 0,0).
 // Anchor edges win over set_pos; dual-edge sets size; else own Measure / Fill.
 RectF ResolveAnchoredChild(Node* child, float parent_w, float parent_h) {
@@ -17,6 +36,7 @@ RectF ResolveAnchoredChild(Node* child, float parent_w, float parent_h) {
   float h = 0.f;
 
   // --- horizontal ---
+  // Dual-edge: size from parent minus insets; drop width / Fill / Hug.
   if (child->has_left() && child->has_right()) {
     x = child->left();
     w = std::max(0.f, parent_w - child->left() - child->right());
@@ -40,17 +60,19 @@ RectF ResolveAnchoredChild(Node* child, float parent_w, float parent_h) {
       x = parent_w - child->right() - w;
     }
   } else {
-    x = fallback_x;
-    const float max_w = std::max(0.f, parent_w - x);
-    const SizeF s = child->Measure(max_w, parent_h);
+    const SizeF s = child->Measure(parent_w, parent_h);
     if (child->width_policy() == SizePolicy::Fill) {
-      w = max_w;
+      w = parent_w;
+      x = 0.f;
     } else {
-      w = std::min(s.w, max_w);
+      w = std::min(s.w, parent_w);
+      x = AlignFree(parent_w, w, child->has_h_align(), child->h_align(),
+                    child->has_pos(), fallback_x);
     }
   }
 
   // --- vertical ---
+  // Dual-edge: size from parent minus insets; drop height / Fill / Hug.
   if (child->has_top() && child->has_bottom()) {
     y = child->top();
     h = std::max(0.f, parent_h - child->top() - child->bottom());
@@ -74,13 +96,15 @@ RectF ResolveAnchoredChild(Node* child, float parent_w, float parent_h) {
       y = parent_h - child->bottom() - h;
     }
   } else {
-    y = fallback_y;
-    const float max_h = std::max(0.f, parent_h - y);
+    const float max_h = parent_h;
     const SizeF s = child->Measure(w > 0.f ? w : parent_w, max_h);
     if (child->height_policy() == SizePolicy::Fill) {
       h = max_h;
+      y = 0.f;
     } else {
       h = std::min(s.h, max_h);
+      y = AlignFree(parent_h, h, child->has_v_align(), child->v_align(),
+                    child->has_pos(), fallback_y);
     }
   }
 

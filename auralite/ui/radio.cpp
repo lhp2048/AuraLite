@@ -146,4 +146,28 @@ void Radio::OnKey(const KeyEvent& e) {
   }
 }
 
+AccRole Radio::acc_role() const {
+  return AccRole::RadioButton;
+}
+
+std::wstring Radio::AccDefaultName() const {
+  return text_;
+}
+
+AccState Radio::acc_state() const {
+  AccState s = Node::acc_state();
+  s.checked = checked_;
+  return s;
+}
+
+bool Radio::AccInvoke() {
+  Select();
+  return true;
+}
+
+bool Radio::AccToggle() {
+  Select();
+  return true;
+}
+
 }  // namespace auralite::ui

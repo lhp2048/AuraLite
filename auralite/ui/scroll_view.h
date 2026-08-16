@@ -1,5 +1,6 @@
 #pragma once
 
+#include "auralite/ui/anim.h"
 #include "auralite/ui/node.h"
 #include "auralite/ui/vertical_scrollbar.h"
 
@@ -39,9 +40,15 @@ class ScrollView : public Node {
   bool NeedsScrollbar() const;
   void ClampScrollOffset();
   RectF ViewportRect() const;
+  void RelayoutContent();
+  void ApplyScroll(float offset, bool instant);
+  void OnAnimateChanged() override;
+  void OnHostWindowChanged() override;
 
   float scroll_offset_ = 0.f;
+  float scroll_target_ = 0.f;
   float content_h_ = 0.f;
+  Tween scroll_tween_;
   VerticalScrollbar vscroll_;
 };
 
