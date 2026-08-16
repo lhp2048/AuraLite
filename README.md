@@ -1,124 +1,99 @@
 # AuraLite
 
-Windows UI 工具库（源自早期 Chromium Views），作为第三方依赖放在 `family_win_desktop/3rd-party/AuraLite`。
+Windows 声明式 UI 库。本文描述 **`master`**：`auralite::ui` 控件树 + Direct2D 画布 + YAML / C++ fluent 双轨。
 
-上游仓库：https://github.com/lhp2048/AuraLite
+Views 时代（GDI+ / D2D）在 **`1.x`** / **`2.x`**，不是本分支的用法。
 
-**编码风格：** 见 [`CODING.md`](CODING.md)（`base` / `gfx` / `message_framework` / `view_framework` 以 Chromium 老 Views 习惯为准；`auralite/` 新栈见文中例外）。
+上游：https://github.com/lhp2048/AuraLite
 
-**布局（Column/Row/Absolute、`h_align` / `v_align`、锚点）：** 见 [`LAYOUT.md`](LAYOUT.md)。
-
-## 分支策略
-
-| 分支 | 用途 |
+| 文档 | 内容 |
 |------|------|
-| **`1.x`** | 业务维护线：Chromium Views + GDI+、VS2022 静态库、C++14 / Win7+。Family Shell 等优先跟此分支。 |
-| **`2.x`** | 过渡维护线：Chromium Views + Direct2D（阶段一完成态）。从 `master@acc1dab` 切出；Views/D2D 缺陷修复与兼容合入此线。 |
-| **`master`** | 下一代开发线：**阶段二起**主做 `auralite::ui`（声明式 UI / YAML / 新控件树）。不以 `view::` 兼容为验收目标。 |
+| [`LAYOUT.md`](LAYOUT.md) | Column / Row / Absolute、`h_align` / `v_align`、锚点、Fill/Hug |
+| [`CODING.md`](CODING.md) | 编码风格（`auralite/` 新栈 vs legacy） |
 
-`1.x` 从 `534701a` 切出；`2.x` 从阶段一完成提交 `acc1dab` 切出。架构级新能力优先在 `master`，稳定后再视需要回港或另开大版本。
+## 这是什么
 
-### 2.x / 阶段一遗产（**已完成** — Views + D2D）
+- **控件树**在 `auralite::Canvas` 上自绘（Direct2D + DirectWrite + WIC），不走 `view::`。
+- **YAML 与 C++ fluent DSL** 共用同一套布局和属性；`ui_gallery --check` 要求两棵树 Dump 对齐。
+- **单位是 DIP**（96 DIP = 1 逻辑英寸）。`Window::Create(w, h)` 的宽高是 DIP；Per-Monitor V2 下 `WM_DPICHANGED` 会重布局。
+- **主题**是进程级契约：`Theme::Active()` / `Theme::SetActive("dark")`。
+- 新代码 **C++20**，只链 `AuraLite::UI`（传递 `AuraLite::D2D`、yaml-cpp、`AuraLite::Base` / MessageLoop）。
 
-**完成定义（2026-08-14）：** Views 自绘路径仅 Direct2D + DirectWrite + WIC；`CreateCanvas` / `WidgetWin` 回屏均为 D2D；**GDI+ 已移除**；`test_view` 与 `d2d_demo` 文字观感同一档。详见：
+默认 **不编译** `AuraLite.UILegacy`。禁止 `#include` `view_framework`、禁止链接 `AuraLite.UILegacy.lib`。
 
-[`family_win_desktop/docs/superpowers/plans/2026-08-14-auralite-d2d-only-roadmap.md`](../../docs/superpowers/plans/2026-08-14-auralite-d2d-only-roadmap.md)
+## 快速开始
 
-**已知例外（非 AuraLite 画布，仍走系统 GDI/HWND）：**
-
-| 类型 | 说明 |
-|------|------|
-| `NativeButton` / `NativeControlWin` / `NativeViewHost` | 嵌原生 HWND，系统自绘 |
-| `TrackPopupMenu`（`MenuModel` / `MenuRunner`） | Win32 系统弹出菜单 |
-
-### master 阶段二（`auralite::ui` 声明式 UI）
-
-在 `auralite::Canvas` 上新建控件树与声明式双轨（**YAML + C++ fluent DSL**），**不**依赖 `view::` / `AuraLite.UILegacy`。设计见：
-
-[`family_win_desktop/docs/superpowers/specs/2026-08-15-auralite-phase2-declarative-ui-design.md`](../../docs/superpowers/specs/2026-08-15-auralite-phase2-declarative-ui-design.md)
-
-| 目标 | 说明 |
-|------|------|
-| `auralite_d2d` (`AuraLite::D2D`) | `auralite::Canvas` / `Image`（D2D + DirectWrite + WIC） |
-| `auralite_ui` (`AuraLite::UI`，产物 `AuraLite.UI.lib`) | `auralite::ui` 控件树 + `ViewFactory` + yaml-cpp + `dsl::*` + reactive/async |
-| `login_demo` | 登录窗：默认读 `login_window.yaml`；`--fluent` 用链式等价树 |
-| `ui_gallery` | 全控件面画廊（YAML 默认 / `--fluent`）；右键 `PopupHost` YAML 菜单 |
-| `ui_smoke` | 早期冒烟（可选保留） |
-| `AuraLite.Base` / `AuraLite.UILegacy` | 旧 Views 静态库（对照 / Shell 迁移前）；**新 Demo 不链接** |
-| `d2d_demo` / `test_view` | 阶段一 / Views 冒烟 |
-
-**与分支关系：** `1.x` = Views+GDI+；`2.x` = Views+D2D 冻结线；`master` = 阶段二 `auralite::ui` + **阶段三 reactive/async**。新 Demo **只**链 `AuraLite::UI`（传递依赖 D2D + yaml-cpp + `AuraLite::Base` / MessageLoop）。
-
-### master 阶段三（异步与响应式）
-
-设计 / 计划：
-
-- [`…/specs/2026-08-15-auralite-phase3-reactive-async-design.md`](../../docs/superpowers/specs/2026-08-15-auralite-phase3-reactive-async-design.md)
-- [`…/plans/2026-08-15-auralite-phase3-reactive-async.md`](../../docs/superpowers/plans/2026-08-15-auralite-phase3-reactive-async.md)
-
-| 模块 | 说明 |
-|------|------|
-| `auralite::reactive` | `Signal` / `Computed` / `Observe` / `Batch`（读时追踪；**仅 UI 线程**，Debug assert） |
-| `auralite::async` | `ResumeOnUi` / `Delay` / `RunAsync` / `SpawnUi`（挂 `MessageLoopForUI`）；可选传入 `Window::alive_flag()`，关窗后**不再 resume** |
-| `auralite::ui` 绑定 | **单向** `BindText` / `BindVisible` / `BindEnabled`（Button/ImageButton）/ `BindChecked` / `BindValue` / `BindIndeterminate` / `BindItems`（VirtualList + ItemList）；写回用控件事件 |
-| `Application::Run` | `MessageLoopForUI`（与 Family Shell 同一套循环）；`Window::Invalidate` 同 turn 合并为一次 PostTask |
-
-**线程 / 生命周期：**
-
-- `Signal` / `Computed` / `Observe`：**仅 UI 线程**（Debug assert）。
-- 协程回 UI：`co_await Delay(ms, alive)` / `RunAsync(fn, alive)` / `ResumeOnUi(alive)`，其中 `alive = window.alive_flag()`。
-- **MSVC：** 禁止用临时 lambda 启动协程（`SpawnUi([...]() -> FireAndForget { ... })` 易崩溃）；用自由函数或具名可调用对象。
-
-**示例：**
-
-```cpp
-using namespace auralite::reactive;
-using namespace auralite::ui;
-using namespace auralite::async;
-Signal<int> n{0};
-Computed<std::wstring> text{[&] {
-  return L"n=" + std::to_wstring(n.Get());
-}};
-label->OwnSubscription(BindText(*label, text));
-button->on_click([&] { n.Set(n.Peek() + 1); });
-Batch([&] { n.Set(2); /* other Signals… */ });
-
-// Free function — do not use a temporary coroutine lambda on MSVC.
-FireAndForget Load(std::shared_ptr<std::atomic_bool> alive) {
-  co_await Delay(100, alive);
-  co_await RunAsync([] { /* worker */ }, alive);
-  // … update Signals on UI …
-}
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Debug --target ui_gallery ui_layout_test auralite_ui
+.\bin\x64\Debug\ui_gallery.exe
+.\bin\x64\Debug\ui_gallery.exe --fluent
+.\bin\x64\Debug\ui_gallery.exe --check
+.\bin\x64\Debug\ui_layout_test.exe
 ```
 
-**Demo / 测试：** `reactive_test`、`async_test`（控制台）、`reactive_demo`（小验收）、`reactive_gallery`（控件面 + Signal/Bind 展示，对齐 `ui_gallery`）。
+产物：`bin|lib/<Platform>/<Config>/`。YAML 会复制到 exe 旁。
 
-**非目标（本阶段不做）：** YAML 绑定表达式、自动双向绑定、`ObservableList` 细粒度 diff、Family Shell 迁移。
+建窗前调用 `Application::EnableDpiAwareness()`（或等价 `SetProcessDpiAwarenessContext`）。
 
-#### Mini YAML 子集（Spec §3.4）
+## 工程
 
-- UTF-8 文件；UI 字符串宽字符  
-- 2 空格缩进；`TypeName:` 作为唯一 map key（如 `Column:` / `Button:`）  
-- 容器：`children:` 列表；`ScrollView.content`；`SplitView.leading` / `trailing`  
-- 布局容器：`Column` / `Row`（流式）、`Tile`（网格，对应 DuiLib TileLayout）、`Tab`（叠页，对应 TabLayout）、`Absolute`（浮动 / 四边锚定，对应 float）  
-- 根级可选 `theme: dark`（加载时 `Theme::SetActive`）  
-- 根级可选 `window:`（HWND 元数据，不进控件树）：`title` / `width` / `height` / `kind`（`main`|`dialog`|`popup`）/ `corner_radius` / `border_width` / `topmost` / `center_on_owner`。Gallery 对话框见 `dialog.yaml`  
-- `TitleBar`：内置标题栏容器，布局同 `Row`；空白 / `Label` 可拖动宿主窗口，`Button` 等可聚焦子控件仍走自己的点击。`window.title` 仍只用于任务栏，可见标题写在 `TitleBar` 里的 `Label`  
-- `on_click: handler_name` → Demo 侧 `HandlerMap`  
-- 布局细则（选容器、`h_align` / `v_align`、锚点优先级、何时无效）：见 [`LAYOUT.md`](LAYOUT.md)  
-- 尺寸策略：`width` / `height` 可为数字（Fixed）、`fill`（吃满父布局可用轴）、`hug`（内容固有尺寸）。省略时控件有默认（如 TextField/Button：**宽 fill、高 fixed**；Checkbox：**hug×hug**；Label：**宽 fill、高 hug/preferred_height**）  
-- `Column` / `Row`：仅主轴 **`fill`** 的子项参与 `weight` 分剩余（Fixed/Hug 上的 weight 忽略）；`h_align` / `v_align` 按屏幕轴（左右 / 上下），不是 main/cross。Label 的 `align` 仍是**文本**对齐
-- 横排工具按钮请显式 `width: hug`（Button 默认宽 fill，适合表单）  
-- `Absolute`：每轴 **双边锚点 > 单边 > `x`/`y` > `h_align`/`v_align` > 0**。左+右忽略该轴 `width`（无编译期提示）。完整规则见 [`LAYOUT.md`](LAYOUT.md) 
-- `Tab`：可选 `headers` / `header_height` 页签栏；`selected`  
-- `Tile`：`columns` / `item_size` / `spacing`  
-- 新增控件：`ProgressBar`（`value` / `indeterminate`，不确定态需 `BindWindow`）、`Slider`（`orientation` / `step` / `tick_count`）、`Combo`（单选/多选 `multi`、可筛选 `editable`，需 `BindWindow`）、`TextArea`（多行，`wrap` 软换行）、`VirtualList` / `ItemList`（`columns` + `show_header`；排序 / 拖列宽 / `frozen_count`；Shift+滚轮横滑）、`TreeView`（展开折叠；`checkable` 三态勾选；`lazy` + `on_load_children` / `NotifyChildrenLoaded`）
-- **富文本**：本阶段不做，业务可自行集成
-- 无热重载、无完整 schema
-- **弹出菜单（推荐）：** `PopupHost` + `Window::CreatePopup` 承载任意 YAML/DSL 控件树；`Submenu` 为薄触发行，通过 `PopupHost::Push` 叠层。Esc 先关最上层，再关根层；点菜单外关闭整栈。项回调可用 `WrapDismiss` 在执行后 `Dismiss()`。弹出层为分层窗口、逐像素 alpha：未绘制区域透明，可透出宿主窗口；面板填充可在根 `Column`/`Row` 等节点设 `bg: "#RRGGBBAA"`（8 位含 alpha），纯浮动控件可省略 `bg`。Gallery 右键默认 `menu_classic.yaml`（扁平菜单行）；`popup_menu.yaml` 仍为任意控件树示例。
-- **Legacy：** `ContextMenu` 仍为代码 API（`TrackPopupMenu`），暂不删除；新代码请用 `PopupHost`
+| 目标 | 说明 | 产物 |
+|------|------|------|
+| `auralite_d2d` (`AuraLite::D2D`) | `auralite::Canvas` / `Image` | `auralite_d2d.lib` |
+| `auralite_ui` (`AuraLite::UI`) | 控件树 + YAML + DSL + reactive/async | `AuraLite.UI.lib` |
+| `AuraLite.Base` | MessageLoop（新栈依赖） | `AuraLite.Base.lib` |
+| `AuraLite.UILegacy` | 冻结的 Chromium Views，默认关闭 | `AuraLite.UILegacy.lib` |
 
-#### 与 DuiLib 对照（布局）
+CMake 开关：
+
+- `AURALITE_BUILD_BASE` 默认 ON（MessageLoop）
+- `AURALITE_BUILD_UILEGACY` 默认 OFF
+- 旧别名 `AURALITE_BUILD_LEGACY=ON` 会打开 Views；`OFF` 只关 Views，不关 Base
+
+## YAML 子集
+
+- UTF-8；UI 字符串宽字符；2 空格缩进
+- `TypeName:` 作为唯一 map key（如 `Column:` / `Button:`）
+- 容器：`children:`；`ScrollView.content`；`SplitView.leading` / `trailing`
+- 根级可选 `theme: dark`（加载时 `Theme::SetActive`）
+- 根级可选 `window:`（HWND 元数据，不进控件树）：`title` / `width` / `height` / `kind`（`main` \| `dialog` \| `popup`）/ `corner_radius` / `border_width` / `topmost` / `center_on_owner`
+- `on_click: handler_name` → 应用侧 `HandlerMap`
+- 布局细则见 [`LAYOUT.md`](LAYOUT.md)
+
+```yaml
+Column:
+  width: fill
+  height: fill
+  h_align: center
+  v_align: center
+  children:
+    - Button: { text: "确定", width: hug }
+```
+
+C++ 等价：
+
+```cpp
+using namespace auralite::ui::dsl;
+auto root = Column()
+    .fill_width()
+    .fill_height()
+    .h_align(Align::Center)
+    .v_align(Align::Center)
+    .child(Button().text(L"确定").hug_width())
+    .Build();
+```
+
+### 尺寸与对齐（摘要）
+
+- `width` / `height`：数字（Fixed DIP）、`fill`、`hug`。省略时看控件默认（Button / TextField：**宽 fill、高 fixed**；Checkbox：**hug×hug**；Label：**宽 fill、高 hug**）。
+- 横排工具按钮请显式 `width: hug`。
+- `Column` / `Row`：仅主轴 **fill** 子项参与 `weight`。`h_align` / `v_align` 按屏幕轴（左右 / 上下），不是 main/cross。Label 的 `align` 仍是**文本**对齐。
+- `Absolute`：每轴 **双边锚点 > 单边 > `x`/`y` > `h_align`/`v_align` > 0**。左+右忽略该轴 `width`。
+
+不做百分比尺寸、不做 `elevation` / `z-index`。叠层 = `children` 声明顺序。半透明只用 `bg: "#RRGGBBAA"`，没有控件级 `opacity`。
+
+### 与 DuiLib 对照
 
 | DuiLib | AuraLite |
 |--------|----------|
@@ -126,176 +101,120 @@ FireAndForget Load(std::shared_ptr<std::atomic_bool> alive) {
 | TileLayout | `Tile` |
 | TabLayout | `Tab`（可带 `headers`） |
 | float + 边距 | `Absolute` + 四边锚定 / `x`·`y` |
-| 同容器混 float | 浮动子项放进 `Absolute`（不在 Column 内混排） |
+| 同容器混 float | 浮动子项放进 `Absolute`（不要在 Column 里写 `left`） |
 
-布局单测：`ui_layout_test`（`cmake --build ... --target ui_layout_test` 后运行 exe）。
+## 控件
 
-#### 阶段二入口
+| 类型 | 说明 |
+|------|------|
+| `Column` / `Row` / `Tile` / `Tab` / `Absolute` / `SplitView` / `ScrollView` | 布局 |
+| `TitleBar` | 布局同 `Row`；空白 / `Label` 可拖宿主窗口 |
+| `Label` / `Button` / `ImageButton` / `ImageView` | 文本与按钮 |
+| `TextField` / `TextArea` | 单行 / 多行（`wrap` 软换行） |
+| `Checkbox` / `Radio` / `Switch` | 选择 |
+| `ProgressBar` / `Slider` / `Combo` | 进度、滑块、下拉（Combo 需 `BindWindow`） |
+| `VirtualList` / `ItemList` / `ListView` / `TreeView` | 列表与树 |
+| `UserControl` | 自绘扩展 |
+| `PopupHost` / `Submenu` | 自绘弹出层（推荐） |
+| `Toast` | 轻提示 |
+| `ContextMenu` | Legacy `TrackPopupMenu`；新菜单用 `PopupHost` |
 
-```powershell
-cd family_win_desktop\3rd-party\AuraLite
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Debug --target login_demo ui_gallery auralite_ui ui_layout_test
-.\bin\x64\Debug\login_demo.exe
-.\bin\x64\Debug\login_demo.exe --fluent
-.\bin\x64\Debug\ui_gallery.exe
-.\bin\x64\Debug\ui_gallery.exe --fluent
-.\bin\x64\Debug\ui_layout_test.exe
-```
+`window.title` 只用于任务栏；可见标题写在 `TitleBar` 里的 `Label`。
 
-产物目录：`bin|lib/<Platform>/<Config>/`（YAML 会复制到 exe 旁）。
+**本分支不做：** 富文本、YAML 热重载、完整 schema、百分比尺寸、控件级 opacity、项级 UIA pattern。
 
-#### Theme
+## 主题
 
-- 全局 `Theme::Active()` 提供颜色 / 字体 token；内置 `light` / `dark`，也可从 `themes/*.yaml` 注册扩展主题
-- 运行时切换：`Theme::SetActive("dark")`（会 `Invalidate` 已绑定窗口）
-- 同名 `Register` / `RegisterFromFile` 若正是当前主题，会刷新 Active 并通知窗口
-- 控件未调用 `font_size(...)` 时回落 `fonts.size`（`ResolveFontSize`）；颜色等同理可稀疏覆盖
-- 控制台冒烟：`theme_test`（`examples/theme_test`）
+- `Theme::Active()` 提供颜色 / 字体 token；内置 `light` / `dark`，也可从 YAML 注册
+- `Theme::SetActive("dark")` 会 Invalidate 已绑定窗口
+- 控件未设 `font_size` 时回落 `fonts.size`；颜色可稀疏覆盖
+- Gallery：`examples/ui_gallery/themes/`
 
-`ui_gallery` 示例：`examples/ui_gallery/themes/` 下 YAML 与 Light/Dark 按钮（手测换肤）；底部 **Popup 菜单样式** 三个按钮试开 `menu_classic` / `popup_menu`（按钮风）/ `menu_dark`；空白处右键默认经典菜单。
+## 弹出层
 
-#### PopupHost / 自绘弹出菜单
-
-弹出窗口使用 `WS_EX_LAYERED` + `UpdateLayeredWindow`：**未绘制像素完全透明**，菜单间隙可看到下层窗口；不在客户区铺不透明底色。
+`PopupHost` + `Window::CreatePopup`：分层窗口、逐像素 alpha，未绘制区域透明。
 
 | API | 说明 |
 |-----|------|
-| `PopupHost::Show` / `ShowFromYaml` | 根层弹出；内容为任意 `Node` 树 |
-| `Window::CreatePopup` | 分层 `WS_POPUP` 承载层（由 host 使用） |
-| `Submenu` | 菜单行；hover/click → `Push` 子层；dismiss 后 content 归还 |
-| `WrapDismiss` | 包装 `on_click`：执行后关闭整栈 |
-| `ContextMenu` | **Legacy** `TrackPopupMenu`；勿作为新菜单路径 |
+| `PopupHost::Show` / `ShowFromYaml` | 根层弹出 |
+| `Submenu` | hover/click → `Push` 子层 |
+| `WrapDismiss` | 包装 `on_click`：执行后关整栈 |
 
-**面板背景（YAML）：** 在根容器或子菜单 `content` 的 `Column`/`Row` 上设 `bg: "#RRGGBBAA"`（如 `#F5F7FAE6` 半透明白）绘制填充；省略 `bg` 时仅绘制子控件（适合纯浮动按钮）。子菜单第二层与根层行为相同。经典菜单样式见 `examples/ui_gallery/menu_classic.yaml`（Button：`bg`/`bg_hover`/`text_align`/`corner_radius`）；控件树示例见 `popup_menu.yaml`。
+面板背景在根 `Column`/`Row` 上设 `bg: "#RRGGBBAA"`。Gallery 右键默认 `menu_classic.yaml`。
 
-关闭 Views：默认 **不** 编 `AuraLite.UILegacy`（`-DAURALITE_BUILD_UILEGACY=OFF`）。`AuraLite.Base`（MessageLoop）仍默认编。旧别名 `-DAURALITE_BUILD_LEGACY=ON` 会打开 Views；`OFF` 只关 Views，不关 Base。旧 `library.sln` 仍可并行使用。
+## 响应式与异步
 
-**新代码禁止** `#include` `view_framework`、禁止链接 `AuraLite.UILegacy.lib`。只链 `AuraLite::UI` + `AuraLite::Base`。
-
-`auralite::ui` 布局/命中/绘制使用 **DIP**（96 DIP = 1 逻辑英寸）。`Window::Create(w,h)` 的宽高是 DIP；Per-Monitor V2 下 `WM_DPICHANGED` 会重布局。建窗前调用 `Application::EnableDpiAwareness()`（或等价 `SetProcessDpiAwarenessContext`）。
-
-## 工程结构
-
-源码目录仍按模块划分；**CMake 对外库名：**
-
-| 工程 | 聚合内容 | 产物 |
-|------|----------|------|
-| **AuraLite.Base** | `base` + `rfc_algorithm` + `message_framework` | `AuraLite.Base.lib` |
-| **AuraLite.UI**（`auralite_ui`） | `auralite::ui` + reactive/async（链 D2D） | `AuraLite.UI.lib` |
-| **AuraLite.UILegacy** | `gfx` + `animation` + `view_framework` | `AuraLite.UILegacy.lib` |
-| `test_base` | Base 冒烟（控制台） | `test_base.exe` |
-| `test_view` | 旧 Views 示例（窗口） | `test_view.exe` |
-
-### 基础控件（`view_framework/controls/`）
-
-| 控件 | 说明 |
+| 模块 | 说明 |
 |------|------|
-| `Button` / `TextButton` / `ImageButton` | 按钮（原有） |
-| **`Label`** | 文本标签 |
-| **`Textfield`** | 单行输入；`STYLE_PASSWORD` 密码模式 |
-| **`Checkbox`** | 勾选框 + 文案 |
-| **`RadioButton`** | 单选；同 `group_id` 互斥 |
-| **`Switch`** | 开/关滑块 |
-| **`ImageView`** | 图片展示（不可点） |
-| **`ScrollView`** | 纵向滚动（滚轮命中鼠标下控件 + 细滚动条） |
-| **`ListView`** | 单选列表项（可放进 ScrollView） |
-| **`MenuModel` / `MenuRunner`** | 弹出菜单（Win32 TrackPopupMenu） |
-| **`SimpleMenuModelController`** | 挂到任意 View 的右键菜单 |
-| `NativeViewHost` / `NativeControlWin` | 嵌原生 HWND |
+| `auralite::reactive` | `Signal` / `Computed` / `Observe` / `Batch`（**仅 UI 线程**，Debug assert） |
+| `auralite::async` | `ResumeOnUi` / `Delay` / `RunAsync` / `SpawnUi`（挂 `MessageLoopForUI`） |
+| 绑定 | 单向 `BindText` / `BindVisible` / `BindEnabled` / `BindChecked` / `BindValue` / `BindItems`；写回用控件事件 |
 
-`Textfield` 默认自带编辑右键菜单（剪切 / 复制 / 粘贴 / 全选）。
+关窗后不再 resume：把 `Window::alive_flag()` 传给 `Delay` / `RunAsync`。**MSVC 禁止用临时 lambda 启动协程**，用自由函数或具名可调用对象。
 
-布局：`BoxLayout` / `GridLayout` / `FillLayout`、`SingleSplitView`。
+```cpp
+using namespace auralite::reactive;
+using namespace auralite::ui;
+using namespace auralite::async;
 
-### master 渲染后端
+Signal<int> n{0};
+Computed<std::wstring> text{[&] {
+  return L"n=" + std::to_wstring(n.Get());
+}};
+label->OwnSubscription(BindText(*label, text));
+button->on_click([&] { n.Set(n.Peek() + 1); });
+```
 
-**仅 Direct2D + DirectWrite + WIC**。GDI+ 已从 master 自绘路径移除（无 `gdiplus.lib`、无 `canvas_gdiplus`、Paint 路径无 `#include <gdiplus.h>`）。
+不做：YAML 绑定表达式、自动双向绑定、`ObservableList` 细粒度 diff。
 
-允许例外（非 AuraLite 画布）：原生 HWND 控件（`NativeButton` / `NativeControlWin` / `NativeViewHost`）与系统 `TrackPopupMenu`。
+## 无障碍 / 动画
 
-### D2D 自绘控件验收
+- MSAA stub + UIA provider（控件级角色与名字；`acc_name` / tooltip）
+- `anim`：属性动画；控件 hover 等可走主题过渡
+- Tooltip 由窗口托管 overlay
 
-`test_view` 与 `d2d_demo` 同为 Direct2D + DirectWrite。控件 `Paint()` 只走 `gfx::Canvas` / `Font::GetStringWidth`。
+## Demo / 测试
 
-| 控件 | 状态 | 说明 |
-|------|------|------|
-| Label / 标题色 | pass | DirectWrite；顶部含后端对照说明（窄宽时标题尾部裁剪，无省略号） |
-| Textfield 文本、选区、插入符、密码圆点 | pass | 测宽 `Font::GetStringWidth`；密码为圆点 |
-| Checkbox / RadioButton / Switch | pass | Checkbox 勾线；Radio 椭圆；Switch 圆角轨道 + 圆形滑块 |
-| ListView 选中高亮 + ScrollView 滚动条与裁剪 | pass | ListView 放入 ScrollView；第 3 项预选蓝底；列表项被视口裁剪 |
-| TextButton / ImageButton（含对齐） | pass | 左/中/右对齐；hover 经 D2D `PushLayer` 透明度 |
-| SingleSplitView 分隔与背景 | pass | 标准面板渐变 + 实线边框 |
-| 面板 `Background` / `Border` | pass | `FillRectInt` / 垂直渐变画刷 |
+| 目标 | 用途 |
+|------|------|
+| `ui_gallery` | 全控件面（YAML 默认 / `--fluent` / `--check`） |
+| `login_demo` | 登录窗；`--fluent` 为链式等价树 |
+| `ui_layout_test` | 布局单测 |
+| `theme_test` / `dpi_test` / `dialog_test` | 主题、DPI、模态对话框 |
+| `reactive_test` / `async_test` / `reactive_demo` / `reactive_gallery` | Signal / 协程 |
+| `acc_test` / `uia_test` / `toast_test` / `anim_test` / `drag_test` | 无障碍、Toast、动画、拖放 |
 
-例外（非 AuraLite 画布）：`NativeButton` / `NativeControlWin`、系统 `TrackPopupMenu`。
+```powershell
+cmake --build build --config Debug --target ui_gallery ui_layout_test theme_test
+.\bin\x64\Debug\ui_layout_test.exe
+.\bin\x64\Debug\theme_test.exe
+```
 
-解决方案：`library.sln`
+## 目录
 
 ```
 AuraLite/
-  AuraLite.Base/          # Base 静态库工程
-  AuraLite.UILegacy/      # 旧 Views 静态库工程（产物 AuraLite.UILegacy.lib）
-  AuraLite.Common.props   # 公共编译选项
-  auralite/               # 新栈：ui / reactive / async / canvas（CMake → AuraLite.UI.lib）
-  auralite_export.h
-  base/  rfc_algorithm/  message_framework/
-  gfx/   animation/      view_framework/
-  test_base/  test_view/
-  lib/<Platform>/<Configuration>/   # *.lib
-  bin/<Platform>/<Configuration>/   # *.exe
+  auralite/           # 新栈：ui / reactive / async / canvas
+  examples/           # gallery、login、各类 *_test
+  cmake/
+  LAYOUT.md  README.md  CODING.md
+  base/  message_framework/   # AuraLite.Base
+  gfx/  animation/  view_framework/   # UILegacy，默认不编
+  lib/<Platform>/<Config>/
+  bin/<Platform>/<Config>/
 ```
-
-`base/`、`gfx/` 等目录下的旧 `.vcxproj` 仅作历史参考。CMake：`AuraLite::UI`（新）/ `AuraLite::UILegacy`（Views）/ `AuraLite::Base`。
 
 ## 编译环境
 
 | 项 | 取值 |
 |----|------|
-| IDE / 工具集 | VS 2022，`v143` |
-| 平台 | **Win32** + **x64** |
+| 生成器 | VS 2022，`v143` |
+| 平台 | x64（亦可 Win32） |
 | 配置 | Debug / Release |
-| CRT | `/MD`（Debug 为 `/MDd`） |
-| 语言 | MSVC `/std:c++14`（无 `/std:c++11`；C++11 源码可编） |
-| 系统目标 | Win7+（`WINVER` / `_WIN32_WINNT` = `0x0601`） |
-| 库形态 | **静态库**（不产出 DLL） |
+| CRT | `/MD`（Debug `/MDd`） |
+| 新栈语言 | C++20（`AuraLite::UI`） |
+| Base / UILegacy | C++14 |
+| 新栈系统宏 | `WINVER` / `_WIN32_WINNT` = `0x0A00` |
+| 库形态 | 静态库 |
 
-已验证：`Debug|x64`、`Release|x64`、`Debug|Win32`、`Release|Win32`。
-
-## 构建
-
-```powershell
-cd family_win_desktop\3rd-party\AuraLite
-msbuild library.sln /p:Configuration=Debug /p:Platform=x64 /m
-```
-
-只编库（不编测试）：
-
-```powershell
-msbuild AuraLite.Base\AuraLite.Base.vcxproj /p:Configuration=Debug /p:Platform=x64
-msbuild AuraLite.UILegacy\AuraLite.UILegacy.vcxproj /p:Configuration=Debug /p:Platform=x64
-```
-
-输出：
-
-- 库：`lib\<Platform>\<Configuration>\AuraLite.Base.lib`、`AuraLite.UILegacy.lib`（CMake 新栈产物为 `AuraLite.UI.lib`）
-- 测试：`bin\<Platform>\<Configuration>\test_base.exe`、`test_view.exe`
-
-## 运行测试
-
-```powershell
-.\bin\x64\Debug\test_base.exe    # 控制台，消息循环冒烟，正常 exit 0
-.\bin\x64\Debug\test_view.exe    # 弹出示例窗口
-```
-
-## 接入 FamilyShell
-
-1. 头文件搜索路径加：`3rd-party\AuraLite`
-2. **不要**链接 `AuraLite.UILegacy.lib`。新 UI：`AuraLite.UI.lib` + `AuraLite.Base.lib` + `auralite_d2d.lib`（及 `d2d1`、`dwrite`、`windowscodecs`、`imm32`、`shcore` 等）
-3. 预处理器建议定义：`AURALITE_STATIC`、`NOMINMAX`、`_WIN32_WINNT=0x0A00`（新栈）
-
-## 依赖说明
-
-- **默认不依赖 ATL / MFC**。无障碍相关使用 MSAA stub（`view_accessibility_msaa.cpp`）。
-- 若本机安装了 VC ATL/MFC，可定义 `AURALITE_HAS_ATL` 并恢复完整 ATL 无障碍实现（可选）。
-- UI 绘制基于 **Direct2D / DirectWrite / WIC**（见 `gfx/`）。master 已移除 GDI+ 自绘后端。
+接入应用：头文件搜索路径加本仓库根目录；链接 `AuraLite.UI.lib` + `AuraLite.Base.lib` + `auralite_d2d.lib`，以及 `d2d1`、`dwrite`、`windowscodecs`、`imm32`、`shcore`、`UIAutomationCore` 等。预处理器：`AURALITE_STATIC`、`NOMINMAX`、`_WIN32_WINNT=0x0A00`。
