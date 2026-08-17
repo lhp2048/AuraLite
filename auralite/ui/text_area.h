@@ -45,6 +45,7 @@ class TextArea : public Node {
   void OnBlur() override;
 
   bool WantsMouseWheel() const override { return true; }
+  bool ConsumesEnter() const override { return true; }
   bool WantsIme() const override;
   void OnImeComposition(const std::wstring& composition) override;
   void OnImeResult(const std::wstring& result) override;

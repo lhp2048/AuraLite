@@ -19,6 +19,7 @@ class Toast;
 class ToastOverlay;
 class TooltipOverlay;
 class UiaProvider;
+class Button;
 
 struct FileDropEvent {
   std::vector<std::wstring> paths;
@@ -44,6 +45,15 @@ class Window {
     // the host may round the HWND with DWM or any other OS API.
     float corner_radius = 0.f;
     float border_width = 0.f;
+    // caption=false only. Drag window edges/corners to resize (like HTLEFT).
+    // Dialog() turns this off. Captioned windows use the OS frame.
+    // Frameless + resizable: independent app HWND (taskbar, min/max).
+    // Frameless + !resizable: owned popup (dialogs). Do not minimize those —
+    // they have no taskbar button and shrink to a desktop corner.
+    bool resizable = true;
+    // DIP; 0 = 160×80 when resizable custom chrome.
+    int min_width = 0;
+    int min_height = 0;
 
     // Captioned windows drop radius/border. Clamps negatives to 0.
     void Normalize() {
@@ -68,6 +78,7 @@ class Window {
       o.center_on_owner = true;
       o.corner_radius = corner_radius;
       o.border_width = 1.f;
+      o.resizable = false;
       o.Normalize();
       return o;
     }
@@ -159,8 +170,29 @@ class Window {
   Node* focused_node() const { return focused_; }
   void FocusNext(bool reverse);
 
-  // TitleBar: release capture and let DefWindowProc move this HWND.
+  // First visible enabled Button with is_default(); null if none.
+  Button* default_button() const;
+  // Invoke that button. Returns true if one fired.
+  bool ActivateDefaultButton();
+
+  // Window shortcut table. Later registrations win. Chord must IsShortcut().
+  bool AddAccelerator(KeyChord chord, std::function<void()> handler);
+  bool AddAccelerator(const std::string& spec, std::function<void()> handler);
+  void ClearAccelerators();
+  // Key path used by WndProc; tests can call with explicit modifiers.
+  bool HandleKey(const KeyEvent& e);
+
+  void Minimize();
+  void ToggleMaximize();
+  // Named to avoid windows.h `IsMaximized` → `IsZoomed` macro.
+  bool is_maximized() const;
+
+  // TitleBar: after drag slop, release capture and let DefWindowProc move.
   void BeginCaptionDrag();
+
+  // Client-DIP hit test for frameless resize. HTLEFT… / HTNOWHERE.
+  static int HitTestResizeEdge(float x, float y, float w, float h,
+                               float thickness, float corner);
 
  private:
   friend class PopupHost;
@@ -184,6 +216,9 @@ class Window {
   static Window* FromHwnd(HWND hwnd);
   static bool EnsureWindowClass(HINSTANCE instance);
   static void CollectFocusable(Node* node, std::vector<Node*>* out);
+  static Button* FindDefaultButton(Node* node);
+  static Button* FindAcceleratorButton(Node* node, const KeyChord& chord);
+  bool ProcessAccelerator(const KeyEvent& e);
 
   LRESULT HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam);
   void OnPaint();
@@ -219,12 +254,19 @@ class Window {
   bool uses_custom_chrome() const {
     return !popup_mode_ && !options_.caption;
   }
+  bool EdgeResizeEnabled() const;
+  bool HitBlocksResize(Node* hit) const;
+  void UpdateResizeCursor(float x, float y, Node* hit);
+  bool TryBeginEdgeResize(const MouseEvent& ev, Node* hit);
+  void BeginEdgeResize(int ht, float client_x, float client_y);
+  void ApplyMinMaxInfo(MINMAXINFO* info) const;
   void PlaceWindow(HWND owner, int width_dip, int height_dip);
   void ApplyChromeShape();
   void PaintChrome(auralite::Canvas& canvas);
   void ActivateHwnd();
   void RestoreOwner();
   void ResetCreateState();
+  void DestroyHostHwnd();
 
   LRESULT HandleGetObject(WPARAM wparam, LPARAM lparam);
   void DisconnectUia();
@@ -273,6 +315,11 @@ class Window {
   std::unique_ptr<ToastOverlay> toast_overlay_;
   std::deque<std::unique_ptr<Toast>> toast_queue_;
   UiaProvider* uia_root_ = nullptr;
+  struct AcceleratorBinding {
+    KeyChord chord;
+    std::function<void()> handler;
+  };
+  std::vector<AcceleratorBinding> accelerators_;
 };
 
 }  // namespace auralite::ui

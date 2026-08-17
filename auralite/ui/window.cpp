@@ -1,6 +1,8 @@
 #include "auralite/ui/window.h"
 
 #include "auralite/async/task_lambda.h"
+#include "auralite/ui/button.h"
+#include "auralite/ui/native_host.h"
 #include "auralite/ui/popup_host.h"
 #include "auralite/ui/theme.h"
 #include "auralite/ui/title_bar.h"
@@ -24,6 +26,33 @@ namespace {
 
 constexpr wchar_t kWindowClassName[] = L"AuraLite.UI.Window";
 constexpr float kDragSlopDip = 4.f;
+constexpr float kResizeEdgeDip = 6.f;
+constexpr float kResizeCornerDip = 12.f;
+constexpr int kDefaultMinWidthDip = 160;
+constexpr int kDefaultMinHeightDip = 80;
+
+bool FramelessAppWindow(const Window::WindowOptions& o) {
+  return !o.caption && o.resizable;
+}
+
+LPCWSTR CursorForResizeHit(int ht) {
+  switch (ht) {
+    case HTLEFT:
+    case HTRIGHT:
+      return IDC_SIZEWE;
+    case HTTOP:
+    case HTBOTTOM:
+      return IDC_SIZENS;
+    case HTTOPLEFT:
+    case HTBOTTOMRIGHT:
+      return IDC_SIZENWSE;
+    case HTTOPRIGHT:
+    case HTBOTTOMLEFT:
+      return IDC_SIZENESW;
+    default:
+      return IDC_ARROW;
+  }
+}
 
 float QueryMonitorDpiNearCursor() {
   using GetDpiForMonitorFn = HRESULT(WINAPI*)(HMONITOR, int, UINT*, UINT*);
@@ -147,8 +176,7 @@ Window::~Window() {
       KillTimer(hwnd_, kAnimTimerId);
       anim_clients_ = 0;
     }
-    DestroyWindow(hwnd_);
-    hwnd_ = nullptr;
+    DestroyHostHwnd();
     popup_mode_ = false;
   }
 }
@@ -320,7 +348,7 @@ bool Window::EnsureWindowClass(HINSTANCE instance) {
 
   WNDCLASSEXW wc = {};
   wc.cbSize = sizeof(wc);
-  wc.style = CS_HREDRAW | CS_VREDRAW;
+  wc.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
   wc.lpfnWndProc = &Window::WndProc;
   wc.hInstance = instance;
   wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
@@ -364,7 +392,17 @@ bool Window::Create(const wchar_t* title, int w, int h, const WindowOptions& opt
   HWND parent = (options_.owner && IsWindow(options_.owner)) ? options_.owner : nullptr;
   const wchar_t* wnd_title = title ? title : L"AuraLite";
   if (!options_.caption) {
-    style = WS_POPUP | WS_CLIPCHILDREN;
+    // Dialogs stay owned WS_POPUP. Resizable frameless windows need min/max
+    // boxes and an unowned taskbar button — otherwise SW_MINIMIZE shrinks to
+    // a tiny rectangle at the bottom-left of the desktop.
+    if (FramelessAppWindow(options_)) {
+      style = WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME |
+              WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CLIPCHILDREN;
+      ex |= WS_EX_APPWINDOW;
+      parent = nullptr;
+    } else {
+      style = WS_POPUP | WS_CLIPCHILDREN;
+    }
     if (options_.topmost) {
       ex |= WS_EX_TOPMOST;
     }
@@ -386,8 +424,7 @@ bool Window::Create(const wchar_t* title, int w, int h, const WindowOptions& opt
   canvas_.SetDpi(dpi_);
 
   if (!canvas_.Init(hwnd_)) {
-    DestroyWindow(hwnd_);
-    hwnd_ = nullptr;
+    DestroyHostHwnd();
     ResetCreateState();
     return false;
   }
@@ -404,6 +441,16 @@ bool Window::Create(const wchar_t* title, int w, int h, const WindowOptions& opt
   }
   ApplyAcceptFiles();
   return true;
+}
+
+void Window::DestroyHostHwnd() {
+  if (!hwnd_) {
+    return;
+  }
+  NativeHost::OrphanTree(root_.get());
+  NativeHost::OrphanTree(popup_.get());
+  DestroyWindow(hwnd_);
+  hwnd_ = nullptr;
 }
 
 void Window::ResetCreateState() {
@@ -449,8 +496,7 @@ bool Window::CreateLayeredTool(HWND owner, int w, int h, DWORD extra_ex) {
   canvas_.SetDpi(dpi_);
 
   if (!canvas_.InitLayered(hwnd_)) {
-    DestroyWindow(hwnd_);
-    hwnd_ = nullptr;
+    DestroyHostHwnd();
     popup_mode_ = false;
     quit_on_close_ = true;
     return false;
@@ -623,8 +669,7 @@ int Window::RunModal() {
   modal_running_ = false;
   RestoreOwner();
   if (hwnd_) {
-    DestroyWindow(hwnd_);
-    hwnd_ = nullptr;
+    DestroyHostHwnd();
   }
   return modal_result_;
 }
@@ -636,8 +681,7 @@ void Window::EndModal(int result) {
     MessageLoop::current()->Quit();
   }
   if (hwnd_ && !modal_running_) {
-    DestroyWindow(hwnd_);
-    hwnd_ = nullptr;
+    DestroyHostHwnd();
   }
 }
 
@@ -648,9 +692,27 @@ void Window::Close() {
   }
   HideTooltip();
   if (hwnd_) {
-    DestroyWindow(hwnd_);
-    hwnd_ = nullptr;
+    DestroyHostHwnd();
   }
+}
+
+void Window::Minimize() {
+  if (hwnd_) {
+    // ShowWindow, not nested WM_SYSCOMMAND/SC_MINIMIZE: DefWindowProc ignores
+    // SC_MINIMIZE while we are still inside WM_LBUTTONUP (TitleBar min button).
+    ShowWindow(hwnd_, SW_MINIMIZE);
+  }
+}
+
+void Window::ToggleMaximize() {
+  if (!hwnd_) {
+    return;
+  }
+  ShowWindow(hwnd_, IsZoomed(hwnd_) ? SW_RESTORE : SW_MAXIMIZE);
+}
+
+bool Window::is_maximized() const {
+  return hwnd_ && IsZoomed(hwnd_) != FALSE;
 }
 
 void Window::SetRoot(std::unique_ptr<Node> root) {
@@ -781,6 +843,147 @@ void Window::CollectFocusable(Node* node, std::vector<Node*>* out) {
   }
 }
 
+Button* Window::FindDefaultButton(Node* node) {
+  if (!node || !node->visible()) {
+    return nullptr;
+  }
+  if (auto* btn = dynamic_cast<Button*>(node)) {
+    if (btn->is_default() && btn->enabled()) {
+      return btn;
+    }
+  }
+  for (const auto& child : node->children()) {
+    if (Button* found = FindDefaultButton(child.get())) {
+      return found;
+    }
+  }
+  return nullptr;
+}
+
+Button* Window::default_button() const {
+  return FindDefaultButton(root_.get());
+}
+
+bool Window::ActivateDefaultButton() {
+  Button* btn = default_button();
+  if (!btn) {
+    return false;
+  }
+  return btn->AccInvoke();
+}
+
+Button* Window::FindAcceleratorButton(Node* node, const KeyChord& chord) {
+  if (!node || !node->visible()) {
+    return nullptr;
+  }
+  if (auto* btn = dynamic_cast<Button*>(node)) {
+    if (btn->enabled() && btn->accelerator().vk != 0 &&
+        btn->accelerator() == chord) {
+      return btn;
+    }
+  }
+  for (const auto& child : node->children()) {
+    if (Button* found = FindAcceleratorButton(child.get(), chord)) {
+      return found;
+    }
+  }
+  return nullptr;
+}
+
+bool Window::AddAccelerator(KeyChord chord, std::function<void()> handler) {
+  if (!chord.IsShortcut() || !handler) {
+    return false;
+  }
+  accelerators_.push_back({chord, std::move(handler)});
+  return true;
+}
+
+bool Window::AddAccelerator(const std::string& spec,
+                           std::function<void()> handler) {
+  KeyChord chord;
+  if (!ParseKeyChord(spec, &chord)) {
+    return false;
+  }
+  return AddAccelerator(chord, std::move(handler));
+}
+
+void Window::ClearAccelerators() {
+  accelerators_.clear();
+}
+
+bool Window::ProcessAccelerator(const KeyEvent& e) {
+  if (!e.down) {
+    return false;
+  }
+  for (auto it = accelerators_.rbegin(); it != accelerators_.rend(); ++it) {
+    if (it->chord.Matches(e) && it->handler) {
+      it->handler();
+      return true;
+    }
+  }
+  if (Button* btn = FindAcceleratorButton(root_.get(), KeyChord{
+          e.vk, e.ctrl, e.alt, e.shift})) {
+    return btn->AccInvoke();
+  }
+  return false;
+}
+
+bool Window::HandleKey(const KeyEvent& e) {
+  if (!e.down) {
+    if (focused_) {
+      focused_->OnKey(e);
+    }
+    return false;
+  }
+
+  if (popup_mode_ && e.vk == VK_ESCAPE) {
+    if (PopupHost* host = PopupHost::Current()) {
+      const size_t d = host->depth();
+      if (d >= 1) {
+        host->RequestDismissFrom(d - 1);
+      }
+      if (host->FlushPendingDismiss()) {
+        return true;
+      }
+    }
+  }
+
+  if ((drag_armed_ || drag_active_) && e.vk == VK_ESCAPE) {
+    CancelDrag();
+    if (hwnd_ && GetCapture() == hwnd_) {
+      ReleaseCapture();
+    }
+    mouse_capture_ = nullptr;
+    Invalidate();
+    return true;
+  }
+
+  if (modal_running_ && e.vk == VK_ESCAPE) {
+    EndModal(IDCANCEL);
+    return true;
+  }
+
+  if (!popup_mode_ && e.vk == VK_RETURN) {
+    const bool keep_enter = focused_ && focused_->ConsumesEnter();
+    if (!keep_enter && ActivateDefaultButton()) {
+      Invalidate();
+      return true;
+    }
+  }
+
+  if (!popup_mode_ && ProcessAccelerator(e)) {
+    Invalidate();
+    return true;
+  }
+
+  if (!focused_) {
+    return false;
+  }
+  focused_->OnKey(e);
+  Invalidate();
+  return false;
+}
+
 void Window::BeginCaptionDrag() {
   if (!hwnd_) {
     return;
@@ -791,6 +994,150 @@ void Window::BeginCaptionDrag() {
   }
   SendMessageW(hwnd_, WM_SYSCOMMAND, static_cast<WPARAM>(SC_MOVE | HTCAPTION),
                0);
+}
+
+int Window::HitTestResizeEdge(float x, float y, float w, float h,
+                              float thickness, float corner) {
+  if (w <= 1.f || h <= 1.f || thickness <= 0.f) {
+    return HTNOWHERE;
+  }
+  if (x < 0.f || y < 0.f || x >= w || y >= h) {
+    return HTNOWHERE;
+  }
+  const float e = thickness;
+  const float c = std::max(thickness, corner);
+  if (x < e) {
+    if (y < c) {
+      return HTTOPLEFT;
+    }
+    if (y >= h - e) {
+      return HTBOTTOMLEFT;
+    }
+    return HTLEFT;
+  }
+  if (x >= w - e) {
+    if (y < c) {
+      return HTTOPRIGHT;
+    }
+    if (y >= h - e) {
+      return HTBOTTOMRIGHT;
+    }
+    return HTRIGHT;
+  }
+  if (y < e) {
+    if (x < c) {
+      return HTTOPLEFT;
+    }
+    if (x >= w - c) {
+      return HTTOPRIGHT;
+    }
+    return HTTOP;
+  }
+  if (y >= h - e) {
+    if (x < c) {
+      return HTBOTTOMLEFT;
+    }
+    if (x >= w - c) {
+      return HTBOTTOMRIGHT;
+    }
+    return HTBOTTOM;
+  }
+  return HTNOWHERE;
+}
+
+bool Window::EdgeResizeEnabled() const {
+  return hwnd_ && uses_custom_chrome() && options_.resizable &&
+         !is_maximized();
+}
+
+bool Window::HitBlocksResize(Node* hit) const {
+  for (Node* n = hit; n; n = n->parent()) {
+    if (n->focusable()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void Window::UpdateResizeCursor(float x, float y, Node* hit) {
+  if (!EdgeResizeEnabled() || mouse_capture_ || drag_active_) {
+    return;
+  }
+  const RectF rc = ClientRectF();
+  const float edge = std::max(kResizeEdgeDip, options_.border_width);
+  const int ht =
+      HitTestResizeEdge(x, y, rc.w, rc.h, edge, kResizeCornerDip);
+  if (ht != HTNOWHERE && !HitBlocksResize(hit)) {
+    SetCursor(LoadCursorW(nullptr, CursorForResizeHit(ht)));
+  }
+}
+
+bool Window::TryBeginEdgeResize(const MouseEvent& ev, Node* hit) {
+  if (!EdgeResizeEnabled() || ev.button != MouseButton::Left) {
+    return false;
+  }
+  if (HitBlocksResize(hit)) {
+    return false;
+  }
+  const RectF rc = ClientRectF();
+  const float edge = std::max(kResizeEdgeDip, options_.border_width);
+  const int ht =
+      HitTestResizeEdge(ev.x, ev.y, rc.w, rc.h, edge, kResizeCornerDip);
+  if (ht == HTNOWHERE) {
+    return false;
+  }
+  BeginEdgeResize(ht, ev.x, ev.y);
+  return true;
+}
+
+void Window::BeginEdgeResize(int ht, float client_x, float client_y) {
+  if (!hwnd_) {
+    return;
+  }
+  CancelDrag();
+  mouse_capture_ = nullptr;
+  if (GetCapture() == hwnd_) {
+    ReleaseCapture();
+  }
+  POINT pt = {static_cast<LONG>(auralite::PxFromDip(client_x, dpi_)),
+              static_cast<LONG>(auralite::PxFromDip(client_y, dpi_))};
+  ClientToScreen(hwnd_, &pt);
+  SendMessageW(hwnd_, WM_NCLBUTTONDOWN, static_cast<WPARAM>(ht),
+               MAKELPARAM(pt.x, pt.y));
+}
+
+void Window::ApplyMinMaxInfo(MINMAXINFO* info) const {
+  if (!info) {
+    return;
+  }
+  int min_w = options_.min_width;
+  int min_h = options_.min_height;
+  if (uses_custom_chrome() && options_.resizable) {
+    if (min_w <= 0) {
+      min_w = kDefaultMinWidthDip;
+    }
+    if (min_h <= 0) {
+      min_h = kDefaultMinHeightDip;
+    }
+  }
+  if (min_w > 0) {
+    info->ptMinTrackSize.x = DipToOuterPx(static_cast<float>(min_w), dpi_);
+  }
+  if (min_h > 0) {
+    info->ptMinTrackSize.y = DipToOuterPx(static_cast<float>(min_h), dpi_);
+  }
+  if (uses_custom_chrome() && hwnd_) {
+    HMONITOR mon = MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = {};
+    mi.cbSize = sizeof(mi);
+    if (mon && GetMonitorInfoW(mon, &mi)) {
+      const RECT& work = mi.rcWork;
+      info->ptMaxPosition.x = work.left;
+      info->ptMaxPosition.y = work.top;
+      info->ptMaxSize.x = work.right - work.left;
+      info->ptMaxSize.y = work.bottom - work.top;
+    }
+  }
 }
 
 void Window::ArmDrag(Node* hit, const MouseEvent& ev) {
@@ -1077,10 +1424,47 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       return 0;
     }
 
-    case WM_ERASEBKGND:
-      return 1;
+    case WM_GETMINMAXINFO:
+      DefWindowProcW(hwnd_, msg, wparam, lparam);
+      ApplyMinMaxInfo(reinterpret_cast<MINMAXINFO*>(lparam));
+      return 0;
+
+    case WM_NCCALCSIZE:
+      // Keep custom chrome client = window (no OS caption/frame).
+      if (uses_custom_chrome()) {
+        return 0;
+      }
+      break;
+
+    case WM_SETCURSOR:
+      if (EdgeResizeEnabled() && LOWORD(lparam) == HTCLIENT) {
+        POINT pt = {};
+        GetCursorPos(&pt);
+        ScreenToClient(hwnd_, &pt);
+        const float x =
+            auralite::DipFromPx(static_cast<float>(pt.x), dpi_);
+        const float y =
+            auralite::DipFromPx(static_cast<float>(pt.y), dpi_);
+        Node* hit = nullptr;
+        if (popup_) {
+          hit = popup_->HitTest(x, y);
+        }
+        if (!hit && root_) {
+          hit = root_->HitTest(x, y);
+        }
+        const RectF rc = ClientRectF();
+        const float edge = std::max(kResizeEdgeDip, options_.border_width);
+        const int ht =
+            HitTestResizeEdge(x, y, rc.w, rc.h, edge, kResizeCornerDip);
+        if (ht != HTNOWHERE && !HitBlocksResize(hit)) {
+          SetCursor(LoadCursorW(nullptr, CursorForResizeHit(ht)));
+          return TRUE;
+        }
+      }
+      break;
 
     case WM_LBUTTONDOWN:
+    case WM_LBUTTONDBLCLK:
     case WM_RBUTTONDOWN:
     case WM_MBUTTONDOWN:
     case WM_LBUTTONUP:
@@ -1382,8 +1766,8 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
     return;
   }
 
-  if (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN ||
-      msg == WM_MBUTTONDOWN || msg == WM_MOUSEWHEEL) {
+  if (msg == WM_LBUTTONDOWN || msg == WM_LBUTTONDBLCLK ||
+      msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_MOUSEWHEEL) {
     HideTooltip();
   }
 
@@ -1417,8 +1801,8 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
   Node* popup_hit = popup_ ? popup_->HitTest(ev.x, ev.y) : nullptr;
   Node* root_hit = root_ ? root_->HitTest(ev.x, ev.y) : nullptr;
 
-  if ((msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN ||
-       msg == WM_MBUTTONDOWN) &&
+  if ((msg == WM_LBUTTONDOWN || msg == WM_LBUTTONDBLCLK ||
+       msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN) &&
       popup_ && !popup_hit) {
     if (!(popup_anchor_ && root_hit == popup_anchor_)) {
       ClearPopup();
@@ -1427,6 +1811,13 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
   }
 
   Node* hit = popup_hit ? popup_hit : root_hit;
+
+  if (msg == WM_MOUSEMOVE) {
+    UpdateResizeCursor(ev.x, ev.y, hit);
+  }
+  if (msg == WM_LBUTTONDOWN && TryBeginEdgeResize(ev, hit)) {
+    return;
+  }
 
   // PopupHost §4.3: hover/click a non-opener sibling while a child submenu
   // is open → dismiss child layers (before enter so Submenu can re-Push).
@@ -1461,6 +1852,7 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
 
   switch (msg) {
     case WM_LBUTTONDOWN:
+    case WM_LBUTTONDBLCLK:
     case WM_RBUTTONDOWN:
     case WM_MBUTTONDOWN:
       mouse_capture_ = target;
@@ -1468,9 +1860,13 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
       if (target->focusable()) {
         SetFocusNode(target);
       }
-      target->OnMouseDown(ev);
-      if (msg == WM_LBUTTONDOWN) {
-        ArmDrag(target, ev);
+      if (msg == WM_LBUTTONDBLCLK) {
+        target->OnMouseDoubleClick(ev);
+      } else {
+        target->OnMouseDown(ev);
+        if (msg == WM_LBUTTONDOWN) {
+          ArmDrag(target, ev);
+        }
       }
       break;
     case WM_LBUTTONUP:
@@ -1583,48 +1979,13 @@ void Window::DispatchContextMenu(WPARAM /*wparam*/, LPARAM lparam) {
 }
 
 void Window::DispatchKey(UINT msg, WPARAM wparam) {
-  // PopupHost: Esc closes the top layer only (DismissFrom(depth-1)).
-  if (popup_mode_ && (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) &&
-      wparam == VK_ESCAPE) {
-    if (PopupHost* host = PopupHost::Current()) {
-      const size_t d = host->depth();
-      if (d >= 1) {
-        host->RequestDismissFrom(d - 1);
-      }
-      if (host->FlushPendingDismiss()) {
-        return;
-      }
-    }
-  }
-
-  if ((drag_armed_ || drag_active_) &&
-      (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) && wparam == VK_ESCAPE) {
-    CancelDrag();
-    if (GetCapture() == hwnd_) {
-      ReleaseCapture();
-    }
-    mouse_capture_ = nullptr;
-    Invalidate();
-    return;
-  }
-
-  if (modal_running_ && (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) &&
-      wparam == VK_ESCAPE) {
-    EndModal(IDCANCEL);
-    return;
-  }
-
-  if (!focused_) {
-    return;
-  }
   KeyEvent ev;
   ev.vk = static_cast<UINT>(wparam);
   ev.down = (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN);
   ev.ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
   ev.shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
   ev.alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
-  focused_->OnKey(ev);
-  Invalidate();
+  HandleKey(ev);
 }
 
 void Window::DispatchChar(WPARAM wparam) {

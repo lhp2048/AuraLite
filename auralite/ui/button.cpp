@@ -30,6 +30,30 @@ Button& Button::on_click(ClickHandler handler) {
   return *this;
 }
 
+Button& Button::is_default(bool v) {
+  is_default_ = v;
+  return *this;
+}
+
+Button& Button::accelerator(KeyChord chord) {
+  if (chord.IsShortcut()) {
+    accelerator_ = chord;
+  } else {
+    accelerator_ = {};
+  }
+  return *this;
+}
+
+Button& Button::accelerator(const std::string& spec) {
+  KeyChord chord;
+  if (ParseKeyChord(spec, &chord)) {
+    accelerator_ = chord;
+  } else {
+    accelerator_ = {};
+  }
+  return *this;
+}
+
 Button& Button::preferred_size(float w, float h) {
   fixed_width(w);
   fixed_height(h);
@@ -191,6 +215,12 @@ void Button::Paint(auralite::Canvas& canvas) {
   if (focused()) {
     // Dashed focus ring — less heavy than a solid overlay on filled buttons.
     canvas.DrawDashedRect(bounds_, th.border_focus, 1.f);
+  } else if (is_default_) {
+    if (radius > 0.f) {
+      canvas.DrawRoundedRect(bounds_, radius, radius, th.accent, 2.f);
+    } else {
+      canvas.DrawRect(bounds_, th.accent, 2.f);
+    }
   }
 
   float text_x = bounds_.x + 12.f;

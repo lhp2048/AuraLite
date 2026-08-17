@@ -163,6 +163,15 @@ void ParseWindowYaml(const YAML::Node& n, WindowYaml* out) {
   if (n["border_width"]) {
     out->options.border_width = n["border_width"].as<float>();
   }
+  if (n["resizable"]) {
+    out->options.resizable = n["resizable"].as<bool>();
+  }
+  if (n["min_width"]) {
+    out->options.min_width = n["min_width"].as<int>();
+  }
+  if (n["min_height"]) {
+    out->options.min_height = n["min_height"].as<int>();
+  }
 }
 
 YAML::Node StripRootMetaKeys(const YAML::Node& root) {

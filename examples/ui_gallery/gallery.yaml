@@ -110,6 +110,16 @@ Absolute:
                               height: 72
                               wrap: false
                               text: "关闭软换行后这一行会保持很长：ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789"
+                          - Label: { text: "Label wrap / trim", font_size: 13, preferred_height: 18 }
+                          - Label:
+                              wrap: true
+                              font_size: 14
+                              text: "这段 Label 会按列宽自动折行（只读）。单行过长可用 trim: end / middle / start。"
+                          - Row:
+                              spacing: 8
+                              children:
+                                - Label: { text: "ABCDEFGHIJKLMNOPQRSTUVWXYZ", trim: end, width: 120, height: 22 }
+                                - Label: { text: "C:\\very\\long\\path\\file.txt", trim: middle, width: 160, height: 22 }
                           - Label: { text: "Tab / Shift+Tab 走焦", font_size: 13, preferred_height: 18 }
                           - Row:
                               spacing: 8
@@ -119,6 +129,8 @@ Absolute:
                                 - Button: { text: "焦3", width: hug, height: 32 }
                           - Label: { text: "UserControl（自绘）", font_size: 13, preferred_height: 18 }
                           - UserControl: { name: demo_canvas, width: fill, height: 80 }
+                          - Label: { text: "NativeHost（HWND 黑盒 · Owned EDIT）", font_size: 13, preferred_height: 18 }
+                          - NativeHost: { name: native_demo, width: fill, height: 80 }
                 - Absolute:
                     width: fill
                     height: fill
@@ -325,6 +337,7 @@ Absolute:
                         spacing: 10
                         children:
                           - Label: { text: "裁剪 / Tooltip / Dialog / Toast", font_size: 13, preferred_height: 18 }
+                          - Label: { text: "对话框 Esc 关闭；Open Modeless 拖边缩放；Open NativeHost 嵌 HWND", font_size: 12, preferred_height: 20 }
                           - Row:
                               spacing: 12
                               children:
@@ -352,7 +365,8 @@ Absolute:
                               children:
                                 - Button: { text: "Open Dialog", width: hug, height: 32, tooltip: "圆角无边框对话框" }
                                 - Button: { text: "Open Square Dialog", width: hug, height: 32, tooltip: "直角无边框对话框" }
-                                - Button: { text: "Open Modeless", width: hug, height: 32, tooltip: "非模态圆角自绘标题栏" }
+                                - Button: { text: "Open Modeless", width: hug, height: 32, tooltip: "非模态圆角窗：拖标题栏移动，双击最大化，拖边缩放" }
+                                - Button: { text: "Open NativeHost", width: hug, height: 32, tooltip: "嵌 Win32 EDIT/STATIC：Owned 关窗销毁，Borrowed 保留" }
                           - Label: { text: "Toast 浮层（可连点排队）", font_size: 13, preferred_height: 18 }
                           - Row:
                               spacing: 8

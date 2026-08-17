@@ -4,16 +4,19 @@
 #include <cstdlib>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "auralite/ui/absolute.h"
 #include "auralite/ui/button.h"
 #include "auralite/ui/column.h"
 #include "auralite/ui/factory.h"
 #include "auralite/ui/label.h"
+#include "auralite/ui/native_host.h"
 #include "auralite/ui/node.h"
 #include "auralite/ui/row.h"
 #include "auralite/ui/theme.h"
 #include "auralite/ui/tile.h"
+#include "auralite/ui/text_layout.h"
 #include "auralite/ui/title_bar.h"
 #include "auralite/ui/yaml_loader.h"
 
@@ -243,6 +246,7 @@ void TestWindowYaml() {
   Expect("window corner_radius", spec.options.corner_radius == 12.f);
   Expect("window border_width", spec.options.border_width == 2.f);
   Expect("window topmost false", !spec.options.topmost);
+  Expect("dialog resizable off", !spec.options.resizable);
   Expect("create_options keeps radius",
          spec.create_options(nullptr).corner_radius == 12.f);
   Expect("window width_or", spec.width_or(100) == 320);
@@ -282,6 +286,46 @@ void TestWindowYaml() {
                               &missing);
   Expect("plain yaml still loads", plain != nullptr);
   Expect("no window key", !missing.present);
+
+  WindowYaml framed;
+  auto framed_n = LoadYamlString(
+      "window:\n"
+      "  caption: false\n"
+      "  resizable: true\n"
+      "  min_width: 200\n"
+      "  min_height: 100\n"
+      "Column:\n"
+      "  children: []\n",
+      factory, {}, &framed);
+  Expect("framed yaml", framed_n != nullptr);
+  Expect("caption false resizable", framed.options.resizable);
+  Expect("min_width", framed.options.min_width == 200);
+  Expect("min_height", framed.options.min_height == 100);
+}
+
+void TestResizeHitTest() {
+  using namespace auralite::ui;
+  Expect("center is not edge",
+         Window::HitTestResizeEdge(50.f, 50.f, 100.f, 100.f, 6.f, 12.f) ==
+             HTNOWHERE);
+  Expect("left edge",
+         Window::HitTestResizeEdge(2.f, 50.f, 100.f, 100.f, 6.f, 12.f) ==
+             HTLEFT);
+  Expect("right edge",
+         Window::HitTestResizeEdge(98.f, 50.f, 100.f, 100.f, 6.f, 12.f) ==
+             HTRIGHT);
+  Expect("top edge",
+         Window::HitTestResizeEdge(50.f, 2.f, 100.f, 100.f, 6.f, 12.f) ==
+             HTTOP);
+  Expect("bottom edge",
+         Window::HitTestResizeEdge(50.f, 98.f, 100.f, 100.f, 6.f, 12.f) ==
+             HTBOTTOM);
+  Expect("top-left corner",
+         Window::HitTestResizeEdge(2.f, 2.f, 100.f, 100.f, 6.f, 12.f) ==
+             HTTOPLEFT);
+  Expect("bottom-right corner",
+         Window::HitTestResizeEdge(98.f, 98.f, 100.f, 100.f, 6.f, 12.f) ==
+             HTBOTTOMRIGHT);
 }
 
 void TestTitleBarHitTest() {
@@ -298,13 +342,150 @@ void TestTitleBarHitTest() {
   Expect("label area is TitleBar (drag)", bar.HitTest(20.f, 18.f) == &bar);
   Expect("button keeps click", bar.HitTest(pb->bounds().x + 8.f, 18.f) == pb);
 
+  TitleBar stdbar;
+  stdbar.title(L"Hello");
+  stdbar.Layout(RectF{0.f, 0.f, 320.f, 36.f});
+  Expect("default chrome title+min+max+close", stdbar.children().size() == 4);
+  Expect("default title slot", stdbar.FindByName("title") != nullptr);
+  Expect("default min slot", stdbar.FindByName("minimize") != nullptr);
+  Expect("default max slot", stdbar.FindByName("maximize") != nullptr);
+  Expect("default close slot", stdbar.FindByName("close") != nullptr);
+  Expect("no icon without path", stdbar.FindByName("icon") == nullptr);
+  Expect("title area drags", stdbar.HitTest(24.f, 18.f) == &stdbar);
+  Node* close_hit = stdbar.HitTest(300.f, 18.f);
+  Expect("close is a Button", dynamic_cast<Button*>(close_hit) != nullptr);
+
+  TitleBar minbar;
+  minbar.title(L"App").minimize(false);
+  minbar.Layout(RectF{0.f, 0.f, 320.f, 36.f});
+  Expect("minimize false drops min", minbar.children().size() == 3);
+  Expect("min slot gone", minbar.FindByName("minimize") == nullptr);
+
   ViewFactory factory;
-  auto n = LoadYamlString(
+  auto custom = LoadYamlString(
       "TitleBar:\n"
+      "  title: Ignored\n"
+      "  close: true\n"
       "  children:\n"
       "    - Label: { text: T }\n",
       factory, {});
-  Expect("yaml TitleBar", dynamic_cast<TitleBar*>(n.get()) != nullptr);
+  Expect("yaml TitleBar", dynamic_cast<TitleBar*>(custom.get()) != nullptr);
+  custom->Layout(RectF{0.f, 0.f, 200.f, 36.f});
+  Expect("children list is the layout", custom->children().size() == 1);
+
+  auto yaml_host = LoadYamlString(
+      "NativeHost:\n"
+      "  width: fill\n"
+      "  height: 80\n",
+      factory, {});
+  Expect("yaml NativeHost",
+         dynamic_cast<NativeHost*>(yaml_host.get()) != nullptr);
+
+  auto yaml_std = LoadYamlString(
+      "TitleBar:\n"
+      "  title: Hello\n",
+      factory, {});
+  yaml_std->Layout(RectF{0.f, 0.f, 320.f, 36.f});
+  Expect("yaml default chrome 4 slots", yaml_std->children().size() == 4);
+
+  auto yaml_no_min = LoadYamlString(
+      "TitleBar:\n"
+      "  title: Hello\n"
+      "  minimize: false\n",
+      factory, {});
+  yaml_no_min->Layout(RectF{0.f, 0.f, 320.f, 36.f});
+  Expect("yaml minimize false", yaml_no_min->children().size() == 3);
+
+  auto only_new = LoadYamlString(
+      "TitleBar:\n"
+      "  title: Hello\n"
+      "  close: true\n"
+      "  children:\n"
+      "    - Button: { text: \"?\" }\n",
+      factory, {});
+  only_new->Layout(RectF{0.f, 0.f, 200.f, 36.f});
+  Expect("one extra button is the whole bar", only_new->children().size() == 1);
+  auto* only_btn = dynamic_cast<Button*>(only_new->children()[0].get());
+  Expect("extra button keeps text", only_btn && only_btn->text() == L"?");
+
+  auto only_close = LoadYamlString(
+      "TitleBar:\n"
+      "  children:\n"
+      "    - Button: { name: close }\n",
+      factory, {});
+  only_close->Layout(RectF{0.f, 0.f, 200.f, 36.f});
+  Expect("named close only", only_close->children().size() == 1);
+  auto* close_only = dynamic_cast<Button*>(only_close->FindByName("close"));
+  Expect("close slot fills glyph", close_only && close_only->text() == L"\u00D7");
+  Expect("close slot has click", close_only && close_only->has_on_click());
+
+  auto overlay = LoadYamlString(
+      "TitleBar:\n"
+      "  title: App\n"
+      "  children:\n"
+      "    - Label: { name: title }\n"
+      "    - Button: { text: \"?\" }\n"
+      "    - Button: { name: close, text: X }\n",
+      factory, {});
+  overlay->Layout(RectF{0.f, 0.f, 320.f, 36.f});
+  Expect("declared slots plus extra", overlay->children().size() == 3);
+  auto* title_lab = dynamic_cast<Label*>(overlay->FindByName("title"));
+  Expect("title slot uses TitleBar.title", title_lab && title_lab->text() == L"App");
+  auto* close_ov = dynamic_cast<Button*>(overlay->FindByName("close"));
+  Expect("close text overlays", close_ov && close_ov->text() == L"X");
+}
+
+void TestLabelText() {
+  using namespace auralite::ui;
+  Theme::RegisterBuiltInLight();
+  const wchar_t* font = Theme::Active().font_ui.c_str();
+  const std::wstring sample = L"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+  Expect("clip returns full text",
+         EllipsizeUiText(sample, 10000.f, 16.f, font, TextTrim::Clip) == sample);
+  Expect("wide end keeps full",
+         EllipsizeUiText(sample, 10000.f, 16.f, font, TextTrim::End) == sample);
+
+  const std::wstring end =
+      EllipsizeUiText(sample, 48.f, 16.f, font, TextTrim::End);
+  Expect("end has ellipsis",
+         !end.empty() && end.back() == kEllipsis && end.size() < sample.size());
+
+  const std::wstring start =
+      EllipsizeUiText(sample, 48.f, 16.f, font, TextTrim::Start);
+  Expect("start has ellipsis",
+         !start.empty() && start.front() == kEllipsis &&
+             start.size() < sample.size());
+
+  const std::wstring mid =
+      EllipsizeUiText(sample, 64.f, 16.f, font, TextTrim::Middle);
+  Expect("middle has ellipsis", mid.find(kEllipsis) != std::wstring::npos);
+  Expect("middle not prefix-only",
+         mid.size() >= 2 && mid.front() != kEllipsis && mid.back() != kEllipsis);
+
+  std::vector<std::wstring> hard;
+  WrapUiText(L"one\ntwo", 10000.f, 16.f, font, &hard);
+  Expect("hard break two lines", hard.size() == 2);
+  Expect("hard first", hard[0] == L"one");
+  Expect("hard second", hard[1] == L"two");
+
+  Label wrapped;
+  wrapped.text(sample).font_size(16.f).wrap(true);
+  const SizeF wide = wrapped.Measure(10000.f, 10000.f);
+  const SizeF narrow = wrapped.Measure(40.f, 10000.f);
+  Expect("wrap grows height", narrow.h > wide.h + 8.f);
+
+  Label single;
+  single.text(sample).font_size(16.f);
+  const SizeF one = single.Measure(40.f, 10000.f);
+  Expect("single line height", one.h < narrow.h);
+
+  ViewFactory factory;
+  auto n = LoadYamlString(
+      "Label:\n  text: Hello\n  wrap: true\n  trim: middle\n", factory, {});
+  auto* lab = dynamic_cast<Label*>(n.get());
+  Expect("yaml wrap", lab && lab->wrap());
+  Expect("yaml trim middle", lab && lab->trim() == TextTrim::Middle);
 }
 
 void TestButtonVariant() {
@@ -386,7 +567,9 @@ int main() {
   TestHitTestStillClipsToBounds();
   TestTooltipResolve();
   TestWindowYaml();
+  TestResizeHitTest();
   TestTitleBarHitTest();
+  TestLabelText();
   if (g_failures > 0) {
     std::printf("%d failure(s)\n", g_failures);
     return 1;

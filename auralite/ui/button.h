@@ -20,6 +20,7 @@ class Button : public Node {
   Button& text(const std::wstring& t);
   Button& font_size(float size);
   Button& on_click(ClickHandler handler);
+  bool has_on_click() const { return static_cast<bool>(on_click_); }
   Button& preferred_size(float w, float h);
   // Semantic chrome. Clears sparse color overrides so SetActive can restyle.
   Button& variant(ButtonVariant v);
@@ -36,10 +37,18 @@ class Button : public Node {
   Button& icon_bgra(UINT width, UINT height, const uint8_t* bgra, UINT stride);
   Button& set_enabled(bool e);
   bool enabled() const { return enabled_; }
+  // Enter on this window (except TextArea / focused Button) invokes this button.
+  Button& is_default(bool v);
+  bool is_default() const { return is_default_; }
+  // Window shortcut (Ctrl/Alt / F-key / Esc). Invokes on_click when matched.
+  Button& accelerator(KeyChord chord);
+  Button& accelerator(const std::string& spec);
+  const KeyChord& accelerator() const { return accelerator_; }
 
   AccRole acc_role() const override;
   AccState acc_state() const override;
   bool AccInvoke() override;
+  bool ConsumesEnter() const override { return true; }
 
   const std::wstring& text() const { return text_; }
 
@@ -77,6 +86,8 @@ class Button : public Node {
   bool hovered_ = false;
   bool pressed_ = false;
   bool enabled_ = true;
+  bool is_default_ = false;
+  KeyChord accelerator_{};
 
   auralite::Image icon_;
   UINT icon_w_ = 0;

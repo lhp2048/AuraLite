@@ -39,6 +39,7 @@
 #include "auralite/ui/virtual_list.h"
 #include "auralite/ui/tree_view.h"
 #include "auralite/ui/theme.h"
+#include "auralite/ui/native_host.h"
 #include "auralite/ui/user_control.h"
 #include "auralite/ui/window.h"
 #include "auralite/ui/yaml_loader.h"
@@ -48,6 +49,16 @@ namespace {
 
 struct GalleryState {
   bool animate = true;
+  HWND native_demo = nullptr;
+  HWND native_borrowed = nullptr;
+  std::unique_ptr<auralite::ui::Window> native_win;
+
+  ~GalleryState() {
+    native_win.reset();
+    if (native_borrowed && IsWindow(native_borrowed)) {
+      DestroyWindow(native_borrowed);
+    }
+  }
 };
 
 bool UseFluent(LPWSTR cmd_line) {
@@ -410,24 +421,17 @@ void OpenGalleryDialog(auralite::ui::Window* owner, auralite::ui::Label* status,
     auto shell = std::make_unique<auralite::ui::Column>();
     shell->fill_width().fill_height();
     auto bar = std::make_unique<auralite::ui::TitleBar>();
-    bar->padding(12.f, 0.f, 4.f, 0.f).v_align(auralite::ui::Align::Center);
-    auto title_lab = std::make_unique<auralite::ui::Label>();
-    title_lab->text(title).font_size(13.f).fill_width();
-    bar->AddChild(std::move(title_lab));
-    auto xbtn = std::make_unique<auralite::ui::Button>();
-    xbtn->text(L"×");
-    xbtn->fixed_width(32.f).fixed_height(28.f);
-    xbtn->on_click([&dlg] { dlg.EndModal(IDOK); });
-    bar->AddChild(std::move(xbtn));
+    bar->title(title).close(true).minimize(false).maximize(false);
     shell->AddChild(std::move(bar));
     auto col = std::make_unique<auralite::ui::Column>();
     col->padding(20.f).spacing(12.f).fill_width().fill_height();
     auto lab = std::make_unique<auralite::ui::Label>();
-    lab->text(L"拖标题栏可移动窗口").font_size(14.f);
+    lab->text(L"拖标题栏移动。对话框默认不能拖边缩放。").font_size(14.f);
     col->AddChild(std::move(lab));
     auto close = std::make_unique<auralite::ui::Button>();
     close->fixed_height(32.f).fill_width();
     close->text(L"关闭").on_click([&dlg] { dlg.EndModal(IDOK); });
+    close->is_default(true);
     col->AddChild(std::move(close));
     shell->AddChild(std::move(col));
     root = std::move(shell);
@@ -461,6 +465,7 @@ void OpenModelessRounded(auralite::ui::Window* owner, auralite::ui::Label* statu
   opt.center_on_owner = true;
   opt.corner_radius = 8.f;
   opt.border_width = 1.f;
+  opt.resizable = true;
   auralite::ui::Window* w = slot->get();
   if (!w->Create(L"Modeless", 360, 240, opt)) {
     status->text(L"Modeless create failed");
@@ -471,30 +476,149 @@ void OpenModelessRounded(auralite::ui::Window* owner, auralite::ui::Label* statu
   auto root = std::make_unique<auralite::ui::Column>();
   root->fill_width().fill_height();
   auto bar = std::make_unique<auralite::ui::TitleBar>();
-  bar->padding(12.f, 0.f, 4.f, 0.f).v_align(auralite::ui::Align::Center);
-  auto title = std::make_unique<auralite::ui::Label>();
-  title->text(L"非模态圆角窗").font_size(13.f).fill_width();
-  bar->AddChild(std::move(title));
-  auto xbtn = std::make_unique<auralite::ui::Button>();
-  xbtn->text(L"×").fixed_width(32.f).fixed_height(28.f);
-    xbtn->on_click([w] { w->Close(); });
-  bar->AddChild(std::move(xbtn));
+  bar->title(L"非模态圆角窗");
   root->AddChild(std::move(bar));
 
   auto body = std::make_unique<auralite::ui::Column>();
   body->padding(20.f).spacing(12.f).fill_width().fill_height();
   auto hint = std::make_unique<auralite::ui::Label>();
-  hint->text(L"主窗口仍可操作。拖标题栏移动。").font_size(14.f);
+  hint->text(L"主窗口仍可操作。拖标题栏移动，双击标题栏最大化，拖窗口边缘缩放。").font_size(14.f);
   body->AddChild(std::move(hint));
   auto close = std::make_unique<auralite::ui::Button>();
   close->text(L"关闭").variant(auralite::ui::ButtonVariant::Secondary);
   close->fill_width().fixed_height(32.f);
   close->on_click([w] { w->Close(); });
+  close->is_default(true);
   body->AddChild(std::move(close));
   root->AddChild(std::move(body));
   w->SetRoot(std::move(root));
   ShowWindow(w->hwnd(), SW_SHOW);
   status->text(L"Modeless opened");
+  owner->Invalidate();
+}
+
+HWND CreateDemoEdit(HWND parent) {
+  HWND edit = CreateWindowExW(
+      WS_EX_CLIENTEDGE, L"EDIT",
+      L"Owned EDIT · 可输入。关闭本窗会 DestroyWindow。",
+      WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN, 0,
+      0, 10, 10, parent, nullptr, GetModuleHandleW(nullptr), nullptr);
+  if (edit) {
+    SendMessageW(edit, WM_SETFONT,
+                 reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)),
+                 TRUE);
+  }
+  return edit;
+}
+
+HWND CreateDemoStatic() {
+  HWND label = CreateWindowExW(0, L"STATIC", L"Borrowed STATIC · 关窗不销毁",
+                               WS_POPUP | WS_BORDER | SS_CENTER, 0, 0, 10, 10,
+                               nullptr, nullptr, GetModuleHandleW(nullptr),
+                               nullptr);
+  if (label) {
+    SendMessageW(label, WM_SETFONT,
+                 reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)),
+                 TRUE);
+  }
+  return label;
+}
+
+void OpenNativeHostDemo(auralite::ui::Window* owner, auralite::ui::Label* status,
+                        GalleryState* state) {
+  if (!owner || !status || !state) {
+    return;
+  }
+  if (state->native_win && state->native_win->hwnd()) {
+    ShowWindow(state->native_win->hwnd(), SW_SHOW);
+    SetForegroundWindow(state->native_win->hwnd());
+    status->text(L"NativeHost demo already open");
+    owner->Invalidate();
+    return;
+  }
+  if (!state->native_win) {
+    state->native_win = std::make_unique<auralite::ui::Window>();
+  }
+  auralite::ui::Window::WindowOptions opt;
+  opt.caption = false;
+  opt.quit_on_close = false;
+  opt.topmost = false;
+  opt.owner = owner->hwnd();
+  opt.center_on_owner = true;
+  opt.corner_radius = 8.f;
+  opt.border_width = 1.f;
+  opt.resizable = true;
+  auralite::ui::Window* w = state->native_win.get();
+  if (!w->Create(L"NativeHost", 420, 320, opt)) {
+    status->text(L"NativeHost demo create failed");
+    owner->Invalidate();
+    return;
+  }
+
+  auto root = std::make_unique<auralite::ui::Column>();
+  root->fill_width().fill_height();
+  auto bar = std::make_unique<auralite::ui::TitleBar>();
+  bar->title(L"NativeHost 黑盒");
+  root->AddChild(std::move(bar));
+
+  auto body = std::make_unique<auralite::ui::Column>();
+  body->padding(16.f).spacing(8.f).fill_width().fill_height();
+  auto hint = std::make_unique<auralite::ui::Label>();
+  hint->text(L"上面 Owned（关窗销毁），下面 Borrowed（关窗保留）。")
+      .font_size(13.f);
+  body->AddChild(std::move(hint));
+
+  auto owned_cap = std::make_unique<auralite::ui::Label>();
+  owned_cap->text(L"Attach(hwnd) · Owned").font_size(12.f);
+  body->AddChild(std::move(owned_cap));
+  auto owned_host = std::make_unique<auralite::ui::NativeHost>();
+  owned_host->set_name("owned_edit");
+  owned_host->fill_width().fixed_height(88.f);
+  body->AddChild(std::move(owned_host));
+
+  auto borrowed_cap = std::make_unique<auralite::ui::Label>();
+  borrowed_cap->text(L"AttachBorrowed(hwnd) · Borrowed").font_size(12.f);
+  body->AddChild(std::move(borrowed_cap));
+  auto borrowed_host = std::make_unique<auralite::ui::NativeHost>();
+  borrowed_host->set_name("borrowed_static");
+  borrowed_host->fill_width().fixed_height(36.f);
+  body->AddChild(std::move(borrowed_host));
+
+  auto close = std::make_unique<auralite::ui::Button>();
+  close->text(L"关闭并检查 Borrowed")
+      .variant(auralite::ui::ButtonVariant::Secondary);
+  close->fill_width().fixed_height(32.f);
+  close->is_default(true);
+  close->on_click([w, owner, status, state] {
+    w->Close();
+    const bool alive =
+        state->native_borrowed && IsWindow(state->native_borrowed);
+    status->text(alive ? L"NativeHost 已关：Owned 已销毁，Borrowed 仍在"
+                       : L"NativeHost 已关：Borrowed 也没了");
+    owner->Invalidate();
+  });
+  body->AddChild(std::move(close));
+  root->AddChild(std::move(body));
+  w->SetRoot(std::move(root));
+
+  if (auto* nh = dynamic_cast<auralite::ui::NativeHost*>(
+          w->root()->FindByName("owned_edit"))) {
+    if (HWND edit = CreateDemoEdit(w->hwnd())) {
+      nh->Attach(edit);
+    }
+  }
+  if (auto* nh = dynamic_cast<auralite::ui::NativeHost*>(
+          w->root()->FindByName("borrowed_static"))) {
+    if (!state->native_borrowed || !IsWindow(state->native_borrowed)) {
+      state->native_borrowed = CreateDemoStatic();
+    }
+    if (state->native_borrowed) {
+      nh->AttachBorrowed(state->native_borrowed);
+    }
+  }
+
+  ShowWindow(w->hwnd(), SW_SHOW);
+  status->text(L"NativeHost demo opened");
   owner->Invalidate();
 }
 
@@ -641,6 +765,10 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
       btn->on_click([status, window, modeless]() {
         OpenModelessRounded(window, status, modeless);
       });
+    } else if (text == L"Open NativeHost") {
+      btn->on_click([status, window, state]() {
+        OpenNativeHostDemo(window, status, state);
+      });
     } else if (text == L"Toast Info" || text == L"Toast Success" ||
                text == L"Toast Danger" || text == L"Toast Sticky") {
       btn->on_click([status, window, state, text]() {
@@ -684,6 +812,25 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
       }
       window->Invalidate();
     });
+  }
+  if (auto* nh = dynamic_cast<auralite::ui::NativeHost*>(node)) {
+    if (state && window->hwnd() && nh->name() == "native_demo") {
+      if (!state->native_demo || !IsWindow(state->native_demo)) {
+        state->native_demo = CreateWindowExW(
+            WS_EX_CLIENTEDGE, L"EDIT",
+            L"Owned EDIT · 控件页内嵌的 Win32 输入框",
+            WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_AUTOVSCROLL, 0, 0, 10,
+            10, window->hwnd(), nullptr, GetModuleHandleW(nullptr), nullptr);
+        if (state->native_demo) {
+          SendMessageW(state->native_demo, WM_SETFONT,
+                       reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)),
+                       TRUE);
+        }
+      }
+      if (state->native_demo) {
+        nh->Attach(state->native_demo);
+      }
+    }
   }
   if (auto* uc = dynamic_cast<auralite::ui::UserControl*>(node)) {
     uc->on_paint([](auralite::Canvas& canvas, const auralite::RectF& b) {
@@ -1190,6 +1337,26 @@ std::unique_ptr<auralite::ui::Node> MakeControlsPage() {
                  .text(L"关闭软换行后这一行会保持很长：ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789")
                  .fixed_height(72.f))
       .child(Label()
+                 .text(L"Label wrap / trim")
+                 .font_size(13.f)
+                 .preferred_height(18.f))
+      .child(Label()
+                 .wrap(true)
+                 .font_size(14.f)
+                 .text(L"这段 Label 会按列宽自动折行（只读）。单行过长可用 trim: end / middle / start。"))
+      .child(Row()
+                 .spacing(8.f)
+                 .child(Label()
+                            .text(L"ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+                            .trim(auralite::ui::TextTrim::End)
+                            .fixed_width(120.f)
+                            .fixed_height(22.f))
+                 .child(Label()
+                            .text(L"C:\\very\\long\\path\\file.txt")
+                            .trim(auralite::ui::TextTrim::Middle)
+                            .fixed_width(160.f)
+                            .fixed_height(22.f)))
+      .child(Label()
                  .text(L"Tab / Shift+Tab 走焦")
                  .font_size(13.f)
                  .preferred_height(18.f))
@@ -1203,6 +1370,11 @@ std::unique_ptr<auralite::ui::Node> MakeControlsPage() {
                  .font_size(13.f)
                  .preferred_height(18.f))
       .child(UserControl().name("demo_canvas").fill_width().fixed_height(80.f))
+      .child(Label()
+                 .text(L"NativeHost（HWND 黑盒 · Owned EDIT）")
+                 .font_size(13.f)
+                 .preferred_height(18.f))
+      .child(NativeHost().name("native_demo").fill_width().fixed_height(80.f))
       .Build();
 }
 
@@ -1438,6 +1610,10 @@ std::unique_ptr<auralite::ui::Node> MakeWindowPage() {
                  .text(L"裁剪 / Tooltip / Dialog / Toast")
                  .font_size(13.f)
                  .preferred_height(18.f))
+      .child(Label()
+                 .text(L"对话框 Esc 关闭；Open Modeless 拖边缩放；Open NativeHost 嵌 HWND")
+                 .font_size(12.f)
+                 .preferred_height(20.f))
       .child(Row()
                  .spacing(12.f)
                  .child(std::move(clipped_col))
@@ -1446,7 +1622,8 @@ std::unique_ptr<auralite::ui::Node> MakeWindowPage() {
                  .spacing(8.f)
                  .child(MakeHugButton(L"Open Dialog", L"圆角无边框对话框"))
                  .child(MakeHugButton(L"Open Square Dialog", L"直角无边框对话框"))
-                 .child(MakeHugButton(L"Open Modeless", L"非模态圆角自绘标题栏")))
+                 .child(MakeHugButton(L"Open Modeless", L"非模态圆角窗：拖标题栏移动，双击最大化，拖边缩放"))
+                 .child(MakeHugButton(L"Open NativeHost", L"嵌 Win32 EDIT/STATIC：Owned 关窗销毁，Borrowed 保留")))
       .child(Label()
                  .text(L"Toast 浮层（可连点排队）")
                  .font_size(13.f)

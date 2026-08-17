@@ -12,6 +12,7 @@
 #include "auralite/ui/item_list.h"
 #include "auralite/ui/virtual_list.h"
 #include "auralite/ui/tree_view.h"
+#include "auralite/ui/native_host.h"
 #include "auralite/ui/progress_bar.h"
 #include "auralite/ui/radio.h"
 #include "auralite/ui/row.h"
@@ -170,6 +171,26 @@ class TitleBarBuilder : public detail::ChildHost<TitleBarBuilder, TitleBar> {
     get()->fixed_height(h);
     return *this;
   }
+  TitleBarBuilder& title(std::wstring text) {
+    get()->title(std::move(text));
+    return *this;
+  }
+  TitleBarBuilder& icon(std::wstring path) {
+    get()->icon(std::move(path));
+    return *this;
+  }
+  TitleBarBuilder& close(bool on) {
+    get()->close(on);
+    return *this;
+  }
+  TitleBarBuilder& minimize(bool on) {
+    get()->minimize(on);
+    return *this;
+  }
+  TitleBarBuilder& maximize(bool on) {
+    get()->maximize(on);
+    return *this;
+  }
 };
 
 class TileBuilder : public detail::ChildHost<TileBuilder, Tile> {
@@ -276,6 +297,26 @@ class LabelBuilder : public detail::BuilderBase<Label> {
   }
   LabelBuilder& align(TextAlign a) {
     get()->align(a);
+    return *this;
+  }
+  LabelBuilder& wrap(bool enable) {
+    get()->wrap(enable);
+    return *this;
+  }
+  LabelBuilder& trim(TextTrim t) {
+    get()->trim(t);
+    return *this;
+  }
+  LabelBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  LabelBuilder& fixed_width(float w) {
+    get()->fixed_width(w);
+    return *this;
+  }
+  LabelBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
     return *this;
   }
   LabelBuilder& h_align(Align a) {
@@ -416,6 +457,18 @@ class ButtonBuilder : public detail::BuilderBase<Button> {
   }
   ButtonBuilder& enabled(bool e) {
     get()->set_enabled(e);
+    return *this;
+  }
+  ButtonBuilder& is_default(bool v) {
+    get()->is_default(v);
+    return *this;
+  }
+  ButtonBuilder& accelerator(KeyChord chord) {
+    get()->accelerator(chord);
+    return *this;
+  }
+  ButtonBuilder& accelerator(const std::string& spec) {
+    get()->accelerator(spec);
     return *this;
   }
 };
@@ -792,6 +845,44 @@ class UserControlBuilder : public detail::BuilderBase<UserControl> {
 };
 
 inline UserControlBuilder UserControl() { return UserControlBuilder(); }
+
+class NativeHostBuilder : public detail::BuilderBase<NativeHost> {
+ public:
+  NativeHostBuilder& attach(HWND hwnd) {
+    get()->Attach(hwnd);
+    return *this;
+  }
+  NativeHostBuilder& attach(HWND hwnd, NativeLifetime life) {
+    get()->Attach(hwnd, life);
+    return *this;
+  }
+  NativeHostBuilder& attach_borrowed(HWND hwnd) {
+    get()->AttachBorrowed(hwnd);
+    return *this;
+  }
+  NativeHostBuilder& name(std::string n) {
+    get()->set_name(std::move(n));
+    return *this;
+  }
+  NativeHostBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  NativeHostBuilder& fill_height() {
+    get()->fill_height();
+    return *this;
+  }
+  NativeHostBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
+  NativeHostBuilder& weight(float w) {
+    get()->weight(w);
+    return *this;
+  }
+};
+
+inline NativeHostBuilder NativeHost() { return NativeHostBuilder(); }
 inline TextFieldBuilder TextField() { return TextFieldBuilder(); }
 inline ImageViewBuilder ImageView() { return ImageViewBuilder(); }
 inline ImageButtonBuilder ImageButton() { return ImageButtonBuilder(); }

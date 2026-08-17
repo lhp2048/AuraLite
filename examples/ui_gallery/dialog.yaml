@@ -11,17 +11,15 @@ Column:
   height: fill
   children:
     - TitleBar:
-        height: 36
-        padding: [12, 0, 4, 0]
-        v_align: center
-        children:
-          - Label: { text: "Dialog", font_size: 13, width: fill }
-          - Button: { text: "×", width: 32, height: 28, on_click: dialog_close }
+        title: Dialog
+        close: true
+        minimize: false
+        maximize: false
     - Column:
         padding: 20
         spacing: 12
         width: fill
         height: fill
         children:
-          - Label: { text: "拖标题栏可移动窗口", font_size: 14 }
-          - Button: { text: "关闭", variant: secondary, width: fill, height: 32, on_click: dialog_close }
+          - Label: { text: "拖标题栏移动。对话框默认不能拖边缩放。", font_size: 14 }
+          - Button: { text: "关闭", variant: secondary, width: fill, height: 32, default: true, on_click: dialog_close }

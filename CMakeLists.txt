@@ -161,6 +161,7 @@ FetchContent_MakeAvailable(yaml-cpp)
 add_library(auralite_ui STATIC
   auralite/ui/node.cpp
   auralite/ui/acc.cpp
+  auralite/ui/accel.cpp
   auralite/ui/anim.cpp
   auralite/ui/column.cpp
   auralite/ui/row.cpp
@@ -171,8 +172,10 @@ add_library(auralite_ui STATIC
   auralite/ui/toast_overlay.cpp
   auralite/ui/absolute.cpp
   auralite/ui/label.cpp
+  auralite/ui/text_layout.cpp
   auralite/ui/button.cpp
   auralite/ui/user_control.cpp
+  auralite/ui/native_host.cpp
   auralite/ui/image_view.cpp
   auralite/ui/image_button.cpp
   auralite/ui/text_field.cpp

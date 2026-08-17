@@ -104,6 +104,7 @@ class Node {
 
   virtual void OnMouseDown(const MouseEvent&) {}
   virtual void OnMouseUp(const MouseEvent&) {}
+  virtual void OnMouseDoubleClick(const MouseEvent&) {}
   virtual void OnMouseMove(const MouseEvent&) {}
   virtual void OnMouseEnter(const MouseEvent&) {}
   virtual void OnMouseLeave(const MouseEvent&) {}
@@ -122,6 +123,9 @@ class Node {
 
   // Wheel: Window walks from hit node up to first ancestor that returns true.
   virtual bool WantsMouseWheel() const { return false; }
+
+  // Enter: Window activates the default Button unless this returns true.
+  virtual bool ConsumesEnter() const { return false; }
 
   // IME: composition is temporary underline text; result commits into the control.
   virtual bool WantsIme() const { return false; }

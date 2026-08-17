@@ -48,6 +48,7 @@ class Combo : public Node {
   void OnMouseDown(const MouseEvent& e) override;
   void OnKey(const KeyEvent& e) override;
   void OnChar(wchar_t ch) override;
+  bool ConsumesEnter() const override { return true; }
 
   void ClosePopup();
 

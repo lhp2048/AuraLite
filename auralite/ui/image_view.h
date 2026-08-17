@@ -16,6 +16,7 @@ class ImageView : public Node {
                        UINT stride);
   // Path is loaded lazily on Paint (and after device loss).
   ImageView& LoadFromFile(const std::wstring& path);
+  const std::wstring& path() const { return path_; }
   ImageView& preferred_size(float w, float h);
 
   SizeF Measure(float max_w, float max_h) override;

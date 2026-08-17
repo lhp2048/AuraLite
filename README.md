@@ -36,6 +36,10 @@ cmake --build build --config Debug --target ui_gallery ui_layout_test auralite_u
 
 建窗前调用 `Application::EnableDpiAwareness()`（或等价 `SetProcessDpiAwarenessContext`）。
 
+**对话框按键：** 模态 `RunModal` 时 **Esc** 为 `EndModal(IDCANCEL)`。`Button` 设 `default: true`（C++ `is_default(true)`）后，**Enter** 在焦点不在 `TextArea` / 当前按钮 / 打开的 `Combo` 时点这个默认按钮（焦点在别的按钮上则点那个按钮）。禁用的 default 会被跳过。
+
+**快捷键表：** `Window::AddAccelerator("Ctrl+S", ...)` 或按钮 `accelerator: "F1"` / `.accelerator("Ctrl+S")`。只接受带 Ctrl/Alt 的组合、F1–F24、Esc；普通字母不会抢走输入。后登记的窗口快捷键优先于按钮。`HandleKey` 供测试或嵌入调用。
+
 ## 工程
 
 | 目标 | 说明 | 产物 |
@@ -57,7 +61,7 @@ CMake 开关：
 - `TypeName:` 作为唯一 map key（如 `Column:` / `Button:`）
 - 容器：`children:`；`ScrollView.content`；`SplitView.leading` / `trailing`
 - 根级可选 `theme: dark`（加载时 `Theme::SetActive`）
-- 根级可选 `window:`（HWND 元数据，不进控件树）：`title` / `width` / `height` / `kind`（`main` \| `dialog` \| `popup`）/ `corner_radius` / `border_width` / `topmost` / `center_on_owner`
+- 根级可选 `window:`（HWND 元数据，不进控件树）：`title` / `width` / `height` / `kind`（`main` \| `dialog` \| `popup`）/ `corner_radius` / `border_width` / `resizable` / `min_width` / `min_height` / `topmost` / `center_on_owner`
 - `on_click: handler_name` → 应用侧 `HandlerMap`
 - 布局细则见 [`LAYOUT.md`](LAYOUT.md)
 
@@ -108,8 +112,8 @@ auto root = Column()
 | 类型 | 说明 |
 |------|------|
 | `Column` / `Row` / `Tile` / `Tab` / `Absolute` / `SplitView` / `ScrollView` | 布局 |
-| `TitleBar` | 布局同 `Row`；空白 / `Label` 可拖宿主窗口 |
-| `Label` / `Button` / `ImageButton` / `ImageView` | 文本与按钮 |
+| `TitleBar` | 无 `children`：`[icon?][title][min][max/restore][close]`（min/max/close 默认开；无 `icon` 路径则省略图标）。有 `children`：列表即布局。`name` 覆盖 `icon` / `title` / `minimize` / `maximize` / `close` 槽参数。空白 / Label / 图标可拖窗 |
+| `Label` | 默认单行 `trim: clip`；`wrap: true` 软换行；单行可 `trim: start\|middle\|end` 省略号 |
 | `TextField` / `TextArea` | 单行 / 多行（`wrap` 软换行） |
 | `Checkbox` / `Radio` / `Switch` | 选择 |
 | `ProgressBar` / `Slider` / `Combo` | 进度、滑块、下拉（Combo 需 `BindWindow`） |
@@ -119,7 +123,26 @@ auto root = Column()
 | `Toast` | 轻提示 |
 | `ContextMenu` | Legacy `TrackPopupMenu`；新菜单用 `PopupHost` |
 
-`window.title` 只用于任务栏；可见标题写在 `TitleBar` 里的 `Label`。
+`window.title` 只用于任务栏。无边框窗可见标题用 `TitleBar`：
+
+```yaml
+TitleBar: { title: App, icon: app.png }
+```
+
+要加新按钮时把要用的默认槽也写进 `children`（顺序即布局）。只写一个新按钮时，标题栏就只有那一个按钮：
+
+```yaml
+TitleBar:
+  title: Dialog
+  children:
+    - Label: { name: title }
+    - Button: { text: "?", width: 32 }
+    - Button: { name: close, text: "关" }
+```
+
+`name: close` 覆盖默认关闭键（glyph / 尺寸 / `Close()`）；未写进 `children` 的槽不会出现。最大化在还原态显示 restore glyph。DSL：`TitleBar().title(L"...").icon(L"app.png")`。
+
+无边框窗（`caption: false`）默认可拖边 / 角缩放（约 6 DIP，光标随边变化）。`kind: dialog` / `WindowOptions::Dialog()` 默认 `resizable: false`。最大化时关掉。边上的 Button 优先于缩放。`window.resizable` / `min_width` / `min_height` 可配。
 
 **本分支不做：** 富文本、YAML 热重载、完整 schema、百分比尺寸、控件级 opacity、项级 UIA pattern。
 

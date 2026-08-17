@@ -89,13 +89,16 @@ class Canvas {
   Canvas(const Canvas&) = delete;
   Canvas& operator=(const Canvas&) = delete;
 
-  // Create factories and HWND render target. Safe to call again after device loss.
+  // Create factories and a DC render target backed by a DIB. Present BitBlts
+  // the full client (including NativeHost holes) so parent pixels never keep
+  // a stale copy of a child HWND, then the guests are redrawn on top.
+  // Safe to call again after device loss.
   bool Init(HWND hwnd);
-  // Popup: DC render target + DIB present via UpdateLayeredWindow.
+  // Popup: same DIB path, present via UpdateLayeredWindow.
   bool InitLayered(HWND hwnd);
   void Shutdown();
 
-  // Recreate HWND target if missing (after EndDraw device loss).
+  // Recreate the DC target if missing (after EndDraw device loss).
   bool EnsureRenderTarget();
 
   bool BeginDraw();
@@ -154,8 +157,9 @@ class Canvas {
   friend class Image;
   bool CreateDeviceResources();
   void DiscardDeviceResources();
-  bool CreateLayeredSurface(UINT w, UINT h);
-  void DestroyLayeredSurface();
+  bool CreateDibSurface(UINT w, UINT h);
+  void DestroyDibSurface();
+  void PresentDib();
   ID2D1SolidColorBrush* BrushFor(const ColorF& color);
 
   HWND hwnd_ = nullptr;

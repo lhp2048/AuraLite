@@ -13,6 +13,7 @@
 #include "auralite/ui/item_list.h"
 #include "auralite/ui/virtual_list.h"
 #include "auralite/ui/tree_view.h"
+#include "auralite/ui/native_host.h"
 #include "auralite/ui/progress_bar.h"
 #include "auralite/ui/radio.h"
 #include "auralite/ui/row.h"
@@ -362,6 +363,9 @@ std::string NodeTypeName(const Node* n) {
   if (dynamic_cast<const Toast*>(n)) {
     return "Toast";
   }
+  if (dynamic_cast<const NativeHost*>(n)) {
+    return "NativeHost";
+  }
   if (dynamic_cast<const UserControl*>(n)) {
     return "UserControl";
   }
@@ -526,6 +530,24 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["spacing"]) {
       bar->spacing(props["spacing"].as<float>());
     }
+    if (props["title"]) {
+      bar->title(Utf8ToWide(props["title"].as<std::string>()));
+    }
+    if (props["icon"] && props["icon"].IsScalar()) {
+      const std::string raw = props["icon"].as<std::string>();
+      if (raw != "true" && raw != "false" && raw != "True" && raw != "False") {
+        bar->icon(Utf8ToWide(raw));
+      }
+    }
+    if (props["close"]) {
+      bar->close(props["close"].as<bool>());
+    }
+    if (props["minimize"]) {
+      bar->minimize(props["minimize"].as<bool>());
+    }
+    if (props["maximize"]) {
+      bar->maximize(props["maximize"].as<bool>());
+    }
     ApplyWidthHeight(bar.get(), props);
     ApplyWeightHVAlign(bar.get(), props);
     return bar;
@@ -612,6 +634,21 @@ void ViewFactory::RegisterBuiltinTypes() {
     if (props["align"]) {
       label->align(ParseTextAlign(props["align"].as<std::string>()));
     }
+    if (props["wrap"]) {
+      label->wrap(props["wrap"].as<bool>());
+    }
+    if (props["trim"]) {
+      const std::string t = props["trim"].as<std::string>();
+      if (t == "start" || t == "Start") {
+        label->trim(TextTrim::Start);
+      } else if (t == "middle" || t == "Middle") {
+        label->trim(TextTrim::Middle);
+      } else if (t == "end" || t == "End") {
+        label->trim(TextTrim::End);
+      } else {
+        label->trim(TextTrim::Clip);
+      }
+    }
     if (props["preferred_height"]) {
       label->preferred_height(props["preferred_height"].as<float>());
     }
@@ -661,10 +698,23 @@ void ViewFactory::RegisterBuiltinTypes() {
       btn->font_size(props["font_size"].as<float>());
     }
     ApplyButtonChrome(btn.get(), props);
+    if (props["default"]) {
+      btn->is_default(props["default"].as<bool>());
+    }
+    if (props["accelerator"]) {
+      btn->accelerator(props["accelerator"].as<std::string>());
+    }
     ApplyWidthHeight(btn.get(), props);
     ApplyWeightHVAlign(btn.get(), props);
     BindOnClick(btn.get(), props, handlers);
     return btn;
+  });
+
+  Register("NativeHost", [](const YAML::Node& props, const HandlerMap&) {
+    auto host = std::make_unique<NativeHost>();
+    ApplyWidthHeight(host.get(), props);
+    ApplyWeightHVAlign(host.get(), props);
+    return host;
   });
 
   Register("UserControl", [](const YAML::Node& props, const HandlerMap&) {
