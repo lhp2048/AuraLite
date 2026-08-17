@@ -1231,7 +1231,8 @@ void Window::ApplyAcceptFiles() {
   DragAcceptFiles(hwnd_, accept_files_ ? TRUE : FALSE);
 }
 
-void Window::HandleDropFiles(HDROP drop) {
+void Window::HandleDropFiles(HANDLE drop_handle) {
+  const HDROP drop = static_cast<HDROP>(drop_handle);
   if (!drop) {
     return;
   }
@@ -1438,7 +1439,7 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
     case WM_PAINT: {
       PAINTSTRUCT ps = {};
       BeginPaint(hwnd_, &ps);
-      OnPaint(&ps.rcPaint);
+      OnPaint(ps.hdc, &ps.rcPaint);
       EndPaint(hwnd_, &ps);
       return 0;
     }
@@ -1707,7 +1708,7 @@ void Window::ApplyDpiChange(UINT new_dpi, const RECT* suggested) {
   Invalidate();
 }
 
-void Window::OnPaint(const RECT* present_px) {
+void Window::OnPaint(HDC present_dc, const RECT* present_px) {
   if (!hwnd_) {
     return;
   }
@@ -1748,7 +1749,7 @@ void Window::OnPaint(const RECT* present_px) {
   }
   PaintChrome(canvas_);
 
-  if (!canvas_.EndDraw(present_px)) {
+  if (!canvas_.EndDraw(present_dc, present_px)) {
     const bool ok =
         popup_mode_ ? canvas_.InitLayered(hwnd_) : canvas_.Init(hwnd_);
     if (ok) {

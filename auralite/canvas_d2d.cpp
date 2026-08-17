@@ -133,6 +133,29 @@ void Canvas::SetDpi(float dpi) {
   }
 }
 
+bool Canvas::PeekDibBgra(int x, int y, uint8_t* b, uint8_t* g, uint8_t* r,
+                         uint8_t* a) const {
+  if (!dib_bits_ || x < 0 || y < 0 ||
+      static_cast<UINT>(x) >= dib_w_ || static_cast<UINT>(y) >= dib_h_) {
+    return false;
+  }
+  const uint8_t* p = static_cast<const uint8_t*>(dib_bits_) +
+                     (static_cast<size_t>(y) * dib_w_ + static_cast<size_t>(x)) * 4u;
+  if (b) {
+    *b = p[0];
+  }
+  if (g) {
+    *g = p[1];
+  }
+  if (r) {
+    *r = p[2];
+  }
+  if (a) {
+    *a = p[3];
+  }
+  return true;
+}
+
 Canvas::~Canvas() {
   Shutdown();
 }
@@ -289,16 +312,10 @@ bool Canvas::CreateDeviceResources() {
     return false;
   }
   render_target_ = dc_render_target;
-
-  const RECT bind = {0, 0, static_cast<LONG>(dib_w_),
-                     static_cast<LONG>(dib_h_)};
-  hr = dc_render_target->BindDC(dib_dc_, &bind);
-  if (FAILED(hr)) {
+  if (!BindDib()) {
     DiscardDeviceResources();
     return false;
   }
-
-  render_target_->SetDpi(dpi_, dpi_);
   render_target_->SetTextAntialiasMode(
       layered_ ? D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE
                : D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
@@ -318,6 +335,24 @@ void Canvas::DiscardDeviceResources() {
   DestroyDibSurface();
 }
 
+bool Canvas::BindDib() {
+  auto* dc_render_target = static_cast<ID2D1DCRenderTarget*>(render_target_);
+  if (!dc_render_target || !dib_dc_) {
+    return false;
+  }
+  const RECT bind = {0, 0, static_cast<LONG>(dib_w_),
+                     static_cast<LONG>(dib_h_)};
+  const HRESULT hr = dc_render_target->BindDC(dib_dc_, &bind);
+  if (FAILED(hr)) {
+    return false;
+  }
+  // BindDC resets the DC target to 96 DPI. Layout/paint are DIP; restore
+  // Window DPI so 96 DIP maps to physical pixels (otherwise the bitmap is
+  // only filled in the top-left at 100% scale).
+  render_target_->SetDpi(dpi_, dpi_);
+  return true;
+}
+
 void Canvas::Resize(UINT width, UINT height) {
   width = width > 0 ? width : 1;
   height = height > 0 ? height : 1;
@@ -331,31 +366,21 @@ void Canvas::Resize(UINT width, UINT height) {
   if (!CreateDibSurface(width, height)) {
     return;
   }
-  auto* dc_render_target = static_cast<ID2D1DCRenderTarget*>(render_target_);
-  if (!dc_render_target) {
-    return;
-  }
-  const RECT bind = {0, 0, static_cast<LONG>(dib_w_),
-                     static_cast<LONG>(dib_h_)};
-  dc_render_target->BindDC(dib_dc_, &bind);
-  render_target_->SetDpi(dpi_, dpi_);
+  BindDib();
 }
 
 bool Canvas::BeginDraw() {
   if (!EnsureRenderTarget()) {
     return false;
   }
-  auto* dc_render_target = static_cast<ID2D1DCRenderTarget*>(render_target_);
-  if (dc_render_target && dib_dc_) {
-    const RECT bind = {0, 0, static_cast<LONG>(dib_w_),
-                       static_cast<LONG>(dib_h_)};
-    dc_render_target->BindDC(dib_dc_, &bind);
+  if (!BindDib()) {
+    return false;
   }
   render_target_->BeginDraw();
   return true;
 }
 
-void Canvas::PresentDib(const RECT* present_px) {
+void Canvas::PresentDib(HDC present_dc, const RECT* present_px) {
   if (!hwnd_ || !dib_dc_ || dib_w_ == 0 || dib_h_ == 0) {
     return;
   }
@@ -370,26 +395,25 @@ void Canvas::PresentDib(const RECT* present_px) {
   if (w <= 0 || h <= 0) {
     return;
   }
-  // Do not use DCX_CLIPCHILDREN / GetDC (WS_CLIPCHILDREN). Skipping the hole
-  // leaves the last child pixels in the parent surface; moving a large window
-  // CopyBits that snapshot and the live HWND shows as a ghost trail.
-  // Omit DCX_USESTYLE so WS_CLIPCHILDREN is not applied to this DC.
-  HRGN rgn = CreateRectRgn(dest.left, dest.top, dest.right, dest.bottom);
-  HDC hdc = GetDCEx(hwnd_, rgn, DCX_CACHE | DCX_INTERSECTRGN);
+  // WM_PAINT must BitBlt into BeginPaint's HDC. GetDCEx+INTERSECTRGN during
+  // paint used a second DC whose clip was not the update region, so only a
+  // top-left slice of the DIB showed up (rest stayed window_bg / empty).
+  bool own_dc = false;
+  HDC hdc = present_dc;
   if (!hdc) {
-    if (rgn) {
-      DeleteObject(rgn);
-    }
     hdc = GetDCEx(hwnd_, nullptr, DCX_CACHE);
+    own_dc = true;
   }
   if (!hdc) {
     return;
   }
   BitBlt(hdc, dest.left, dest.top, w, h, dib_dc_, dest.left, dest.top, SRCCOPY);
-  ReleaseDC(hwnd_, hdc);
+  if (own_dc) {
+    ReleaseDC(hwnd_, hdc);
+  }
 }
 
-bool Canvas::EndDraw(const RECT* present_px) {
+bool Canvas::EndDraw(HDC present_dc, const RECT* present_px) {
   if (!render_target_) {
     return false;
   }
@@ -417,7 +441,7 @@ bool Canvas::EndDraw(const RECT* present_px) {
     UpdateLayeredWindow(hwnd_, nullptr, &pt_dst, &size, dib_dc_, &pt_src, 0,
                         &blend, ULW_ALPHA);
   } else {
-    PresentDib(present_px);
+    PresentDib(present_dc, present_px);
   }
   return true;
 }

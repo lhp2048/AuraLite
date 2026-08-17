@@ -148,6 +148,10 @@ class Window {
   std::shared_ptr<std::atomic_bool> alive_flag() const { return alive_; }
   HWND hwnd() const { return hwnd_; }
   float dpi() const { return dpi_; }
+  bool PeekDibBgra(int x, int y, uint8_t* b, uint8_t* g, uint8_t* r,
+                   uint8_t* a) const {
+    return canvas_.PeekDibBgra(x, y, b, g, r, a);
+  }
 
   // Ref-counted ~30fps Invalidate for indeterminate ProgressBar etc.
   void RegisterAnimation();
@@ -224,7 +228,7 @@ class Window {
   bool ProcessAccelerator(const KeyEvent& e);
 
   LRESULT HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam);
-  void OnPaint(const RECT* present_px = nullptr);
+  void OnPaint(HDC present_dc = nullptr, const RECT* present_px = nullptr);
   void OnSize(UINT width, UINT height);
   void NotifyDeviceLost();
   void ClearHover();
@@ -249,7 +253,7 @@ class Window {
   void FinishDrag(const MouseEvent& ev, Node* hit);
   void CancelDrag();
   void ApplyAcceptFiles();
-  void HandleDropFiles(HDROP drop);
+  void HandleDropFiles(HANDLE drop);
   void PresentNextToast();
   void SyncAnimTimer();
   static double NowSec();

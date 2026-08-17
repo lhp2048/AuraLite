@@ -102,8 +102,9 @@ class Canvas {
 
   bool BeginDraw();
   // Returns false if the target must be recreated (e.g. device lost).
+  // |present_dc| is BeginPaint's HDC (already clipped). Null uses GetDC.
   // |present_px| is the client dirty rect to BitBlt; null presents the full DIB.
-  bool EndDraw(const RECT* present_px = nullptr);
+  bool EndDraw(HDC present_dc = nullptr, const RECT* present_px = nullptr);
 
   void Resize(UINT width, UINT height);
 
@@ -149,6 +150,10 @@ class Canvas {
 
   float dpi() const { return dpi_; }
   void SetDpi(float dpi);
+  UINT dib_width() const { return dib_w_; }
+  UINT dib_height() const { return dib_h_; }
+  bool PeekDibBgra(int x, int y, uint8_t* b, uint8_t* g, uint8_t* r,
+                   uint8_t* a) const;
 
   // Layout/hit-test/paint are DIP. Render-target DPI is dpi_ (set by Window).
   // Pixel buffer size still comes from GetClientRect.
@@ -159,7 +164,8 @@ class Canvas {
   void DiscardDeviceResources();
   bool CreateDibSurface(UINT w, UINT h);
   void DestroyDibSurface();
-  void PresentDib(const RECT* present_px);
+  bool BindDib();
+  void PresentDib(HDC present_dc, const RECT* present_px);
   ID2D1SolidColorBrush* BrushFor(const ColorF& color);
 
   HWND hwnd_ = nullptr;
