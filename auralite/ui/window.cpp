@@ -824,6 +824,25 @@ void Window::Invalidate() {
   InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
+void Window::InvalidateNode(const Node* node) {
+  if (!hwnd_ || !node) {
+    return;
+  }
+  const RectF b = node->bounds();
+  if (b.w <= 0.f || b.h <= 0.f) {
+    return;
+  }
+  RECT rc;
+  rc.left = static_cast<LONG>(std::floor(auralite::PxFromDip(b.x, dpi_))) - 2;
+  rc.top = static_cast<LONG>(std::floor(auralite::PxFromDip(b.y, dpi_))) - 2;
+  rc.right =
+      static_cast<LONG>(std::ceil(auralite::PxFromDip(b.x + b.w, dpi_))) + 2;
+  rc.bottom =
+      static_cast<LONG>(std::ceil(auralite::PxFromDip(b.y + b.h, dpi_))) + 2;
+  invalidate_posted_ = false;
+  InvalidateRect(hwnd_, &rc, FALSE);
+}
+
 void Window::RequestLayout() {
   layout_dirty_ = true;
   Invalidate();
@@ -1317,8 +1336,8 @@ void Window::ClearHover() {
   }
   MouseEvent ev;
   hovered_->OnMouseLeave(ev);
+  InvalidateNode(hovered_);
   hovered_ = nullptr;
-  Invalidate();
 }
 
 void Window::EnsureMouseLeaveTracking() {
@@ -1419,7 +1438,7 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
     case WM_PAINT: {
       PAINTSTRUCT ps = {};
       BeginPaint(hwnd_, &ps);
-      OnPaint();
+      OnPaint(&ps.rcPaint);
       EndPaint(hwnd_, &ps);
       return 0;
     }
@@ -1688,7 +1707,7 @@ void Window::ApplyDpiChange(UINT new_dpi, const RECT* suggested) {
   Invalidate();
 }
 
-void Window::OnPaint() {
+void Window::OnPaint(const RECT* present_px) {
   if (!hwnd_) {
     return;
   }
@@ -1729,7 +1748,7 @@ void Window::OnPaint() {
   }
   PaintChrome(canvas_);
 
-  if (!canvas_.EndDraw()) {
+  if (!canvas_.EndDraw(present_px)) {
     const bool ok =
         popup_mode_ ? canvas_.InitLayered(hwnd_) : canvas_.Init(hwnd_);
     if (ok) {
@@ -1737,6 +1756,14 @@ void Window::OnPaint() {
     }
     layout_dirty_ = true;
     Invalidate();
+    return;
+  }
+  if (!popup_mode_ && hwnd_ && present_px) {
+    NativeHost::RedrawGuests(hwnd_, *present_px);
+  } else if (!popup_mode_ && hwnd_) {
+    RECT full = {};
+    GetClientRect(hwnd_, &full);
+    NativeHost::RedrawGuests(hwnd_, full);
   }
 }
 
@@ -1812,6 +1839,22 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
 
   Node* hit = popup_hit ? popup_hit : root_hit;
 
+  Node* prev_hovered = hovered_;
+  bool hover_changed = false;
+  if (msg == WM_MOUSEMOVE && !mouse_capture_ && !drag_active_) {
+    if (hovered_ != hit) {
+      if (hovered_) {
+        hovered_->OnMouseLeave(ev);
+      }
+      hovered_ = hit;
+      if (hovered_) {
+        hovered_->OnMouseEnter(ev);
+      }
+      RestartTooltipTimer();
+      hover_changed = true;
+    }
+  }
+
   if (msg == WM_MOUSEMOVE) {
     UpdateResizeCursor(ev.x, ev.y, hit);
   }
@@ -1829,23 +1872,11 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
     }
   }
 
-  if (msg == WM_MOUSEMOVE && !mouse_capture_ && !drag_active_) {
-    if (hovered_ != hit) {
-      if (hovered_) {
-        hovered_->OnMouseLeave(ev);
-      }
-      hovered_ = hit;
-      if (hovered_) {
-        hovered_->OnMouseEnter(ev);
-      }
-      RestartTooltipTimer();
-    }
-  }
-
   Node* target = mouse_capture_ ? mouse_capture_ : hit;
   if (!target) {
-    if (msg == WM_MOUSEMOVE) {
-      Invalidate();
+    if (hover_changed) {
+      InvalidateNode(prev_hovered);
+      InvalidateNode(hovered_);
     }
     return;
   }
@@ -1931,6 +1962,16 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
         return;
       }
     }
+  }
+
+  if (msg == WM_MOUSEMOVE && !drag_active_) {
+    if (hover_changed) {
+      InvalidateNode(prev_hovered);
+      InvalidateNode(hovered_);
+    } else if (mouse_capture_) {
+      InvalidateNode(mouse_capture_);
+    }
+    return;
   }
 
   Invalidate();

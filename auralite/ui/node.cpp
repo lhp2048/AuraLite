@@ -32,6 +32,12 @@ void Node::set_host_window(Window* w) {
   }
 }
 
+void Node::Invalidate() {
+  if (host_window_) {
+    host_window_->InvalidateNode(this);
+  }
+}
+
 Node& Node::set_width_policy(SizePolicy p) {
   width_policy_ = p;
   return *this;

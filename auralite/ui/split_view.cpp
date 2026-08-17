@@ -142,6 +142,7 @@ void SplitView::ApplyRatioFromDividerOffset(float offset) {
   }
   ratio_ = lead_w / avail;
   RelayoutChildren();
+  Invalidate();
 }
 
 void SplitView::Paint(auralite::Canvas& canvas) {

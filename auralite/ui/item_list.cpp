@@ -457,10 +457,12 @@ void ItemList::ForwardHover(const MouseEvent& e, Node* next) {
   }
   if (forward_hover_) {
     forward_hover_->OnMouseLeave(e);
+    forward_hover_->Invalidate();
   }
   forward_hover_ = next;
   if (forward_hover_) {
     forward_hover_->OnMouseEnter(e);
+    forward_hover_->Invalidate();
   }
 }
 
@@ -715,19 +717,26 @@ void ItemList::OnMouseDown(const MouseEvent& e) {
 
 void ItemList::OnMouseMove(const MouseEvent& e) {
   if (HandleHeaderMouseMove(e)) {
+    Invalidate();
     return;
   }
   if (hscroll_.OnMouseMove(e)) {
     scroll_x_ = hscroll_.scroll_offset();
+    Invalidate();
     return;
   }
   if (vscroll_.OnMouseMove(e)) {
     set_scroll_offset(vscroll_.scroll_offset());
     SyncVisibleRows();
+    Invalidate();
     return;
   }
 
-  hover_index_ = IndexAtPoint(e.x, e.y);
+  const int next = IndexAtPoint(e.x, e.y);
+  if (next != hover_index_) {
+    hover_index_ = next;
+    Invalidate();
+  }
 
   if (forward_capture_) {
     forward_capture_->OnMouseMove(e);
@@ -756,6 +765,7 @@ void ItemList::OnMouseLeave(const MouseEvent& e) {
   hover_index_ = -1;
   resizing_col_ = false;
   ForwardHover(e, nullptr);
+  Invalidate();
   forward_capture_ = nullptr;
 }
 

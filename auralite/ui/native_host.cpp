@@ -5,8 +5,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace auralite::ui {
+namespace {
+
+std::vector<NativeHost*> g_live;
+
+}  // namespace
 
 NativeHost::NativeHost() {
   fill_width();
@@ -26,6 +32,46 @@ void NativeHost::OrphanTree(Node* root) {
   }
   for (const auto& child : root->children()) {
     OrphanTree(child.get());
+  }
+}
+
+void NativeHost::RegisterLive(NativeHost* host) {
+  if (!host) {
+    return;
+  }
+  for (NativeHost* h : g_live) {
+    if (h == host) {
+      return;
+    }
+  }
+  g_live.push_back(host);
+}
+
+void NativeHost::UnregisterLive(NativeHost* host) {
+  g_live.erase(std::remove(g_live.begin(), g_live.end(), host), g_live.end());
+}
+
+void NativeHost::RedrawGuests(HWND parent, const RECT& present_px) {
+  if (!parent) {
+    return;
+  }
+  for (NativeHost* host : g_live) {
+    if (!host || !host->hwnd_ || !IsWindow(host->hwnd_)) {
+      continue;
+    }
+    if (GetParent(host->hwnd_) != parent || !IsWindowVisible(host->hwnd_)) {
+      continue;
+    }
+    RECT guest{host->synced_x_, host->synced_y_,
+               host->synced_x_ + host->synced_w_,
+               host->synced_y_ + host->synced_h_};
+    RECT hit = {};
+    if (!IntersectRect(&hit, &guest, &present_px)) {
+      continue;
+    }
+    RedrawWindow(host->hwnd_, nullptr, nullptr,
+                 RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE |
+                     RDW_ALLCHILDREN);
   }
 }
 
@@ -52,6 +98,7 @@ NativeHost& NativeHost::Attach(HWND hwnd, NativeLifetime life) {
   orig_style_ = GetWindowLongW(hwnd_, GWL_STYLE);
   attached_ = true;
   owned_ = (life == NativeLifetime::Owned);
+  RegisterLive(this);
   AdoptParent();
   SyncNative();
   return *this;
@@ -90,6 +137,7 @@ void NativeHost::Drop(bool destroy_owned) {
   synced_w_ = 0;
   synced_h_ = 0;
   synced_visible_ = false;
+  UnregisterLive(this);
   if (!guest || !IsWindow(guest)) {
     return;
   }

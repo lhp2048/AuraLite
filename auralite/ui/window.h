@@ -139,6 +139,9 @@ class Window {
   }
 
   void Invalidate();
+  // Invalidate |node| bounds in pixels (hover / local motion). Full Invalidate
+  // still used for layout, theme, and focus.
+  void InvalidateNode(const Node* node);
   // Mark layout dirty and repaint (e.g. after visible toggles).
   void RequestLayout();
   // Shared alive flag for async/coroutines; cleared in destructor.
@@ -221,7 +224,7 @@ class Window {
   bool ProcessAccelerator(const KeyEvent& e);
 
   LRESULT HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam);
-  void OnPaint();
+  void OnPaint(const RECT* present_px = nullptr);
   void OnSize(UINT width, UINT height);
   void NotifyDeviceLost();
   void ClearHover();

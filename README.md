@@ -119,6 +119,7 @@ auto root = Column()
 | `ProgressBar` / `Slider` / `Combo` | 进度、滑块、下拉（Combo 需 `BindWindow`） |
 | `VirtualList` / `ItemList` / `ListView` / `TreeView` | 列表与树 |
 | `UserControl` | 自绘扩展 |
+| `NativeHost` | HWND 黑盒洞（YAML 只占位；`Attach` / `AttachBorrowed` 在代码里） |
 | `PopupHost` / `Submenu` | 自绘弹出层（推荐） |
 | `Toast` | 轻提示 |
 | `ContextMenu` | Legacy `TrackPopupMenu`；新菜单用 `PopupHost` |
@@ -143,6 +144,8 @@ TitleBar:
 `name: close` 覆盖默认关闭键（glyph / 尺寸 / `Close()`）；未写进 `children` 的槽不会出现。最大化在还原态显示 restore glyph。DSL：`TitleBar().title(L"...").icon(L"app.png")`。
 
 无边框窗（`caption: false`）默认可拖边 / 角缩放（约 6 DIP，光标随边变化）。`kind: dialog` / `WindowOptions::Dialog()` 默认 `resizable: false`。最大化时关掉。边上的 Button 优先于缩放。`window.resizable` / `min_width` / `min_height` 可配。
+
+**NativeHost（空气墙）：** 只同步 DIP 矩形和显隐，不画、不转发输入。**不**随 `ScrollView` 半裁或离屏合成；滚出视口时 HWND 仍完整显示。YAML 的 `NativeHost:` 只是占位，HWND 必须在代码里 `Attach(hwnd)`（关宿主销毁）或 `AttachBorrowed(hwnd)`（只拆父子）。特殊裁剪需求用 `UserControl` 自绘。
 
 **本分支不做：** 富文本、YAML 热重载、完整 schema、百分比尺寸、控件级 opacity、项级 UIA pattern。
 

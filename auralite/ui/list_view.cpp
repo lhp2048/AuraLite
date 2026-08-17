@@ -77,6 +77,7 @@ void ListView::set_hover_index(int index) {
     return;
   }
   hover_index_ = index;
+  Invalidate();
 }
 
 void ListView::CommitSelection() {

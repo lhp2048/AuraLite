@@ -659,14 +659,22 @@ void TreeView::OnMouseDown(const MouseEvent& e) {
 void TreeView::OnMouseMove(const MouseEvent& e) {
   if (vscroll_.OnMouseMove(e)) {
     set_scroll_offset(vscroll_.scroll_offset());
+    Invalidate();
     return;
   }
-  hover_row_ = RowAtPoint(e.x, e.y);
+  const int row = RowAtPoint(e.x, e.y);
+  if (row != hover_row_) {
+    hover_row_ = row;
+    Invalidate();
+  }
 }
 
 void TreeView::OnMouseUp(const MouseEvent& e) { vscroll_.OnMouseUp(e); }
 
-void TreeView::OnMouseLeave(const MouseEvent&) { hover_row_ = -1; }
+void TreeView::OnMouseLeave(const MouseEvent&) {
+  hover_row_ = -1;
+  Invalidate();
+}
 
 void TreeView::OnKey(const KeyEvent& e) {
   if (!e.down) {

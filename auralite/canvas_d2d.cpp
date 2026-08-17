@@ -27,15 +27,6 @@ D2D1_RECT_F ToD2D(const RectF& r) {
   return D2D1::RectF(r.x, r.y, r.x + r.w, r.y + r.h);
 }
 
-BOOL CALLBACK RedrawVisibleChildProc(HWND child, LPARAM) {
-  if (IsWindowVisible(child)) {
-    RedrawWindow(child, nullptr, nullptr,
-                 RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE |
-                     RDW_ALLCHILDREN);
-  }
-  return TRUE;
-}
-
 }  // namespace
 
 Image::Image() = default;
@@ -364,16 +355,26 @@ bool Canvas::BeginDraw() {
   return true;
 }
 
-void Canvas::PresentDib() {
+void Canvas::PresentDib(const RECT* present_px) {
   if (!hwnd_ || !dib_dc_ || dib_w_ == 0 || dib_h_ == 0) {
+    return;
+  }
+  RECT dest = {0, 0, static_cast<LONG>(dib_w_), static_cast<LONG>(dib_h_)};
+  if (present_px) {
+    if (!IntersectRect(&dest, &dest, present_px)) {
+      return;
+    }
+  }
+  const int w = dest.right - dest.left;
+  const int h = dest.bottom - dest.top;
+  if (w <= 0 || h <= 0) {
     return;
   }
   // Do not use DCX_CLIPCHILDREN / GetDC (WS_CLIPCHILDREN). Skipping the hole
   // leaves the last child pixels in the parent surface; moving a large window
   // CopyBits that snapshot and the live HWND shows as a ghost trail.
   // Omit DCX_USESTYLE so WS_CLIPCHILDREN is not applied to this DC.
-  HRGN rgn = CreateRectRgn(0, 0, static_cast<int>(dib_w_),
-                           static_cast<int>(dib_h_));
+  HRGN rgn = CreateRectRgn(dest.left, dest.top, dest.right, dest.bottom);
   HDC hdc = GetDCEx(hwnd_, rgn, DCX_CACHE | DCX_INTERSECTRGN);
   if (!hdc) {
     if (rgn) {
@@ -384,13 +385,11 @@ void Canvas::PresentDib() {
   if (!hdc) {
     return;
   }
-  BitBlt(hdc, 0, 0, static_cast<int>(dib_w_), static_cast<int>(dib_h_), dib_dc_,
-         0, 0, SRCCOPY);
+  BitBlt(hdc, dest.left, dest.top, w, h, dib_dc_, dest.left, dest.top, SRCCOPY);
   ReleaseDC(hwnd_, hdc);
-  EnumChildWindows(hwnd_, RedrawVisibleChildProc, 0);
 }
 
-bool Canvas::EndDraw() {
+bool Canvas::EndDraw(const RECT* present_px) {
   if (!render_target_) {
     return false;
   }
@@ -418,7 +417,7 @@ bool Canvas::EndDraw() {
     UpdateLayeredWindow(hwnd_, nullptr, &pt_dst, &size, dib_dc_, &pt_src, 0,
                         &blend, ULW_ALPHA);
   } else {
-    PresentDib();
+    PresentDib(present_px);
   }
   return true;
 }

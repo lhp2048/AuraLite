@@ -40,9 +40,9 @@ target_include_directories(auralite_d2d PUBLIC "${AURALITE_ROOT}")
 target_compile_definitions(auralite_d2d
   PUBLIC
     NOMINMAX
-    WINVER=0x0601
-    _WIN32_WINNT=0x0601
-    NTDDI_VERSION=0x06010000
+    WINVER=0x0A00
+    _WIN32_WINNT=0x0A00
+    NTDDI_VERSION=0x0A000000
     UNICODE
     _UNICODE
 )

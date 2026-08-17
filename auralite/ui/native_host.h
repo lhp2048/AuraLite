@@ -45,6 +45,8 @@ class NativeHost : public Node {
 
   // Host HWND is going away: destroy owned guests, unparent borrowed ones.
   static void OrphanTree(Node* root);
+  // After parent DIB present: redraw guests whose rect intersects |present_px|.
+  static void RedrawGuests(HWND parent, const RECT& present_px);
 
  protected:
   void OnHostWindowChanged() override;
@@ -56,6 +58,8 @@ class NativeHost : public Node {
   void InvalidateSyncedRect();
   void SyncNative();
   void Drop(bool destroy_owned);
+  static void RegisterLive(NativeHost* host);
+  static void UnregisterLive(NativeHost* host);
 
   HWND hwnd_ = nullptr;
   HWND orig_parent_ = nullptr;

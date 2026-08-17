@@ -192,6 +192,7 @@ class Node {
 
   Window* host_window() const { return host_window_; }
   void set_host_window(Window* w);
+  void Invalidate();
 
   // Optional id for FindByName (YAML `name`, bind templates).
   Node& set_name(std::string name);

@@ -755,17 +755,24 @@ void VirtualList::OnMouseDown(const MouseEvent& e) {
 
 void VirtualList::OnMouseMove(const MouseEvent& e) {
   if (HandleHeaderMouseMove(e)) {
+    Invalidate();
     return;
   }
   if (hscroll_.OnMouseMove(e)) {
     scroll_x_ = hscroll_.scroll_offset();
+    Invalidate();
     return;
   }
   if (vscroll_.OnMouseMove(e)) {
     set_scroll_offset(vscroll_.scroll_offset());
+    Invalidate();
     return;
   }
-  hover_index_ = IndexAtPoint(e.x, e.y);
+  const int next = IndexAtPoint(e.x, e.y);
+  if (next != hover_index_) {
+    hover_index_ = next;
+    Invalidate();
+  }
 }
 
 void VirtualList::OnMouseUp(const MouseEvent& e) {
@@ -778,6 +785,7 @@ void VirtualList::OnMouseUp(const MouseEvent& e) {
 void VirtualList::OnMouseLeave(const MouseEvent&) {
   hover_index_ = -1;
   resizing_col_ = false;
+  Invalidate();
 }
 
 void VirtualList::OnKey(const KeyEvent& e) {

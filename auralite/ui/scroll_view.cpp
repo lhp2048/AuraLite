@@ -65,6 +65,7 @@ void ScrollView::ApplyScroll(float offset, bool instant) {
     scroll_tween_.Cancel();
     scroll_offset_ = to;
     RelayoutContent();
+    Invalidate();
     return;
   }
   const float from = scroll_offset_;

@@ -221,6 +221,7 @@ void Slider::SyncVisual(bool instant) {
   if (instant || !CanTween()) {
     value_tween_.Cancel();
     visual_value_ = to;
+    Invalidate();
     return;
   }
   const float from = visual_value_;
