@@ -16,6 +16,7 @@ Windows 声明式 UI 库。定位：**轻量、现代、快捷**。
 |------|------|
 | [`LAYOUT.md`](LAYOUT.md) | Column / Row / Absolute、`h_align` / `v_align`、锚点、Fill/Hug |
 | [`CODING.md`](CODING.md) | 编码风格（`auralite/` 新栈 vs legacy） |
+| [`WIN7.md`](WIN7.md) | 可选 Win7 特殊编译（默认不做） |
 
 ## 这是什么
 
@@ -40,7 +41,7 @@ Windows 声明式 UI 库。定位：**轻量、现代、快捷**。
 | 单向绑定 + 控件事件写回 | YAML 绑定表达式、自动双向、`ObservableList` diff |
 | `UserControl` / 列表 + 对话框组合复杂 UI | DataGrid、ColorPicker、Accordion、富文本 |
 
-输入是鼠标消息 + 窗级 `AddAccelerator`；触摸屏靠系统合成单击。`NativeHost` 是空气墙：不转发输入、不随 `ScrollView` 半裁。
+输入是鼠标消息 + 窗级 `AddAccelerator`；触摸屏靠系统合成单击。`NativeHost` 是空气墙：不转发输入、不随 `ScrollView` 半裁。系统 API 按 **Windows 10+**；Win7 若需要见 [`WIN7.md`](WIN7.md)（独立开关，不是默认产物）。
 
 ## 公开 API
 
