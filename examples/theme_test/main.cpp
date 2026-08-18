@@ -117,12 +117,49 @@ void TestRegisterFromFileMerge() {
   std::remove(path);
 }
 
+void TestWindowScope() {
+  using namespace auralite::ui;
+
+  Theme::RegisterBuiltInLight();
+  Theme::RegisterBuiltInDark();
+  Expect(Theme::SetActive("light"), "scope process light");
+  Expect(Theme::ActiveName() == "light", "scope name light");
+  Expect(ColorNear(Theme::Active().window_bg, 245.f / 255.f, 248.f / 255.f,
+                   252.f / 255.f, 1.f),
+         "process light window_bg");
+
+  {
+    Theme::Scope dark("dark");
+    Expect(Theme::ActiveName() == "dark", "scope name dark");
+    Expect(ColorNear(Theme::Active().window_bg, 30.f / 255.f, 30.f / 255.f,
+                     30.f / 255.f, 1.f),
+           "scope dark window_bg");
+    {
+      Theme::Scope inherit("");
+      Expect(Theme::ActiveName() == "light", "empty inherits process");
+      Expect(ColorNear(Theme::Active().window_bg, 245.f / 255.f, 248.f / 255.f,
+                       252.f / 255.f, 1.f),
+             "empty barrier uses process bg");
+    }
+    Expect(Theme::ActiveName() == "dark", "restored after empty");
+    {
+      Theme::Scope unknown("nope");
+      Expect(Theme::ActiveName() == "dark", "unknown skipped");
+    }
+  }
+  Expect(Theme::ActiveName() == "light", "restored process name");
+  Expect(ColorNear(Theme::Active().window_bg, 245.f / 255.f, 248.f / 255.f,
+                   252.f / 255.f, 1.f),
+         "restored process bg");
+}
+
 }  // namespace
 
 int main() {
   TestParseColorHex();
   TestRegisterSetActive();
   TestRegisterFromFileMerge();
+  TestWindowScope();
   if (g_failures > 0) {
     std::printf("%d failure(s)\n", g_failures);
     return 1;

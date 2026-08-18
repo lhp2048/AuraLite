@@ -45,6 +45,8 @@ class VirtualList : public Node {
 
   VirtualList();
 
+  AccRole acc_role() const override;
+
   VirtualList& item_count(ItemCountFn fn);
   VirtualList& item_kind(ItemKindFn fn);
   VirtualList& item_text(ItemTextFn fn);

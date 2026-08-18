@@ -12,6 +12,7 @@ std::unordered_map<std::string, ThemeTokens> g_registry;
 ThemeTokens g_active;
 std::string g_active_name;
 std::vector<Theme::InvalidateSink*> g_sinks;
+thread_local std::vector<std::string> g_scope;
 
 void NotifySinks() {
   for (Theme::InvalidateSink* sink : g_sinks) {
@@ -91,11 +92,38 @@ ThemeTokens MakeBuiltInDarkTokens() {
 
 const ThemeTokens& Theme::Active() {
   EnsureDefaultTheme();
+  for (auto it = g_scope.rbegin(); it != g_scope.rend(); ++it) {
+    if (it->empty()) {
+      return g_active;  // inherit process (WndProc barrier)
+    }
+    const auto hit = g_registry.find(*it);
+    if (hit != g_registry.end()) {
+      return hit->second;
+    }
+  }
   return g_active;
 }
 
 const std::string& Theme::ActiveName() {
+  EnsureDefaultTheme();
+  for (auto it = g_scope.rbegin(); it != g_scope.rend(); ++it) {
+    if (it->empty()) {
+      return g_active_name;
+    }
+    const auto hit = g_registry.find(*it);
+    if (hit != g_registry.end()) {
+      return hit->first;
+    }
+  }
   return g_active_name;
+}
+
+Theme::Scope::Scope(std::string name) { g_scope.push_back(std::move(name)); }
+
+Theme::Scope::~Scope() {
+  if (!g_scope.empty()) {
+    g_scope.pop_back();
+  }
 }
 
 void Theme::RegisterBuiltInLight() {

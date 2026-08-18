@@ -25,6 +25,7 @@ Checkbox& Checkbox::checked(bool v) {
     return *this;
   }
   checked_ = v;
+  NotifyAccToggleChanged();
   if (on_changed_) {
     on_changed_(checked_);
   }
@@ -87,6 +88,7 @@ void Checkbox::Paint(auralite::Canvas& canvas) {
 
 void Checkbox::Toggle() {
   checked_ = !checked_;
+  NotifyAccToggleChanged();
   if (on_changed_) {
     on_changed_(checked_);
   }

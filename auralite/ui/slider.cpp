@@ -25,8 +25,13 @@ void Slider::ApplyDefaultSize() {
 }
 
 Slider& Slider::value(float v) {
-  value_ = std::clamp(v, 0.f, 1.f);
+  v = std::clamp(v, 0.f, 1.f);
+  if (v == value_) {
+    return *this;
+  }
+  value_ = v;
   SyncVisual(dragging_);
+  NotifyAccRangeChanged();
   return *this;
 }
 
@@ -89,6 +94,7 @@ void Slider::AdjustValue(float delta) {
 }
 
 void Slider::Notify() {
+  NotifyAccRangeChanged();
   if (on_changed_) {
     on_changed_(value_);
   }
@@ -240,6 +246,40 @@ void Slider::OnHostWindowChanged() {
   if (!CanTween()) {
     SyncVisual(true);
   }
+}
+
+AccRole Slider::acc_role() const {
+  if (acc_role_override_) {
+    return *acc_role_override_;
+  }
+  return AccRole::Slider;
+}
+
+double Slider::AccRangeValue() const {
+  return value_;
+}
+
+double Slider::AccRangeSmallChange() const {
+  return step_ > 0.f ? step_ : 0.05;
+}
+
+double Slider::AccRangeLargeChange() const {
+  return AccRangeSmallChange() * 5.0;
+}
+
+bool Slider::AccRangeReadOnly() const {
+  return false;
+}
+
+bool Slider::AccSetRangeValue(double value) {
+  const float nv = std::clamp(static_cast<float>(value), 0.f, 1.f);
+  if (nv == value_) {
+    return true;
+  }
+  value_ = nv;
+  SyncVisual(false);
+  Notify();
+  return true;
 }
 
 }  // namespace auralite::ui

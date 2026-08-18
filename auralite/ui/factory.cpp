@@ -5,12 +5,15 @@
 #include "auralite/ui/checkbox.h"
 #include "auralite/ui/column.h"
 #include "auralite/ui/combo.h"
+#include "auralite/ui/date_picker.h"
 #include "auralite/ui/image_button.h"
 #include "auralite/ui/image_view.h"
 #include "auralite/ui/label.h"
 #include "auralite/ui/list_view.h"
 #include "auralite/ui/list_columns.h"
 #include "auralite/ui/item_list.h"
+#include "auralite/ui/menu_bar.h"
+#include "auralite/ui/menu_item.h"
 #include "auralite/ui/virtual_list.h"
 #include "auralite/ui/tree_view.h"
 #include "auralite/ui/native_host.h"
@@ -19,7 +22,9 @@
 #include "auralite/ui/row.h"
 #include "auralite/ui/scroll_view.h"
 #include "auralite/ui/slider.h"
+#include "auralite/ui/spin_box.h"
 #include "auralite/ui/split_view.h"
+#include "auralite/ui/status_bar.h"
 #include "auralite/ui/submenu.h"
 #include "auralite/ui/switch_control.h"
 #include "auralite/ui/tab.h"
@@ -117,6 +122,55 @@ void BindOnClick(Button* btn, const YAML::Node& props,
   const auto it = handlers.find(name);
   if (it != handlers.end()) {
     btn->on_click(it->second);
+  }
+}
+
+void BindOnClick(MenuItem* item, const YAML::Node& props,
+                 const HandlerMap& handlers) {
+  if (!item || !props["on_click"]) {
+    return;
+  }
+  const std::string name = props["on_click"].as<std::string>();
+  const auto it = handlers.find(name);
+  if (it != handlers.end()) {
+    item->on_click(it->second);
+  }
+}
+
+void ApplyMenuCommandMap(MenuCommand* cmd, const YAML::Node& c,
+                         const HandlerMap& handlers) {
+  if (!cmd || !c || !c.IsMap()) {
+    return;
+  }
+  if (c["separator"] && c["separator"].as<bool>()) {
+    cmd->separator = true;
+  }
+  if (c["text"]) {
+    cmd->text = Utf8ToWide(c["text"].as<std::string>());
+  }
+  if (cmd->text == L"-") {
+    cmd->separator = true;
+  }
+  if (c["icon"]) {
+    cmd->icon = Utf8ToWide(c["icon"].as<std::string>());
+  }
+  if (c["checkable"]) {
+    cmd->checkable = c["checkable"].as<bool>();
+  }
+  if (c["checked"]) {
+    cmd->checked = c["checked"].as<bool>();
+  }
+  if (c["radio_group"]) {
+    cmd->radio_group = c["radio_group"].as<int>();
+  } else if (c["radio"]) {
+    cmd->radio_group = c["radio"].as<int>();
+  }
+  if (c["on_click"]) {
+    const std::string name = c["on_click"].as<std::string>();
+    const auto hit = handlers.find(name);
+    if (hit != handlers.end()) {
+      cmd->on_click = hit->second;
+    }
   }
 }
 
@@ -381,6 +435,9 @@ std::string NodeTypeName(const Node* n) {
   if (dynamic_cast<const ImageButton*>(n)) {
     return "ImageButton";
   }
+  if (dynamic_cast<const MenuItem*>(n)) {
+    return "MenuItem";
+  }
   if (dynamic_cast<const Checkbox*>(n)) {
     return "Checkbox";
   }
@@ -417,6 +474,18 @@ std::string NodeTypeName(const Node* n) {
   if (dynamic_cast<const Combo*>(n)) {
     return "Combo";
   }
+  if (dynamic_cast<const SpinBox*>(n)) {
+    return "SpinBox";
+  }
+  if (dynamic_cast<const DatePicker*>(n)) {
+    return "DatePicker";
+  }
+  if (dynamic_cast<const MenuBar*>(n)) {
+    return "MenuBar";
+  }
+  if (dynamic_cast<const StatusBar*>(n)) {
+    return "StatusBar";
+  }
   if (dynamic_cast<const TextArea*>(n)) {
     return "TextArea";
   }
@@ -435,6 +504,12 @@ std::string NodeDetail(const Node* n) {
   }
   if (const auto* btn = dynamic_cast<const Button*>(n)) {
     return " text=\"" + WideToUtf8(btn->text()) + "\"";
+  }
+  if (const auto* mi = dynamic_cast<const MenuItem*>(n)) {
+    if (mi->separator()) {
+      return " separator";
+    }
+    return " text=\"" + WideToUtf8(mi->text()) + "\"";
   }
   if (const auto* cb = dynamic_cast<const Checkbox*>(n)) {
     return " text=\"" + WideToUtf8(cb->text()) + "\"";
@@ -462,6 +537,18 @@ std::string NodeDetail(const Node* n) {
   }
   if (const auto* split = dynamic_cast<const SplitView*>(n)) {
     return " ratio=" + std::to_string(split->ratio());
+  }
+  if (const auto* spin = dynamic_cast<const SpinBox*>(n)) {
+    return " value=" + std::to_string(static_cast<int>(spin->value()));
+  }
+  if (const auto* dp = dynamic_cast<const DatePicker*>(n)) {
+    return " date=\"" + WideToUtf8(FormatYmd(dp->date())) + "\"";
+  }
+  if (const auto* mb = dynamic_cast<const MenuBar*>(n)) {
+    return " items=" + std::to_string(mb->menu_count());
+  }
+  if (const auto* sb = dynamic_cast<const StatusBar*>(n)) {
+    return " panes=" + std::to_string(sb->item_count());
   }
   return {};
 }
@@ -951,6 +1038,165 @@ void ViewFactory::RegisterBuiltinTypes() {
     ApplyWidthHeight(combo.get(), props);
     ApplyWeightHVAlign(combo.get(), props);
     return combo;
+  });
+
+  Register("SpinBox", [](const YAML::Node& props, const HandlerMap&) {
+    auto spin = std::make_unique<SpinBox>();
+    if (props["min"]) {
+      spin->min_value(props["min"].as<double>());
+    }
+    if (props["max"]) {
+      spin->max_value(props["max"].as<double>());
+    }
+    if (props["step"]) {
+      spin->step(props["step"].as<double>());
+    }
+    if (props["decimals"]) {
+      spin->decimals(props["decimals"].as<int>());
+    }
+    if (props["wrap"]) {
+      spin->wrap(props["wrap"].as<bool>());
+    }
+    if (props["value"]) {
+      spin->value(props["value"].as<double>());
+    }
+    if (props["font_size"]) {
+      spin->font_size(props["font_size"].as<float>());
+    }
+    ApplyWidthHeight(spin.get(), props);
+    ApplyWeightHVAlign(spin.get(), props);
+    return spin;
+  });
+
+  Register("DatePicker", [](const YAML::Node& props, const HandlerMap&) {
+    auto dp = std::make_unique<DatePicker>();
+    CivilDate d = dp->date();
+    if (props["year"]) {
+      d.year = props["year"].as<int>();
+    }
+    if (props["month"]) {
+      d.month = props["month"].as<int>();
+    }
+    if (props["day"]) {
+      d.day = props["day"].as<int>();
+    }
+    dp->date(d);
+    if (props["time"]) {
+      dp->time(props["time"].as<bool>());
+    }
+    if (props["hour"]) {
+      dp->hour(props["hour"].as<int>());
+    }
+    if (props["minute"]) {
+      dp->minute(props["minute"].as<int>());
+    }
+    if (props["seconds"]) {
+      dp->seconds(props["seconds"].as<bool>());
+    }
+    if (props["second"]) {
+      dp->second(props["second"].as<int>());
+      if (!props["seconds"]) {
+        dp->seconds(true);
+      }
+    }
+    if (props["font_size"]) {
+      dp->font_size(props["font_size"].as<float>());
+    }
+    ApplyWidthHeight(dp.get(), props);
+    ApplyWeightHVAlign(dp.get(), props);
+    return dp;
+  });
+
+  Register("MenuItem", [](const YAML::Node& props, const HandlerMap& handlers) {
+    auto item = std::make_unique<MenuItem>();
+    if (props["separator"] && props["separator"].as<bool>()) {
+      item->separator(true);
+    }
+    if (props["text"]) {
+      item->text(Utf8ToWide(props["text"].as<std::string>()));
+      if (item->text() == L"-") {
+        item->separator(true);
+      }
+    }
+    if (props["icon"]) {
+      item->icon(Utf8ToWide(props["icon"].as<std::string>()));
+    }
+    if (props["checkable"]) {
+      item->checkable(props["checkable"].as<bool>());
+    }
+    if (props["checked"]) {
+      item->checked(props["checked"].as<bool>());
+    }
+    if (props["radio_group"]) {
+      item->radio_group(props["radio_group"].as<int>());
+    } else if (props["radio"]) {
+      item->radio_group(props["radio"].as<int>());
+    }
+    if (props["font_size"]) {
+      item->font_size(props["font_size"].as<float>());
+    }
+    ApplyOptionalColor(item.get(), props, "text_color", &MenuItem::text_color);
+    ApplyOptionalColor(item.get(), props, "bg_hover", &MenuItem::bg_hover);
+    ApplyWidthHeight(item.get(), props);
+    ApplyWeightHVAlign(item.get(), props);
+    BindOnClick(item.get(), props, handlers);
+    return item;
+  });
+
+  Register("MenuBar", [](const YAML::Node& props, const HandlerMap& handlers) {
+    auto bar = std::make_unique<MenuBar>();
+    if (props["items"] && props["items"].IsSequence()) {
+      for (const auto& it : props["items"]) {
+        if (!it || !it.IsMap()) {
+          continue;
+        }
+        std::wstring title;
+        if (it["text"]) {
+          title = Utf8ToWide(it["text"].as<std::string>());
+        }
+        std::vector<MenuCommand> cmds;
+        if (it["items"] && it["items"].IsSequence()) {
+          for (const auto& c : it["items"]) {
+            MenuCommand cmd;
+            if (c.IsScalar()) {
+              cmd.text = Utf8ToWide(c.as<std::string>());
+              cmd.separator = (cmd.text == L"-");
+            } else if (c.IsMap()) {
+              ApplyMenuCommandMap(&cmd, c, handlers);
+            }
+            cmds.push_back(std::move(cmd));
+          }
+        }
+        bar->add_menu(std::move(title), std::move(cmds));
+      }
+    }
+    ApplyWidthHeight(bar.get(), props);
+    ApplyWeightHVAlign(bar.get(), props);
+    if (props["corner_radius"]) {
+      bar->corner_radius(props["corner_radius"].as<float>());
+    }
+    if (props["border_width"]) {
+      bar->border_width(props["border_width"].as<float>());
+    }
+    return bar;
+  });
+
+  Register("StatusBar", [](const YAML::Node& props, const HandlerMap&) {
+    auto bar = std::make_unique<StatusBar>();
+    if (props["items"] && props["items"].IsSequence()) {
+      std::vector<std::wstring> panes;
+      for (const auto& it : props["items"]) {
+        if (it.IsScalar()) {
+          panes.push_back(Utf8ToWide(it.as<std::string>()));
+        } else if (it.IsMap() && it["text"]) {
+          panes.push_back(Utf8ToWide(it["text"].as<std::string>()));
+        }
+      }
+      bar->items(std::move(panes));
+    }
+    ApplyWidthHeight(bar.get(), props);
+    ApplyWeightHVAlign(bar.get(), props);
+    return bar;
   });
 
   Register("TextArea", [](const YAML::Node& props, const HandlerMap&) {

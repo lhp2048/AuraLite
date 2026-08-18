@@ -28,6 +28,10 @@ class Tab : public Node {
   using SelectedHandler = std::function<void(int index)>;
   Tab& on_selected(SelectedHandler handler);
 
+  AccRole acc_role() const override;
+  std::wstring AccValue() const override;
+  bool AccSetValue(const std::wstring& value) override;
+
   SizeF Measure(float max_w, float max_h) override;
   void Layout(const RectF& final_rect) override;
   void Paint(auralite::Canvas& canvas) override;

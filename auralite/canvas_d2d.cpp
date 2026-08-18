@@ -7,6 +7,7 @@
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dwrite.lib")
 #pragma comment(lib, "windowscodecs.lib")
+#pragma comment(lib, "msimg32.lib")
 
 namespace auralite {
 namespace {
@@ -248,9 +249,21 @@ void Canvas::DestroyDibSurface() {
 }
 
 bool Canvas::CreateDibSurface(UINT w, UINT h) {
-  DestroyDibSurface();
   w = w ? w : 1;
   h = h ? h : 1;
+
+  HDC old_dc = dib_dc_;
+  HBITMAP old_bitmap = dib_bitmap_;
+  HGDIOBJ old_sel = dib_old_;
+  const UINT old_w = dib_w_;
+  const UINT old_h = dib_h_;
+  dib_dc_ = nullptr;
+  dib_bitmap_ = nullptr;
+  dib_old_ = nullptr;
+  dib_bits_ = nullptr;
+  dib_w_ = 0;
+  dib_h_ = 0;
+
   BITMAPINFO bmi = {};
   bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
   bmi.bmiHeader.biWidth = static_cast<LONG>(w);
@@ -264,13 +277,50 @@ bool Canvas::CreateDibSurface(UINT w, UINT h) {
   dib_bitmap_ = CreateDIBSection(dib_dc_, &bmi, DIB_RGB_COLORS, &dib_bits_,
                                  nullptr, 0);
   if (!dib_dc_ || !dib_bitmap_ || !dib_bits_) {
-    DestroyDibSurface();
-    return false;
+    if (old_dc) {
+      dib_dc_ = old_dc;
+      dib_bitmap_ = old_bitmap;
+      dib_old_ = static_cast<HBITMAP>(old_sel);
+      dib_w_ = old_w;
+      dib_h_ = old_h;
+    } else {
+      DestroyDibSurface();
+    }
+    return dib_dc_ != nullptr;
   }
   dib_old_ = static_cast<HBITMAP>(SelectObject(dib_dc_, dib_bitmap_));
   dib_w_ = w;
   dib_h_ = h;
+  if (old_dc && old_w > 0 && old_h > 0) {
+    SetStretchBltMode(dib_dc_, COLORONCOLOR);
+    StretchBlt(dib_dc_, 0, 0, static_cast<int>(w), static_cast<int>(h), old_dc,
+               0, 0, static_cast<int>(old_w), static_cast<int>(old_h),
+               SRCCOPY);
+  }
+  // GDI stretch/create leaves A=0. DWM treats 0-alpha as glass/see-through
+  // during live resize until the next D2D Clear.
+  ForceDibOpaque();
+  if (old_dc) {
+    if (old_sel) {
+      SelectObject(old_dc, old_sel);
+    }
+    if (old_bitmap) {
+      DeleteObject(old_bitmap);
+    }
+    DeleteDC(old_dc);
+  }
   return true;
+}
+
+void Canvas::ForceDibOpaque() {
+  if (!dib_bits_ || dib_w_ == 0 || dib_h_ == 0) {
+    return;
+  }
+  auto* p = static_cast<uint8_t*>(dib_bits_);
+  const size_t n = static_cast<size_t>(dib_w_) * dib_h_;
+  for (size_t i = 0; i < n; ++i) {
+    p[i * 4 + 3] = 255;
+  }
 }
 
 bool Canvas::EnsureRenderTarget() {
@@ -395,9 +445,9 @@ void Canvas::PresentDib(HDC present_dc, const RECT* present_px) {
   if (w <= 0 || h <= 0) {
     return;
   }
-  // WM_PAINT must BitBlt into BeginPaint's HDC. GetDCEx+INTERSECTRGN during
-  // paint used a second DC whose clip was not the update region, so only a
-  // top-left slice of the DIB showed up (rest stayed window_bg / empty).
+  // BeginPaint's HDC is required (a second GetDCEx clip was wrong). BitBlt of
+  // a 32-bit DIB onto a DWM surface leaves destination alpha at 0, so newly
+  // exposed pixels during live resize are glass. AlphaBlend copies A=255.
   bool own_dc = false;
   HDC hdc = present_dc;
   if (!hdc) {
@@ -407,7 +457,17 @@ void Canvas::PresentDib(HDC present_dc, const RECT* present_px) {
   if (!hdc) {
     return;
   }
-  BitBlt(hdc, dest.left, dest.top, w, h, dib_dc_, dest.left, dest.top, SRCCOPY);
+  SelectClipRgn(hdc, nullptr);
+  BLENDFUNCTION blend = {};
+  blend.BlendOp = AC_SRC_OVER;
+  blend.SourceConstantAlpha = 255;
+  blend.AlphaFormat = AC_SRC_ALPHA;
+  if (!AlphaBlend(hdc, dest.left, dest.top, w, h, dib_dc_, dest.left,
+                  dest.top, w, h, blend)) {
+    BitBlt(hdc, dest.left, dest.top, w, h, dib_dc_, dest.left, dest.top,
+           SRCCOPY);
+  }
+  GdiFlush();
   if (own_dc) {
     ReleaseDC(hwnd_, hdc);
   }
@@ -441,6 +501,7 @@ bool Canvas::EndDraw(HDC present_dc, const RECT* present_px) {
     UpdateLayeredWindow(hwnd_, nullptr, &pt_dst, &size, dib_dc_, &pt_src, 0,
                         &blend, ULW_ALPHA);
   } else {
+    ForceDibOpaque();
     PresentDib(present_dc, present_px);
   }
   return true;

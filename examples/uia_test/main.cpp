@@ -12,7 +12,11 @@
 
 #include "auralite/ui/application.h"
 #include "auralite/ui/button.h"
+#include "auralite/ui/checkbox.h"
 #include "auralite/ui/column.h"
+#include "auralite/ui/combo.h"
+#include "auralite/ui/progress_bar.h"
+#include "auralite/ui/slider.h"
 #include "auralite/ui/tab.h"
 #include "auralite/ui/window.h"
 
@@ -74,6 +78,44 @@ int ControlTypeOf(IUIAutomationElement* el) {
   return id;
 }
 
+class PropSink : public IUIAutomationPropertyChangedEventHandler {
+ public:
+  ULONG STDMETHODCALLTYPE AddRef() override {
+    return static_cast<ULONG>(InterlockedIncrement(&ref_));
+  }
+  ULONG STDMETHODCALLTYPE Release() override {
+    const ULONG n = static_cast<ULONG>(InterlockedDecrement(&ref_));
+    if (n == 0) {
+      delete this;
+    }
+    return n;
+  }
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override {
+    if (!ppv) {
+      return E_POINTER;
+    }
+    if (riid == IID_IUnknown ||
+        riid == IID_IUIAutomationPropertyChangedEventHandler) {
+      *ppv = static_cast<IUIAutomationPropertyChangedEventHandler*>(this);
+      AddRef();
+      return S_OK;
+    }
+    *ppv = nullptr;
+    return E_NOINTERFACE;
+  }
+  HRESULT STDMETHODCALLTYPE HandlePropertyChangedEvent(
+      IUIAutomationElement* /*sender*/, PROPERTYID /*propertyId*/,
+      VARIANT /*newValue*/) override {
+    InterlockedIncrement(&count_);
+    return S_OK;
+  }
+  int count() const { return static_cast<int>(count_); }
+
+ private:
+  LONG ref_ = 1;
+  LONG count_ = 0;
+};
+
 }  // namespace
 
 int main() {
@@ -87,7 +129,7 @@ int main() {
   auralite::ui::Window window;
   auralite::ui::Window::WindowOptions opt;
   opt.quit_on_close = false;
-  if (!window.Create(L"uia_test", 420, 320, opt)) {
+  if (!window.Create(L"uia_test", 480, 420, opt)) {
     std::puts("FAIL Window::Create");
     CoUninitialize();
     return EXIT_FAILURE;
@@ -118,13 +160,40 @@ int main() {
   auralite::ui::Tab* tab_ptr = tab.get();
   tab->AddChild(std::move(page0));
   tab->AddChild(std::move(page1));
+  tab->add_header(L"一");
+  tab->add_header(L"二");
+  tab->acc_name(L"分页");
   tab->set_selected(0);
+
+  auto box = std::make_unique<auralite::ui::Checkbox>();
+  box->text(L"记住");
+  auralite::ui::Checkbox* box_ptr = box.get();
+
+  auto slider = std::make_unique<auralite::ui::Slider>();
+  slider->acc_name(L"音量");
+  slider->value(0.2f);
+  auralite::ui::Slider* slider_ptr = slider.get();
+
+  auto bar = std::make_unique<auralite::ui::ProgressBar>();
+  bar->acc_name(L"下载");
+  bar->value(0.3f);
+
+  auto combo = std::make_unique<auralite::ui::Combo>();
+  combo->acc_name(L"颜色");
+  combo->items({L"红", L"绿"});
+  combo->selected(0);
+  combo->BindWindow(&window);
+  auralite::ui::Combo* combo_ptr = combo.get();
 
   auto root = std::make_unique<auralite::ui::Column>();
   root->AddChild(std::move(ok));
   root->AddChild(std::move(hidden));
   root->AddChild(std::move(menu));
   root->AddChild(std::move(tab));
+  root->AddChild(std::move(box));
+  root->AddChild(std::move(slider));
+  root->AddChild(std::move(bar));
+  root->AddChild(std::move(combo));
   window.SetRoot(std::move(root));
 
   ShowWindow(window.hwnd(), SW_SHOWNA);
@@ -190,6 +259,121 @@ int main() {
   Expect("tab switch prunes A", page_a == nullptr);
   Expect("tab switch shows B", page_b != nullptr);
 
+  IUIAutomationElement* tab_el = FindByName(uia, root_el, L"分页");
+  Expect("find 分页", tab_el != nullptr);
+  Expect("分页 is Tab", ControlTypeOf(tab_el) == UIA_TabControlTypeId);
+  if (tab_el) {
+    IUIAutomationSelectionPattern* sel = nullptr;
+    hr = tab_el->GetCurrentPatternAs(UIA_SelectionPatternId,
+                                     IID_IUIAutomationSelectionPattern,
+                                     reinterpret_cast<void**>(&sel));
+    Expect("Tab Selection pattern", SUCCEEDED(hr) && sel);
+    if (sel) {
+      BOOL multi = TRUE;
+      sel->get_CurrentCanSelectMultiple(&multi);
+      Expect("Tab single-select", multi == FALSE);
+      sel->Release();
+    }
+    IUIAutomationValuePattern* tab_val = nullptr;
+    hr = tab_el->GetCurrentPatternAs(UIA_ValuePatternId,
+                                     IID_IUIAutomationValuePattern,
+                                     reinterpret_cast<void**>(&tab_val));
+    Expect("Tab Value pattern", SUCCEEDED(hr) && tab_val);
+    if (tab_val) {
+      BSTR one = SysAllocString(L"一");
+      Expect("Tab SetValue", SUCCEEDED(tab_val->SetValue(one)));
+      SysFreeString(one);
+      Pump();
+      Expect("Tab AccSetValue selected", tab_ptr->selected() == 0);
+      tab_val->Release();
+    }
+  }
+
+  IUIAutomationElement* slider_el = FindByName(uia, root_el, L"音量");
+  Expect("find 音量", slider_el != nullptr);
+  Expect("音量 is Slider", ControlTypeOf(slider_el) == UIA_SliderControlTypeId);
+  if (slider_el) {
+    IUIAutomationRangeValuePattern* range = nullptr;
+    hr = slider_el->GetCurrentPatternAs(
+        UIA_RangeValuePatternId, IID_IUIAutomationRangeValuePattern,
+        reinterpret_cast<void**>(&range));
+    Expect("Slider RangeValue", SUCCEEDED(hr) && range);
+    if (range) {
+      Expect("Slider SetValue", SUCCEEDED(range->SetValue(0.6)));
+      Pump();
+      double cur = 0.0;
+      range->get_CurrentValue(&cur);
+      Expect("Slider value", cur > 0.59 && cur < 0.61);
+      Expect("Slider node value", slider_ptr->value() > 0.59f &&
+                                      slider_ptr->value() < 0.61f);
+      range->Release();
+    }
+  }
+
+  IUIAutomationElement* bar_el = FindByName(uia, root_el, L"下载");
+  Expect("find 下载", bar_el != nullptr);
+  Expect("下载 is ProgressBar",
+         ControlTypeOf(bar_el) == UIA_ProgressBarControlTypeId);
+  if (bar_el) {
+    IUIAutomationRangeValuePattern* range = nullptr;
+    hr = bar_el->GetCurrentPatternAs(UIA_RangeValuePatternId,
+                                     IID_IUIAutomationRangeValuePattern,
+                                     reinterpret_cast<void**>(&range));
+    Expect("Progress RangeValue", SUCCEEDED(hr) && range);
+    if (range) {
+      BOOL ro = FALSE;
+      range->get_CurrentIsReadOnly(&ro);
+      Expect("Progress readonly", ro == TRUE);
+      Expect("Progress SetValue denied", FAILED(range->SetValue(0.9)));
+      range->Release();
+    }
+  }
+
+  IUIAutomationElement* combo_el = FindByName(uia, root_el, L"颜色");
+  Expect("find 颜色", combo_el != nullptr);
+  Expect("颜色 is ComboBox", ControlTypeOf(combo_el) == UIA_ComboBoxControlTypeId);
+  if (combo_el) {
+    IUIAutomationExpandCollapsePattern* exp = nullptr;
+    hr = combo_el->GetCurrentPatternAs(
+        UIA_ExpandCollapsePatternId, IID_IUIAutomationExpandCollapsePattern,
+        reinterpret_cast<void**>(&exp));
+    Expect("Combo ExpandCollapse", SUCCEEDED(hr) && exp);
+    if (exp) {
+      Expect("Combo Expand", SUCCEEDED(exp->Expand()));
+      Pump();
+      Expect("Combo is open", combo_ptr->is_open());
+      Expect("Combo Collapse", SUCCEEDED(exp->Collapse()));
+      Pump();
+      Expect("Combo is closed", !combo_ptr->is_open());
+      exp->Release();
+    }
+  }
+
+  IUIAutomationElement* box_el = FindByName(uia, root_el, L"记住");
+  Expect("find 记住", box_el != nullptr);
+  Expect("记住 is CheckBox", ControlTypeOf(box_el) == UIA_CheckBoxControlTypeId);
+  if (box_el) {
+    PropSink* sink = new PropSink();
+    PROPERTYID pid = UIA_ToggleToggleStatePropertyId;
+    hr = uia->AddPropertyChangedEventHandlerNativeArray(
+        box_el, TreeScope_Element, nullptr, sink, &pid, 1);
+    Expect("toggle event handler", SUCCEEDED(hr));
+    IUIAutomationTogglePattern* toggle = nullptr;
+    hr = box_el->GetCurrentPatternAs(UIA_TogglePatternId,
+                                     IID_IUIAutomationTogglePattern,
+                                     reinterpret_cast<void**>(&toggle));
+    Expect("Toggle pattern", SUCCEEDED(hr) && toggle);
+    if (toggle) {
+      Expect("Toggle HRESULT", SUCCEEDED(toggle->Toggle()));
+      Pump();
+      Expect("Toggle checked", box_ptr->checked());
+      Expect("Toggle event raised", sink->count() >= 1);
+      toggle->Release();
+    }
+    uia->RemovePropertyChangedEventHandler(box_el, sink);
+    sink->Release();
+  }
+
   if (ok_el) {
     ok_el->Release();
   }
@@ -204,6 +388,21 @@ int main() {
   }
   if (page_b) {
     page_b->Release();
+  }
+  if (tab_el) {
+    tab_el->Release();
+  }
+  if (slider_el) {
+    slider_el->Release();
+  }
+  if (bar_el) {
+    bar_el->Release();
+  }
+  if (combo_el) {
+    combo_el->Release();
+  }
+  if (box_el) {
+    box_el->Release();
   }
   if (root_el) {
     root_el->Release();

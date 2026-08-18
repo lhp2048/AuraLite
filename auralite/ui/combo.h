@@ -40,6 +40,11 @@ class Combo : public Node {
   bool is_open() const { return open_; }
 
   AccRole acc_role() const override;
+  std::wstring AccValue() const override;
+  bool AccSetValue(const std::wstring& value) override;
+  bool AccIsExpanded() const override;
+  bool AccExpand() override;
+  bool AccCollapse() override;
   std::wstring AccDefaultName() const override;
 
   SizeF Measure(float max_w, float max_h) override;

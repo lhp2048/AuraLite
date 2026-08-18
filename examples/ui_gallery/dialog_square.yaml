@@ -21,5 +21,5 @@ Column:
         width: fill
         height: fill
         children:
-          - Label: { text: "无圆角无边框对话框（corner_radius: 0）。拖标题栏移动。", font_size: 14 }
+          - Label: { text: "无圆角；主题跟进程（对照左边深色 Dialog）。拖标题栏移动。", font_size: 14 }
           - Button: { text: "关闭", variant: secondary, width: fill, height: 32, default: true, on_click: dialog_close }

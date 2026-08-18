@@ -49,6 +49,17 @@ class Theme {
   static bool RegisterFromDir(const std::string& dir);
   static bool SetActive(const std::string& name);
 
+  // Window-level override (WndProc pushes one frame). Empty name = inherit
+  // process and stops walking (so nested SendMessage cannot leak the
+  // caller's theme). Unknown names are skipped.
+  class Scope {
+   public:
+    explicit Scope(std::string name);
+    ~Scope();
+    Scope(const Scope&) = delete;
+    Scope& operator=(const Scope&) = delete;
+  };
+
   using InvalidateSink = std::function<void()>;
   static void AddInvalidateSink(InvalidateSink* sink);
   static void RemoveInvalidateSink(InvalidateSink* sink);

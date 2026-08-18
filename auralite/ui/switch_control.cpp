@@ -27,6 +27,7 @@ Switch& Switch::on(bool v) {
   }
   on_ = v;
   SyncThumb(false);
+  NotifyAccToggleChanged();
   if (on_changed_) {
     on_changed_(on_);
   }
@@ -96,6 +97,7 @@ void Switch::Paint(auralite::Canvas& canvas) {
 void Switch::Toggle() {
   on_ = !on_;
   SyncThumb(false);
+  NotifyAccToggleChanged();
   if (on_changed_) {
     on_changed_(on_);
   }

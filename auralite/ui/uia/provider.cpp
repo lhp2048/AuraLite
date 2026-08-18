@@ -5,6 +5,7 @@
 #include "auralite/ui/window.h"
 
 #include <oleacc.h>
+#include <oleauto.h>
 #include <UIAutomation.h>
 #include <UIAutomationCoreApi.h>
 
@@ -59,6 +60,15 @@ std::wstring Utf8Wide(const std::string& utf8) {
   return out;
 }
 
+HRESULT SetR8(VARIANT* out, double v) {
+  if (!out) {
+    return E_POINTER;
+  }
+  out->vt = VT_R8;
+  out->dblVal = v;
+  return S_OK;
+}
+
 CONTROLTYPEID ControlTypeOf(AccRole role, bool is_root) {
   if (is_root) {
     return UIA_WindowControlTypeId;
@@ -78,6 +88,22 @@ CONTROLTYPEID ControlTypeOf(AccRole role, bool is_root) {
       return UIA_ComboBoxControlTypeId;
     case AccRole::MenuItem:
       return UIA_MenuItemControlTypeId;
+    case AccRole::Slider:
+      return UIA_SliderControlTypeId;
+    case AccRole::ProgressBar:
+      return UIA_ProgressBarControlTypeId;
+    case AccRole::Tab:
+      return UIA_TabControlTypeId;
+    case AccRole::List:
+      return UIA_ListControlTypeId;
+    case AccRole::Tree:
+      return UIA_TreeControlTypeId;
+    case AccRole::Spinner:
+      return UIA_SpinnerControlTypeId;
+    case AccRole::MenuBar:
+      return UIA_MenuBarControlTypeId;
+    case AccRole::StatusBar:
+      return UIA_StatusBarControlTypeId;
     case AccRole::Group:
       return UIA_GroupControlTypeId;
     case AccRole::Ignore:
@@ -98,7 +124,10 @@ class UiaProvider : public IRawElementProviderSimple,
                     public IRawElementProviderFragmentRoot,
                     public IInvokeProvider,
                     public IValueProvider,
-                    public IToggleProvider {
+                    public IToggleProvider,
+                    public IRangeValueProvider,
+                    public IExpandCollapseProvider,
+                    public ISelectionProvider {
  public:
   UiaProvider(Window* window, int acc_id)
       : window_(window),
@@ -140,6 +169,14 @@ class UiaProvider : public IRawElementProviderSimple,
       *ppv = static_cast<IValueProvider*>(this);
     } else if (riid == IID_IToggleProvider && patterns && HasToggle(*node)) {
       *ppv = static_cast<IToggleProvider*>(this);
+    } else if (riid == IID_IRangeValueProvider && patterns && HasRange(*node)) {
+      *ppv = static_cast<IRangeValueProvider*>(this);
+    } else if (riid == IID_IExpandCollapseProvider && patterns &&
+               HasExpand(*node)) {
+      *ppv = static_cast<IExpandCollapseProvider*>(this);
+    } else if (riid == IID_ISelectionProvider && patterns &&
+               HasSelection(*node)) {
+      *ppv = static_cast<ISelectionProvider*>(this);
     } else {
       return E_NOINTERFACE;
     }
@@ -179,6 +216,15 @@ class UiaProvider : public IRawElementProviderSimple,
       AddRef();
     } else if (patternId == UIA_TogglePatternId && HasToggle(*node)) {
       *pRetVal = static_cast<IToggleProvider*>(this);
+      AddRef();
+    } else if (patternId == UIA_RangeValuePatternId && HasRange(*node)) {
+      *pRetVal = static_cast<IRangeValueProvider*>(this);
+      AddRef();
+    } else if (patternId == UIA_ExpandCollapsePatternId && HasExpand(*node)) {
+      *pRetVal = static_cast<IExpandCollapseProvider*>(this);
+      AddRef();
+    } else if (patternId == UIA_SelectionPatternId && HasSelection(*node)) {
+      *pRetVal = static_cast<ISelectionProvider*>(this);
       AddRef();
     }
     return S_OK;
@@ -238,6 +284,19 @@ class UiaProvider : public IRawElementProviderSimple,
     }
     if (propertyId == UIA_ValueValuePropertyId && node && HasValue(*node)) {
       return SetBstr(pRetVal, node->AccValue());
+    }
+    if (propertyId == UIA_RangeValueValuePropertyId && node && HasRange(*node)) {
+      return SetR8(pRetVal, node->AccRangeValue());
+    }
+    if (propertyId == UIA_RangeValueIsReadOnlyPropertyId && node &&
+        HasRange(*node)) {
+      return SetBool(pRetVal, node->AccRangeReadOnly());
+    }
+    if (propertyId == UIA_ExpandCollapseExpandCollapseStatePropertyId && node &&
+        HasExpand(*node)) {
+      return SetI4(pRetVal, node->AccIsExpanded()
+                                ? ExpandCollapseState_Expanded
+                                : ExpandCollapseState_Collapsed);
     }
     return S_OK;
   }
@@ -516,7 +575,11 @@ class UiaProvider : public IRawElementProviderSimple,
     if (!pRetVal) {
       return E_POINTER;
     }
-    *pRetVal = FALSE;
+    Node* node = NodeOf();
+    if (!node) {
+      return UIA_E_ELEMENTNOTAVAILABLE;
+    }
+    *pRetVal = HasRange(*node) && node->AccRangeReadOnly() ? TRUE : FALSE;
     return S_OK;
   }
 
@@ -545,15 +608,160 @@ class UiaProvider : public IRawElementProviderSimple,
     return S_OK;
   }
 
+  // IRangeValueProvider
+  HRESULT STDMETHODCALLTYPE SetValue(double val) override {
+    Node* node = NodeOf();
+    Window* w = Host();
+    if (!w || !node) {
+      return UIA_E_ELEMENTNOTAVAILABLE;
+    }
+    if (node->AccRangeReadOnly() || !node->AccSetRangeValue(val)) {
+      return UIA_E_INVALIDOPERATION;
+    }
+    w->Invalidate();
+    return S_OK;
+  }
+  HRESULT STDMETHODCALLTYPE get_Value(double* pRetVal) override {
+    if (!pRetVal) {
+      return E_POINTER;
+    }
+    Node* node = NodeOf();
+    if (!node) {
+      return UIA_E_ELEMENTNOTAVAILABLE;
+    }
+    *pRetVal = node->AccRangeValue();
+    return S_OK;
+  }
+  HRESULT STDMETHODCALLTYPE get_Maximum(double* pRetVal) override {
+    if (!pRetVal) {
+      return E_POINTER;
+    }
+    Node* node = NodeOf();
+    if (!node) {
+      return UIA_E_ELEMENTNOTAVAILABLE;
+    }
+    *pRetVal = node->AccRangeMaximum();
+    return S_OK;
+  }
+  HRESULT STDMETHODCALLTYPE get_Minimum(double* pRetVal) override {
+    if (!pRetVal) {
+      return E_POINTER;
+    }
+    Node* node = NodeOf();
+    if (!node) {
+      return UIA_E_ELEMENTNOTAVAILABLE;
+    }
+    *pRetVal = node->AccRangeMinimum();
+    return S_OK;
+  }
+  HRESULT STDMETHODCALLTYPE get_LargeChange(double* pRetVal) override {
+    if (!pRetVal) {
+      return E_POINTER;
+    }
+    Node* node = NodeOf();
+    if (!node) {
+      return UIA_E_ELEMENTNOTAVAILABLE;
+    }
+    *pRetVal = node->AccRangeLargeChange();
+    return S_OK;
+  }
+  HRESULT STDMETHODCALLTYPE get_SmallChange(double* pRetVal) override {
+    if (!pRetVal) {
+      return E_POINTER;
+    }
+    Node* node = NodeOf();
+    if (!node) {
+      return UIA_E_ELEMENTNOTAVAILABLE;
+    }
+    *pRetVal = node->AccRangeSmallChange();
+    return S_OK;
+  }
+
+  // IExpandCollapseProvider
+  HRESULT STDMETHODCALLTYPE Expand() override {
+    Node* node = NodeOf();
+    Window* w = Host();
+    if (!w || !node) {
+      return UIA_E_ELEMENTNOTAVAILABLE;
+    }
+    if (!node->AccExpand()) {
+      return UIA_E_INVALIDOPERATION;
+    }
+    w->Invalidate();
+    return S_OK;
+  }
+  HRESULT STDMETHODCALLTYPE Collapse() override {
+    Node* node = NodeOf();
+    Window* w = Host();
+    if (!w || !node) {
+      return UIA_E_ELEMENTNOTAVAILABLE;
+    }
+    if (!node->AccCollapse()) {
+      return UIA_E_INVALIDOPERATION;
+    }
+    w->Invalidate();
+    return S_OK;
+  }
+  HRESULT STDMETHODCALLTYPE get_ExpandCollapseState(
+      ExpandCollapseState* pRetVal) override {
+    if (!pRetVal) {
+      return E_POINTER;
+    }
+    Node* node = NodeOf();
+    if (!node) {
+      return UIA_E_ELEMENTNOTAVAILABLE;
+    }
+    *pRetVal = node->AccIsExpanded() ? ExpandCollapseState_Expanded
+                                     : ExpandCollapseState_Collapsed;
+    return S_OK;
+  }
+
+  // ISelectionProvider
+  HRESULT STDMETHODCALLTYPE GetSelection(SAFEARRAY** pRetVal) override {
+    if (!pRetVal) {
+      return E_POINTER;
+    }
+    *pRetVal = SafeArrayCreateVector(VT_UNKNOWN, 0, 0);
+    return *pRetVal ? S_OK : E_OUTOFMEMORY;
+  }
+  HRESULT STDMETHODCALLTYPE get_CanSelectMultiple(BOOL* pRetVal) override {
+    if (!pRetVal) {
+      return E_POINTER;
+    }
+    *pRetVal = FALSE;
+    return S_OK;
+  }
+  HRESULT STDMETHODCALLTYPE get_IsSelectionRequired(BOOL* pRetVal) override {
+    if (!pRetVal) {
+      return E_POINTER;
+    }
+    *pRetVal = TRUE;
+    return S_OK;
+  }
+
  private:
   static bool HasInvoke(const Node& n) {
     return n.acc_role() == AccRole::Button ||
            n.acc_role() == AccRole::MenuItem;
   }
-  static bool HasValue(const Node& n) { return n.acc_role() == AccRole::Edit; }
+  static bool HasValue(const Node& n) {
+    return n.acc_role() == AccRole::Edit || n.acc_role() == AccRole::ComboBox ||
+           n.acc_role() == AccRole::Tab;
+  }
   static bool HasToggle(const Node& n) {
     return n.acc_role() == AccRole::CheckBox ||
            n.acc_role() == AccRole::RadioButton;
+  }
+  static bool HasRange(const Node& n) {
+    return n.acc_role() == AccRole::Slider ||
+           n.acc_role() == AccRole::ProgressBar ||
+           n.acc_role() == AccRole::Spinner;
+  }
+  static bool HasExpand(const Node& n) {
+    return n.acc_role() == AccRole::ComboBox;
+  }
+  static bool HasSelection(const Node& n) {
+    return n.acc_role() == AccRole::Tab;
   }
 
   Window* Host() const {
@@ -596,6 +804,13 @@ class UiaProvider : public IRawElementProviderSimple,
   static UiaProvider* ForNode(Window* w, Node* n) {
     n->EnsureAccId();
     return new UiaProvider(w, n->acc_id());
+  }
+
+  static IRawElementProviderSimple* SimpleOf(Window* w, Node* node) {
+    if (!w || !w->uia_root_ || !w->hwnd_ || !node || !node->AccIncluded()) {
+      return nullptr;
+    }
+    return static_cast<IRawElementProviderSimple*>(ForNode(w, node));
   }
 
   static UiaProvider* RootProvider(Window* w) {
@@ -646,6 +861,80 @@ void Window::RaiseAccFocusChanged() {
     p = static_cast<IRawElementProviderSimple*>(uia_root_);
   }
   UiaRaiseAutomationEvent(p, UIA_AutomationFocusChangedEventId);
+  p->Release();
+}
+
+void Window::RaiseAccToggleChanged(Node* node) {
+  IRawElementProviderSimple* p = UiaProvider::SimpleOf(this, node);
+  if (!p) {
+    return;
+  }
+  VARIANT oldv;
+  VARIANT newv;
+  VariantInit(&oldv);
+  VariantInit(&newv);
+  newv.vt = VT_I4;
+  newv.lVal = node->acc_state().checked ? ToggleState_On : ToggleState_Off;
+  UiaRaiseAutomationPropertyChangedEvent(p, UIA_ToggleToggleStatePropertyId,
+                                         oldv, newv);
+  p->Release();
+}
+
+void Window::RaiseAccValueChanged(Node* node) {
+  IRawElementProviderSimple* p = UiaProvider::SimpleOf(this, node);
+  if (!p) {
+    return;
+  }
+  VARIANT oldv;
+  VARIANT newv;
+  VariantInit(&oldv);
+  SetBstr(&newv, node->AccValue());
+  UiaRaiseAutomationPropertyChangedEvent(p, UIA_ValueValuePropertyId, oldv,
+                                         newv);
+  VariantClear(&newv);
+  p->Release();
+}
+
+void Window::RaiseAccRangeChanged(Node* node) {
+  IRawElementProviderSimple* p = UiaProvider::SimpleOf(this, node);
+  if (!p) {
+    return;
+  }
+  VARIANT oldv;
+  VARIANT newv;
+  VariantInit(&oldv);
+  SetR8(&newv, node->AccRangeValue());
+  UiaRaiseAutomationPropertyChangedEvent(p, UIA_RangeValueValuePropertyId, oldv,
+                                         newv);
+  p->Release();
+}
+
+void Window::RaiseAccExpandCollapseChanged(Node* node) {
+  IRawElementProviderSimple* p = UiaProvider::SimpleOf(this, node);
+  if (!p) {
+    return;
+  }
+  VARIANT oldv;
+  VARIANT newv;
+  VariantInit(&oldv);
+  VariantInit(&newv);
+  newv.vt = VT_I4;
+  newv.lVal = node->AccIsExpanded() ? ExpandCollapseState_Expanded
+                                    : ExpandCollapseState_Collapsed;
+  UiaRaiseAutomationPropertyChangedEvent(
+      p, UIA_ExpandCollapseExpandCollapseStatePropertyId, oldv, newv);
+  p->Release();
+}
+
+void Window::RaiseAccStructureChanged() {
+  if (!uia_root_ || !hwnd_) {
+    return;
+  }
+  uia_root_->AddRef();
+  IRawElementProviderSimple* p =
+      static_cast<IRawElementProviderSimple*>(uia_root_);
+  UiaRaiseStructureChangedEvent(p, StructureChangeType_ChildrenInvalidated,
+                                nullptr, 0);
   p->Release();
 }
 

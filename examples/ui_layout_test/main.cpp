@@ -218,6 +218,25 @@ void TestColumnMainAlignCenter() {
   ExpectNear("v_align center y", pa->bounds().y, 40.f);
 }
 
+void TestColumnHugFillChildren() {
+  using namespace auralite::ui;
+  Column col;
+  col.hug_width();
+  col.padding(0.f);
+  col.spacing(0.f);
+
+  auto btn = std::make_unique<Button>();
+  btn->text(L"OK");
+  btn->fill_width();
+  btn->set_preferred_width(0.f);
+  btn->fixed_height(32.f);
+  col.AddChild(std::move(btn));
+
+  const SizeF s = col.Measure(400.f, 800.f);
+  Expect("hug col narrower than measure cap", s.w < 200.f);
+  Expect("hug col wider than empty", s.w > 24.f);
+}
+
 }  // namespace
 
 void TestWindowYaml() {
@@ -298,6 +317,18 @@ void TestWindowYaml() {
       "  children: []\n",
       factory, {}, &framed);
   Expect("framed yaml", framed_n != nullptr);
+
+  WindowYaml themed;
+  auto themed_n = LoadYamlString(
+      "window:\n"
+      "  kind: dialog\n"
+      "  theme: dark\n"
+      "Column:\n"
+      "  children: []\n",
+      factory, {}, &themed);
+  Expect("themed yaml tree", themed_n != nullptr);
+  Expect("window theme dark", themed.theme == "dark");
+  Expect("framed no theme", framed.theme.empty());
   Expect("caption false resizable", framed.options.resizable);
   Expect("min_width", framed.options.min_width == 200);
   Expect("min_height", framed.options.min_height == 100);
@@ -562,6 +593,7 @@ int main() {
   TestAbsoluteDualAnchor();
   TestAbsoluteBottomRight();
   TestColumnMainAlignCenter();
+  TestColumnHugFillChildren();
   TestClipDefaults();
   TestClipYaml();
   TestHitTestStillClipsToBounds();

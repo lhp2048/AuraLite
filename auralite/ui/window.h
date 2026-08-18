@@ -9,6 +9,7 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -41,8 +42,10 @@ class Window {
     bool quit_on_close = true;
     bool topmost = false;
     bool center_on_owner = true;
-    // Custom chrome (caption=false) only. Captioned windows ignore these —
-    // the host may round the HWND with DWM or any other OS API.
+    // Custom chrome (caption=false) only. Captioned windows ignore these.
+    // Resizable frameless: no SetWindowRgn (DWM treats RGN as glass on resize);
+    // Win11 rounding is DWMWA_WINDOW_CORNER_PREFERENCE. Dialogs (!resizable)
+    // still use SetWindowRgn for a punched round outline.
     float corner_radius = 0.f;
     float border_width = 0.f;
     // caption=false only. Drag window edges/corners to resize (like HTLEFT).
@@ -120,6 +123,12 @@ class Window {
   }
   void SetRoot(std::unique_ptr<Node> root);
   Node* root() const { return root_.get(); }
+
+  // Empty name inherits process Theme::SetActive. Unknown name → false.
+  bool set_theme(std::string name);
+  void clear_theme() { set_theme({}); }
+  const std::string& theme_name() const { return theme_name_; }
+  bool has_theme() const { return !theme_name_.empty(); }
   // Detach root without destroying the window (Submenu return / PopupHost).
   std::unique_ptr<Node> ReleaseRoot();
   // Floating layer above root (Combo dropdown). |on_dismiss| runs on ClearPopup.
@@ -177,6 +186,12 @@ class Window {
   Node* focused_node() const { return focused_; }
   void FocusNext(bool reverse);
 
+  void RaiseAccToggleChanged(Node* node);
+  void RaiseAccValueChanged(Node* node);
+  void RaiseAccRangeChanged(Node* node);
+  void RaiseAccExpandCollapseChanged(Node* node);
+  void RaiseAccStructureChanged();
+
   // First visible enabled Button with is_default(); null if none.
   Button* default_button() const;
   // Invoke that button. Returns true if one fired.
@@ -209,6 +224,7 @@ class Window {
 
   // Layered tool HWND for menus. Not a WindowOptions style — use PopupHost.
   bool CreatePopup(HWND owner, int width, int height);
+  void SetPopupChrome(float corner_radius, float border_width);
   bool CreateLayeredTool(HWND owner, int width_dip, int height_dip,
                          DWORD extra_ex);
 
@@ -230,6 +246,10 @@ class Window {
   LRESULT HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam);
   void OnPaint(HDC present_dc = nullptr, const RECT* present_px = nullptr);
   void OnSize(UINT width, UINT height);
+  // Blit the current DIB now (live resize). Avoids an empty client flashing
+  // through to the desktop before WM_PAINT.
+  void PaintImmediate();
+  void EnsureLayout();
   void NotifyDeviceLost();
   void ClearHover();
   void EnsureMouseLeaveTracking();
@@ -269,7 +289,13 @@ class Window {
   void ApplyMinMaxInfo(MINMAXINFO* info) const;
   void PlaceWindow(HWND owner, int width_dip, int height_dip);
   void ApplyChromeShape();
+  void ApplyChromeDwm();
+  void AdjustCustomChromeClient(RECT* r) const;
   void PaintChrome(auralite::Canvas& canvas);
+  void PaintPopupFill(auralite::Canvas& canvas);
+  void PaintPopupBorder(auralite::Canvas& canvas);
+  void StealPopupRootBg();
+  void RestorePopupRootBg();
   void ActivateHwnd();
   void RestoreOwner();
   void ResetCreateState();
@@ -290,7 +316,10 @@ class Window {
   std::function<void()> popup_dismiss_;
   Node* popup_anchor_ = nullptr;
   bool clear_popup_pending_ = false;
+  std::string theme_name_;
   bool layout_dirty_ = true;
+  bool painting_ = false;
+  bool size_move_ = false;
   bool quit_on_close_ = true;
   bool accept_files_ = false;
   FilesDroppedHandler on_files_dropped_;
@@ -304,6 +333,9 @@ class Window {
   HWND dialog_owner_ = nullptr;
   int modal_result_ = IDCANCEL;
   WindowOptions options_{};
+  float popup_radius_ = 0.f;
+  float popup_border_ = 0.f;
+  std::optional<ColorF> popup_fill_;
   std::function<void(HWND)> on_deactivate_outside_;
   Node* mouse_capture_ = nullptr;
   Node* hovered_ = nullptr;

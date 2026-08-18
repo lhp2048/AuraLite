@@ -149,6 +149,7 @@ void TextArea::EnsureCaretVisible() {
 }
 
 void TextArea::NotifyChanged() {
+  NotifyAccValueChanged();
   if (on_change_) {
     on_change_(text_);
   }

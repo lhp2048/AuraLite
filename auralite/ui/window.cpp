@@ -12,6 +12,7 @@
 #include "auralite/ui/uia/provider.h"
 #include "message_framework/message_loop.h"
 
+#include <dwmapi.h>
 #include <imm.h>
 #include <shellapi.h>
 #include <windowsx.h>
@@ -30,6 +31,16 @@ constexpr float kResizeEdgeDip = 6.f;
 constexpr float kResizeCornerDip = 12.f;
 constexpr int kDefaultMinWidthDip = 160;
 constexpr int kDefaultMinHeightDip = 80;
+// Win11 dwmapi.h attributes (safe no-ops on Win10).
+constexpr DWORD kDwmwaWindowCornerPreference = 33;
+constexpr DWORD kDwmwaBorderColor = 34;
+constexpr DWORD kDwmwaCaptionColor = 35;
+constexpr DWORD kDwmwaSystemBackdropType = 38;
+constexpr DWORD kDwmsbtNone = 1;
+constexpr DWORD kDwmwcpDoNotRound = 1;
+constexpr DWORD kDwmwcpRound = 2;
+// dwmapi: hide Win11 caption/border fill (not RGB).
+constexpr COLORREF kDwmwaColorNone = 0xFFFFFFFE;
 
 bool FramelessAppWindow(const Window::WindowOptions& o) {
   return !o.caption && o.resizable;
@@ -94,6 +105,25 @@ float QueryHwndDpi(HWND hwnd) {
     }
   }
   return auralite::kDipDpi;
+}
+
+int SystemMetricForDpi(int index, UINT dpi) {
+  using Fn = int(WINAPI*)(int, UINT);
+  static Fn fn = nullptr;
+  static bool tried = false;
+  if (!tried) {
+    tried = true;
+    fn = reinterpret_cast<Fn>(
+        GetProcAddress(GetModuleHandleW(L"user32.dll"),
+                       "GetSystemMetricsForDpi"));
+  }
+  if (fn && dpi > 0) {
+    const int v = fn(index, dpi);
+    if (v > 0) {
+      return v;
+    }
+  }
+  return GetSystemMetrics(index);
 }
 
 int DipToOuterPx(float dip, float dpi) {
@@ -348,7 +378,7 @@ bool Window::EnsureWindowClass(HINSTANCE instance) {
 
   WNDCLASSEXW wc = {};
   wc.cbSize = sizeof(wc);
-  wc.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
+  wc.style = CS_DBLCLKS;
   wc.lpfnWndProc = &Window::WndProc;
   wc.hInstance = instance;
   wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
@@ -396,12 +426,15 @@ bool Window::Create(const wchar_t* title, int w, int h, const WindowOptions& opt
     // boxes and an unowned taskbar button — otherwise SW_MINIMIZE shrinks to
     // a tiny rectangle at the bottom-left of the desktop.
     if (FramelessAppWindow(options_)) {
+      // No WS_CLIPCHILDREN: child holes in the DWM surface are alpha-0
+      // (NativeHost see-through while resizing). Parent paints the full DIB,
+      // then NativeHost::RedrawGuests.
       style = WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME |
-              WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CLIPCHILDREN;
+              WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
       ex |= WS_EX_APPWINDOW;
       parent = nullptr;
     } else {
-      style = WS_POPUP | WS_CLIPCHILDREN;
+      style = WS_POPUP;
     }
     if (options_.topmost) {
       ex |= WS_EX_TOPMOST;
@@ -438,6 +471,7 @@ bool Window::Create(const wchar_t* title, int w, int h, const WindowOptions& opt
   if (uses_custom_chrome()) {
     PlaceWindow(options_.owner, w, h);
     ApplyChromeShape();
+    ApplyChromeDwm();
   }
   ApplyAcceptFiles();
   return true;
@@ -462,6 +496,59 @@ void Window::ResetCreateState() {
 bool Window::CreatePopup(HWND owner, int w, int h) {
   return CreateLayeredTool(owner, w, h,
                            WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED);
+}
+
+void Window::SetPopupChrome(float corner_radius, float border_width) {
+  popup_radius_ = std::max(0.f, corner_radius);
+  popup_border_ = std::max(0.f, border_width);
+}
+
+void Window::StealPopupRootBg() {
+  popup_fill_.reset();
+  if (!popup_mode_ || !root_ || (popup_radius_ <= 0.f && popup_border_ <= 0.f)) {
+    return;
+  }
+  if (root_->has_bg()) {
+    popup_fill_ = root_->bg_color();
+    root_->clear_bg();
+  }
+}
+
+void Window::RestorePopupRootBg() {
+  if (root_ && popup_fill_) {
+    root_->bg(*popup_fill_);
+  }
+  popup_fill_.reset();
+}
+
+void Window::PaintPopupFill(auralite::Canvas& canvas) {
+  if (!popup_mode_ || (popup_radius_ <= 0.f && popup_border_ <= 0.f)) {
+    return;
+  }
+  const RectF client = ClientRectF();
+  const ColorF fill = popup_fill_.value_or(Theme::Active().surface);
+  if (popup_radius_ > 0.f) {
+    canvas.FillRoundedRect(client, popup_radius_, popup_radius_, fill);
+  } else {
+    canvas.FillRect(client, fill);
+  }
+}
+
+void Window::PaintPopupBorder(auralite::Canvas& canvas) {
+  if (!popup_mode_ || popup_border_ <= 0.f) {
+    return;
+  }
+  const RectF client = ClientRectF();
+  const float inset = popup_border_ * 0.5f;
+  const RectF stroke{client.x + inset, client.y + inset,
+                     std::max(0.f, client.w - popup_border_),
+                     std::max(0.f, client.h - popup_border_)};
+  const float rr = std::max(0.f, popup_radius_ - inset);
+  if (rr > 0.f) {
+    canvas.DrawRoundedRect(stroke, rr, rr, Theme::Active().border, popup_border_);
+  } else {
+    canvas.DrawRect(stroke, Theme::Active().border, popup_border_);
+  }
 }
 
 bool Window::CreateLayeredTool(HWND owner, int w, int h, DWORD extra_ex) {
@@ -506,6 +593,10 @@ bool Window::CreateLayeredTool(HWND owner, int w, int h, DWORD extra_ex) {
 
   theme_sink_ = [this] { Invalidate(); };
   Theme::AddInvalidateSink(&theme_sink_);
+
+  if (Window* owner_ui = FromHwnd(owner)) {
+    theme_name_ = owner_ui->theme_name_;
+  }
 
   layout_dirty_ = true;
   return true;
@@ -567,6 +658,12 @@ void Window::ApplyChromeShape() {
   if (!hwnd_ || !uses_custom_chrome()) {
     return;
   }
+  // Resizable frames must stay rectangular for DWM. SetWindowRgn punches
+  // alpha holes; live resize then shows the desktop. Win11 rounding is DWM.
+  if (options_.resizable) {
+    SetWindowRgn(hwnd_, nullptr, FALSE);
+    return;
+  }
   RECT wr = {};
   GetWindowRect(hwnd_, &wr);
   const int w = wr.right - wr.left;
@@ -576,7 +673,7 @@ void Window::ApplyChromeShape() {
   }
   const float r_dip = options_.corner_radius;
   if (r_dip <= 0.f) {
-    SetWindowRgn(hwnd_, nullptr, TRUE);
+    SetWindowRgn(hwnd_, nullptr, FALSE);
     return;
   }
   int dia = DipToOuterPx(r_dip, dpi_) * 2;
@@ -585,12 +682,53 @@ void Window::ApplyChromeShape() {
     dia = limit;
   }
   if (dia < 2) {
-    SetWindowRgn(hwnd_, nullptr, TRUE);
+    SetWindowRgn(hwnd_, nullptr, FALSE);
     return;
   }
-  // CreateRoundRectRgn right/bottom are exclusive; +1 keeps the last pixel.
   HRGN rgn = CreateRoundRectRgn(0, 0, w + 1, h + 1, dia, dia);
-  SetWindowRgn(hwnd_, rgn, TRUE);
+  SetWindowRgn(hwnd_, rgn, FALSE);
+}
+
+void Window::ApplyChromeDwm() {
+  if (!hwnd_ || !uses_custom_chrome()) {
+    return;
+  }
+  const MARGINS margins = {0, 0, 0, 0};
+  DwmExtendFrameIntoClientArea(hwnd_, &margins);
+  const BOOL disable_transitions = TRUE;
+  DwmSetWindowAttribute(hwnd_, DWMWA_TRANSITIONS_FORCEDISABLED,
+                        &disable_transitions, sizeof(disable_transitions));
+  DWM_BLURBEHIND bb = {};
+  bb.dwFlags = DWM_BB_ENABLE;
+  bb.fEnable = FALSE;
+  DwmEnableBlurBehindWindow(hwnd_, &bb);
+  const DWORD backdrop_none = kDwmsbtNone;
+  DwmSetWindowAttribute(hwnd_, kDwmwaSystemBackdropType, &backdrop_none,
+                        sizeof(backdrop_none));
+  // COLOR_NONE: keep WS_CAPTION for snap/min/max, but do not let DWM paint
+  // the default title bar (that was the opaque strip that stopped flicker).
+  const COLORREF none = kDwmwaColorNone;
+  DwmSetWindowAttribute(hwnd_, kDwmwaCaptionColor, &none, sizeof(none));
+  DwmSetWindowAttribute(hwnd_, kDwmwaBorderColor, &none, sizeof(none));
+  const DWORD corner =
+      options_.corner_radius > 0.f ? kDwmwcpRound : kDwmwcpDoNotRound;
+  DwmSetWindowAttribute(hwnd_, kDwmwaWindowCornerPreference, &corner,
+                        sizeof(corner));
+}
+
+void Window::AdjustCustomChromeClient(RECT* r) const {
+  if (!r || !is_maximized()) {
+    return;
+  }
+  const UINT dpi = static_cast<UINT>(std::lround(dpi_));
+  const int dx = SystemMetricForDpi(SM_CXFRAME, dpi) +
+                 SystemMetricForDpi(SM_CXPADDEDBORDER, dpi);
+  const int dy = SystemMetricForDpi(SM_CYFRAME, dpi) +
+                 SystemMetricForDpi(SM_CXPADDEDBORDER, dpi);
+  r->left += dx;
+  r->top += dy;
+  r->right -= dx;
+  r->bottom -= dy;
 }
 
 void Window::PaintChrome(auralite::Canvas& canvas) {
@@ -715,13 +853,27 @@ bool Window::is_maximized() const {
   return hwnd_ && IsZoomed(hwnd_) != FALSE;
 }
 
+bool Window::set_theme(std::string name) {
+  if (!name.empty() && !Theme::Has(name)) {
+    return false;
+  }
+  if (theme_name_ == name) {
+    return true;
+  }
+  theme_name_ = std::move(name);
+  Invalidate();
+  return true;
+}
+
 void Window::SetRoot(std::unique_ptr<Node> root) {
+  RestorePopupRootBg();
   ClearPopup();
   SetFocusNode(nullptr);
   root_ = std::move(root);
   if (root_) {
     root_->set_host_window(this);
   }
+  StealPopupRootBg();
   mouse_capture_ = nullptr;
   hovered_ = nullptr;
   layout_dirty_ = true;
@@ -729,6 +881,7 @@ void Window::SetRoot(std::unique_ptr<Node> root) {
 }
 
 std::unique_ptr<Node> Window::ReleaseRoot() {
+  RestorePopupRootBg();
   ClearPopup();
   SetFocusNode(nullptr);
   mouse_capture_ = nullptr;
@@ -1403,6 +1556,7 @@ LRESULT CALLBACK Window::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
   if (!self) {
     return DefWindowProcW(hwnd, msg, wparam, lparam);
   }
+  Theme::Scope theme_scope(self->theme_name_);
   return self->HandleMessage(msg, wparam, lparam);
 }
 
@@ -1428,6 +1582,28 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       }
       return 0;
 
+    case WM_ENTERSIZEMOVE:
+      size_move_ = true;
+      return 0;
+
+    case WM_EXITSIZEMOVE:
+      size_move_ = false;
+      ApplyChromeShape();
+      InvalidateRect(hwnd_, nullptr, FALSE);
+      UpdateWindow(hwnd_);
+      return 0;
+
+    case WM_ERASEBKGND:
+      // Class has no background brush. Default erase leaves newly exposed
+      // pixels as DWM-transparent during live resize.
+      return 1;
+
+    case WM_NCPAINT:
+      if (uses_custom_chrome()) {
+        return 0;
+      }
+      break;
+
     case WM_DPICHANGED: {
       const UINT new_dpi = LOWORD(wparam);
       const RECT* rec = reinterpret_cast<const RECT*>(lparam);
@@ -1437,6 +1613,9 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
 
     case WM_DISPLAYCHANGE:
     case WM_PAINT: {
+      // Layout (and NativeHost SetWindowPos) before BeginPaint so CLIPCHILDREN
+      // on the paint DC matches guest HWNDs.
+      EnsureLayout();
       PAINTSTRUCT ps = {};
       BeginPaint(hwnd_, &ps);
       OnPaint(ps.hdc, &ps.rcPaint);
@@ -1450,8 +1629,13 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       return 0;
 
     case WM_NCCALCSIZE:
-      // Keep custom chrome client = window (no OS caption/frame).
       if (uses_custom_chrome()) {
+        if (wparam) {
+          auto* p = reinterpret_cast<NCCALCSIZE_PARAMS*>(lparam);
+          AdjustCustomChromeClient(&p->rgrc[0]);
+        } else if (lparam) {
+          AdjustCustomChromeClient(reinterpret_cast<RECT*>(lparam));
+        }
         return 0;
       }
       break;
@@ -1682,7 +1866,31 @@ void Window::OnSize(UINT width, UINT height) {
   canvas_.Resize(width, height);
   layout_dirty_ = true;
   ApplyChromeShape();
-  Invalidate();
+  if (canvas_.is_valid()) {
+    PaintImmediate();
+  } else {
+    Invalidate();
+  }
+}
+
+void Window::PaintImmediate() {
+  if (!hwnd_ || painting_) {
+    return;
+  }
+  // WM_PAINT + BeginPaint, not GetDC: DWM only composites the redirection
+  // surface from BeginPaint's HDC (same as the earlier present-path bug).
+  InvalidateRect(hwnd_, nullptr, FALSE);
+  UpdateWindow(hwnd_);
+}
+
+void Window::EnsureLayout() {
+  if (root_ && layout_dirty_) {
+    root_->Layout(ClientRectF());
+    layout_dirty_ = false;
+  }
+  if (popup_) {
+    SyncPopupLayout();
+  }
 }
 
 void Window::ApplyDpiChange(UINT new_dpi, const RECT* suggested) {
@@ -1709,9 +1917,14 @@ void Window::ApplyDpiChange(UINT new_dpi, const RECT* suggested) {
 }
 
 void Window::OnPaint(HDC present_dc, const RECT* present_px) {
-  if (!hwnd_) {
+  if (!hwnd_ || painting_) {
     return;
   }
+  painting_ = true;
+  struct PaintingGuard {
+    bool* flag;
+    ~PaintingGuard() { *flag = false; }
+  } guard{&painting_};
 
   const bool need_init = !canvas_.is_valid();
   if (need_init) {
@@ -1731,6 +1944,7 @@ void Window::OnPaint(HDC present_dc, const RECT* present_px) {
 
   if (popup_mode_) {
     canvas_.Clear(ColorF(0.f, 0.f, 0.f, 0.f));
+    PaintPopupFill(canvas_);
   } else {
     canvas_.Clear(Theme::Active().window_bg);
   }
@@ -1747,6 +1961,7 @@ void Window::OnPaint(HDC present_dc, const RECT* present_px) {
     SyncPopupLayout();
     popup_->Paint(canvas_);
   }
+  PaintPopupBorder(canvas_);
   PaintChrome(canvas_);
 
   if (!canvas_.EndDraw(present_dc, present_px)) {

@@ -25,6 +25,11 @@ struct PopupShowOptions {
   // false: clamp to monitor work area; true: full monitor (needed when the
   // anchor sits on a custom taskbar outside the work area).
   bool clamp_to_monitor = false;
+  // Layered popup chrome. YAML menus: window.corner_radius / border_width.
+  float corner_radius = 8.f;
+  float border_width = 1.f;
+  // Non-empty: Window::set_theme after create (overrides owner inherit).
+  std::string theme;
 };
 
 // Owns a stack of layered menu windows. Explicit instance; TLS Current() is
@@ -40,6 +45,9 @@ class PopupHost {
   void Show(HWND owner, POINT screen, std::unique_ptr<Node> root);
   void Show(HWND owner, POINT screen, std::unique_ptr<Node> root,
             PopupShowOptions options);
+  // Swap the root layer's content without destroying the HWND (MenuBar hover
+  // switch). Falls back to Show if the stack is empty.
+  void Replace(std::unique_ptr<Node> root, POINT screen);
   void ShowFromYaml(HWND owner, POINT screen, const std::string& path_or_yaml,
                     const HandlerMap& handlers);
   // |return_to|: opener for sibling-dismiss; on DismissFrom of this layer,
@@ -91,7 +99,7 @@ class PopupHost {
   std::function<void()> after_dismiss_;
   PopupShowOptions show_options_;
 
-  void PlaceRoot(Window* w, POINT screen, SizeF content);
+  void PlaceRoot(Window* w, POINT screen, SizeF content, bool activate = true);
   void PlaceChild(Window* w, const RectF& anchor_screen, SizeF content);
   SizeF MeasureFit(Node* root);
   // On success ownership is in the new stack layer and returns nullptr.

@@ -17,6 +17,8 @@ class ListView : public Node {
 
   ListView();
 
+  AccRole acc_role() const override;
+
   ListView& font_size(float size);
   ListView& on_selection_changed(SelectionHandler handler);
   ListView& on_check_changed(CheckHandler handler);

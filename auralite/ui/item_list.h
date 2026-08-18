@@ -32,6 +32,8 @@ class ItemList : public Node {
 
   ItemList();
 
+  AccRole acc_role() const override;
+
   int AddItem(PaintItemFn paint = {});
   void set_item_count(int n);
   bool RemoveItem(int index);

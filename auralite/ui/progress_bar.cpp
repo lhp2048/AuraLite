@@ -29,12 +29,17 @@ void ProgressBar::BindWindow(Window* window) {
 }
 
 ProgressBar& ProgressBar::value(float v) {
-  value_ = std::clamp(v, 0.f, 1.f);
+  v = std::clamp(v, 0.f, 1.f);
+  if (v == value_) {
+    return *this;
+  }
+  value_ = v;
   if (!indeterminate_) {
     SyncVisual(false);
   } else {
     visual_value_ = value_;
   }
+  NotifyAccRangeChanged();
   return *this;
 }
 
@@ -123,6 +128,21 @@ void ProgressBar::OnHostWindowChanged() {
   if (!CanTween() && !(window_ && window_->hwnd() && animate())) {
     SyncVisual(true);
   }
+}
+
+AccRole ProgressBar::acc_role() const {
+  if (acc_role_override_) {
+    return *acc_role_override_;
+  }
+  return AccRole::ProgressBar;
+}
+
+double ProgressBar::AccRangeValue() const {
+  return value_;
+}
+
+bool ProgressBar::AccRangeReadOnly() const {
+  return true;
 }
 
 }  // namespace auralite::ui

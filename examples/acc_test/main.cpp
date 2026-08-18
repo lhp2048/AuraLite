@@ -1,4 +1,5 @@
 // Console tests for accessibility read APIs (no UIA / HWND).
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
@@ -12,11 +13,15 @@
 #include "auralite/ui/combo.h"
 #include "auralite/ui/factory.h"
 #include "auralite/ui/label.h"
+#include "auralite/ui/list_view.h"
+#include "auralite/ui/progress_bar.h"
 #include "auralite/ui/radio.h"
+#include "auralite/ui/slider.h"
 #include "auralite/ui/switch_control.h"
 #include "auralite/ui/tab.h"
 #include "auralite/ui/text_area.h"
 #include "auralite/ui/text_field.h"
+#include "auralite/ui/tree_view.h"
 #include "auralite/ui/yaml_loader.h"
 
 namespace {
@@ -172,12 +177,20 @@ void TestTabOffstageHidden() {
 
   std::vector<const Node*> acc;
   CollectAccNodes(&tab, &acc);
-  Expect("tab page0 only", acc.size() == 1 && acc[0]->AccName() == L"A");
+  Expect("tab role", tab.acc_role() == AccRole::Tab);
+  Expect("tab included with page0", acc.size() == 2);
+  Expect("tab first", acc[0] == &tab);
+  Expect("tab page0 only", acc[1]->AccName() == L"A");
 
   tab.set_selected(1);
   acc.clear();
   CollectAccNodes(&tab, &acc);
-  Expect("tab page1 only", acc.size() == 1 && acc[0]->AccName() == L"B");
+  Expect("tab included with page1", acc.size() == 2);
+  Expect("tab page1 only", acc[1]->AccName() == L"B");
+  tab.add_header(L"甲");
+  tab.add_header(L"乙");
+  Expect("tab value header", tab.AccValue() == L"乙");
+  Expect("tab set value", tab.AccSetValue(L"甲") && tab.selected() == 0);
 }
 
 void TestYamlAccName() {
@@ -208,12 +221,37 @@ void TestComboTextArea() {
   combo.selected(1);
   Expect("combo role", combo.acc_role() == AccRole::ComboBox);
   Expect("combo name selected", combo.AccName() == L"绿");
+  Expect("combo value selected", combo.AccValue() == L"绿");
+  Expect("combo set value", combo.AccSetValue(L"红") && combo.selected() == 0);
+  Expect("combo collapsed", !combo.AccIsExpanded());
 
   TextArea area;
   area.placeholder(L"备注").text(L"hello");
   Expect("textarea edit", area.acc_role() == AccRole::Edit);
   Expect("textarea name", area.AccName() == L"备注");
   Expect("textarea value", area.AccValue() == L"hello");
+}
+
+void TestRangeListRoles() {
+  using namespace auralite::ui;
+  Slider slider;
+  slider.value(0.25f).step(0.1f);
+  Expect("slider role", slider.acc_role() == AccRole::Slider);
+  Expect("slider range", std::abs(slider.AccRangeValue() - 0.25) < 1e-6);
+  Expect("slider set range", slider.AccSetRangeValue(0.8) &&
+                                 std::abs(slider.value() - 0.8f) < 1e-6);
+  Expect("slider writable", !slider.AccRangeReadOnly());
+
+  ProgressBar bar;
+  bar.value(0.4f);
+  Expect("progress role", bar.acc_role() == AccRole::ProgressBar);
+  Expect("progress readonly", bar.AccRangeReadOnly());
+  Expect("progress set denied", !bar.AccSetRangeValue(0.9));
+
+  ListView list;
+  Expect("list role", list.acc_role() == AccRole::List);
+  TreeView tree;
+  Expect("tree role", tree.acc_role() == AccRole::Tree);
 }
 
 }  // namespace
@@ -229,6 +267,7 @@ int main() {
   TestTabOffstageHidden();
   TestYamlAccName();
   TestComboTextArea();
+  TestRangeListRoles();
   if (g_failures) {
     std::printf("%d failed\n", g_failures);
     return EXIT_FAILURE;

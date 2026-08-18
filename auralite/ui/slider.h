@@ -29,6 +29,13 @@ class Slider : public Node {
   int tick_count() const { return tick_count_; }
   Slider& on_changed(ChangeHandler handler);
 
+  AccRole acc_role() const override;
+  double AccRangeValue() const override;
+  double AccRangeSmallChange() const override;
+  double AccRangeLargeChange() const override;
+  bool AccRangeReadOnly() const override;
+  bool AccSetRangeValue(double value) override;
+
   SizeF Measure(float max_w, float max_h) override;
   void Paint(auralite::Canvas& canvas) override;
 

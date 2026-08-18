@@ -1,11 +1,21 @@
-# Primary-button menu chrome (accent fills) — contrast with classic flat rows.
+# Mix default MenuItem rows with a Button used as a custom menu row.
+window:
+  corner_radius: 8
+  border_width: 1
 Column:
   bg: "#F5F7FAF2"
+  width: 220
   padding: [6, 4, 6, 4]
   spacing: 4
   children:
-    - Button: { text: "Refresh status", width: hug, height: 32, on_click: refresh }
-    - Button: { text: "About gallery", width: hug, height: 32, on_click: about }
+    - MenuItem: { text: "Refresh status", icon: list, font_size: 13, on_click: refresh }
+    - MenuItem: { text: "About gallery", icon: file, font_size: 13, on_click: about }
+    - MenuItem: { separator: true }
+    - Button:
+        text: "自定义按钮行"
+        width: fill
+        height: 32
+        on_click: about
     - Submenu:
         text: "More"
         width: fill
@@ -15,4 +25,5 @@ Column:
             padding: 4
             spacing: 4
             children:
-              - Button: { text: "Reset split ratio", width: hug, height: 32, on_click: split_reset }
+              - MenuItem: { text: "Reset split ratio", icon: view, font_size: 13, on_click: split_reset }
+              - Button: { text: "子菜单里的按钮", width: fill, height: 32, variant: secondary, on_click: split_reset }

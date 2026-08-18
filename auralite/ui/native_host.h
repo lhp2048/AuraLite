@@ -12,10 +12,11 @@ enum class NativeLifetime {
   Borrowed,  // External HWND; never destroyed by NativeHost
 };
 
-// Black-box HWND hole. Syncs DIP bounds and visibility. Does not paint,
+// Black-box HWND guest. Syncs DIP bounds and visibility. Does not paint,
 // forward input, or clip for ScrollView.
-// Who created the HWND does not matter; |NativeLifetime| only chooses
-// whether this node DestroyWindow's it.
+// Parent presents a full opaque DIB (no WS_CLIPCHILDREN holes) then
+// RedrawGuests. Who created the HWND does not matter; |NativeLifetime|
+// only chooses whether this node DestroyWindow's it.
 class NativeHost : public Node {
  public:
   NativeHost();

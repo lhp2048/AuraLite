@@ -12,6 +12,13 @@ ItemList::ItemList() {
   fixed_height(160.f);
 }
 
+AccRole ItemList::acc_role() const {
+  if (acc_role_override_) {
+    return *acc_role_override_;
+  }
+  return AccRole::List;
+}
+
 int ItemList::AddItem(PaintItemFn paint) {
   items_.push_back(Item{std::move(paint)});
   ClampScroll();

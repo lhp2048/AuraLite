@@ -21,6 +21,10 @@ class ProgressBar : public Node {
   ProgressBar& indeterminate(bool enable);
   bool indeterminate() const { return indeterminate_; }
 
+  AccRole acc_role() const override;
+  double AccRangeValue() const override;
+  bool AccRangeReadOnly() const override;
+
   SizeF Measure(float max_w, float max_h) override;
   void Paint(auralite::Canvas& canvas) override;
 

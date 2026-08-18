@@ -1,29 +1,66 @@
-# Dark / elevated menu chrome (gallery style switcher).
+# Rounded chrome + MenuItem (same commands as classic; colors for dark panel).
+window:
+  corner_radius: 8
+  border_width: 1
 Column:
   bg: "#2B303AF5"
-  width: 200
+  width: 220
   padding: [4, 4, 4, 4]
   spacing: 0
   children:
-    - Button:
+    - MenuItem:
         text: "Refresh status"
-        width: fill
-        height: 28
-        corner_radius: 4
-        text_align: left
+        icon: list
         font_size: 13
-        bg: "#2B303AF5"
-        bg_hover: "#3D4656"
-        bg_pressed: "#1F242D"
         text_color: "#E8ECF2"
+        bg_hover: "#3D4656"
         on_click: refresh
-    - Button:
+    - MenuItem:
         text: "About gallery"
+        icon: file
+        font_size: 13
+        text_color: "#E8ECF2"
+        bg_hover: "#3D4656"
+        on_click: about
+    - MenuItem: { separator: true }
+    - MenuItem:
+        text: "状态栏"
+        checkable: true
+        checked: true
+        font_size: 13
+        text_color: "#E8ECF2"
+        bg_hover: "#3D4656"
+    - MenuItem:
+        text: "侧栏"
+        checkable: true
+        font_size: 13
+        text_color: "#E8ECF2"
+        bg_hover: "#3D4656"
+    - MenuItem: { separator: true }
+    - MenuItem:
+        text: "列表"
+        radio_group: 1
+        checked: true
+        icon: list
+        font_size: 13
+        text_color: "#E8ECF2"
+        bg_hover: "#3D4656"
+    - MenuItem:
+        text: "网格"
+        radio_group: 1
+        icon: grid
+        font_size: 13
+        text_color: "#E8ECF2"
+        bg_hover: "#3D4656"
+    - MenuItem: { separator: true }
+    - Button:
+        text: "自定义按钮行"
         width: fill
         height: 28
-        corner_radius: 4
+        variant: secondary
         text_align: left
         font_size: 13
+        corner_radius: 4
         bg: "#2B303AF5"
         bg_hover: "#3D4656"
         bg_pressed: "#1F242D"
@@ -45,15 +82,10 @@ Column:
             padding: 4
             spacing: 0
             children:
-              - Button:
+              - MenuItem:
                   text: "Reset split ratio"
-                  width: fill
-                  height: 28
-                  corner_radius: 4
-                  text_align: left
+                  icon: view
                   font_size: 13
-                  bg: "#2B303AF5"
-                  bg_hover: "#3D4656"
-                  bg_pressed: "#1F242D"
                   text_color: "#E8ECF2"
+                  bg_hover: "#3D4656"
                   on_click: split_reset

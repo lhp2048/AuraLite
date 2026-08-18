@@ -4,6 +4,7 @@ window:
   height: 220
   kind: dialog
   caption: false
+  theme: dark
   corner_radius: 8
   border_width: 1
 Column:
@@ -21,5 +22,5 @@ Column:
         width: fill
         height: fill
         children:
-          - Label: { text: "拖标题栏移动。对话框默认不能拖边缩放。", font_size: 14 }
+          - Label: { text: "窗口主题 dark（主窗仍是进程 light）。拖标题栏移动。", font_size: 14 }
           - Button: { text: "关闭", variant: secondary, width: fill, height: 32, default: true, on_click: dialog_close }

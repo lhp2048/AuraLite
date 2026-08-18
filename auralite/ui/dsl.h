@@ -5,11 +5,14 @@
 #include "auralite/ui/column.h"
 #include "auralite/ui/absolute.h"
 #include "auralite/ui/combo.h"
+#include "auralite/ui/date_picker.h"
 #include "auralite/ui/image_button.h"
 #include "auralite/ui/image_view.h"
 #include "auralite/ui/label.h"
 #include "auralite/ui/list_view.h"
 #include "auralite/ui/item_list.h"
+#include "auralite/ui/menu_bar.h"
+#include "auralite/ui/menu_item.h"
 #include "auralite/ui/virtual_list.h"
 #include "auralite/ui/tree_view.h"
 #include "auralite/ui/native_host.h"
@@ -18,7 +21,9 @@
 #include "auralite/ui/row.h"
 #include "auralite/ui/scroll_view.h"
 #include "auralite/ui/slider.h"
+#include "auralite/ui/spin_box.h"
 #include "auralite/ui/split_view.h"
+#include "auralite/ui/status_bar.h"
 #include "auralite/ui/submenu.h"
 #include "auralite/ui/switch_control.h"
 #include "auralite/ui/tab.h"
@@ -990,6 +995,182 @@ class ComboBuilder : public detail::BuilderBase<Combo> {
   }
 };
 
+class SpinBoxBuilder : public detail::BuilderBase<SpinBox> {
+ public:
+  SpinBoxBuilder& value(double v) {
+    get()->value(v);
+    return *this;
+  }
+  SpinBoxBuilder& min_value(double v) {
+    get()->min_value(v);
+    return *this;
+  }
+  SpinBoxBuilder& max_value(double v) {
+    get()->max_value(v);
+    return *this;
+  }
+  SpinBoxBuilder& step(double s) {
+    get()->step(s);
+    return *this;
+  }
+  SpinBoxBuilder& decimals(int n) {
+    get()->decimals(n);
+    return *this;
+  }
+  SpinBoxBuilder& wrap(bool enable) {
+    get()->wrap(enable);
+    return *this;
+  }
+  SpinBoxBuilder& on_changed(SpinBox::ChangeHandler handler) {
+    get()->on_changed(std::move(handler));
+    return *this;
+  }
+  SpinBoxBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+};
+
+class DatePickerBuilder : public detail::BuilderBase<DatePicker> {
+ public:
+  DatePickerBuilder& date(CivilDate d) {
+    get()->date(d);
+    return *this;
+  }
+  DatePickerBuilder& year(int y) {
+    get()->year(y);
+    return *this;
+  }
+  DatePickerBuilder& month(int m) {
+    get()->month(m);
+    return *this;
+  }
+  DatePickerBuilder& day(int d) {
+    get()->day(d);
+    return *this;
+  }
+  DatePickerBuilder& time(bool enable) {
+    get()->time(enable);
+    return *this;
+  }
+  DatePickerBuilder& hour(int h) {
+    get()->hour(h);
+    return *this;
+  }
+  DatePickerBuilder& minute(int m) {
+    get()->minute(m);
+    return *this;
+  }
+  DatePickerBuilder& seconds(bool enable) {
+    get()->seconds(enable);
+    return *this;
+  }
+  DatePickerBuilder& second(int s) {
+    get()->second(s);
+    return *this;
+  }
+  DatePickerBuilder& on_changed(DatePicker::ChangeHandler handler) {
+    get()->on_changed(std::move(handler));
+    return *this;
+  }
+  DatePickerBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+};
+
+class MenuItemBuilder : public detail::BuilderBase<MenuItem> {
+ public:
+  MenuItemBuilder& text(const std::wstring& t) {
+    get()->text(t);
+    return *this;
+  }
+  MenuItemBuilder& icon(std::wstring name) {
+    get()->icon(std::move(name));
+    return *this;
+  }
+  MenuItemBuilder& separator(bool v = true) {
+    get()->separator(v);
+    return *this;
+  }
+  MenuItemBuilder& checkable(bool v = true) {
+    get()->checkable(v);
+    return *this;
+  }
+  MenuItemBuilder& checked(bool v) {
+    get()->checked(v);
+    return *this;
+  }
+  MenuItemBuilder& radio_group(int id) {
+    get()->radio_group(id);
+    return *this;
+  }
+  MenuItemBuilder& font_size(float size) {
+    get()->font_size(size);
+    return *this;
+  }
+  MenuItemBuilder& text_color(const ColorF& c) {
+    get()->text_color(c);
+    return *this;
+  }
+  MenuItemBuilder& bg_hover(const ColorF& c) {
+    get()->bg_hover(c);
+    return *this;
+  }
+  MenuItemBuilder& on_click(MenuItem::ClickHandler handler) {
+    get()->on_click(std::move(handler));
+    return *this;
+  }
+  MenuItemBuilder& on_changed(MenuItem::ChangedHandler handler) {
+    get()->on_changed(std::move(handler));
+    return *this;
+  }
+  MenuItemBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+};
+
+class MenuBarBuilder : public detail::BuilderBase<MenuBar> {
+ public:
+  MenuBarBuilder& add_menu(std::wstring title, std::vector<MenuCommand> commands) {
+    get()->add_menu(std::move(title), std::move(commands));
+    return *this;
+  }
+  MenuBarBuilder& on_command(MenuBar::CommandHandler handler) {
+    get()->on_command(std::move(handler));
+    return *this;
+  }
+  MenuBarBuilder& corner_radius(float r) {
+    get()->corner_radius(r);
+    return *this;
+  }
+  MenuBarBuilder& border_width(float w) {
+    get()->border_width(w);
+    return *this;
+  }
+  MenuBarBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+};
+
+class StatusBarBuilder : public detail::BuilderBase<StatusBar> {
+ public:
+  StatusBarBuilder& items(std::vector<std::wstring> panes) {
+    get()->items(std::move(panes));
+    return *this;
+  }
+  StatusBarBuilder& add_item(std::wstring text) {
+    get()->add_item(std::move(text));
+    return *this;
+  }
+  StatusBarBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+};
+
 class TextAreaBuilder : public detail::BuilderBase<TextArea> {
  public:
   TextAreaBuilder& text(const std::wstring& t) {
@@ -1233,6 +1414,11 @@ class ItemListBuilder : public detail::BuilderBase<ItemList> {
 inline ProgressBarBuilder ProgressBar() { return ProgressBarBuilder(); }
 inline SliderBuilder Slider() { return SliderBuilder(); }
 inline ComboBuilder Combo() { return ComboBuilder(); }
+inline SpinBoxBuilder SpinBox() { return SpinBoxBuilder(); }
+inline DatePickerBuilder DatePicker() { return DatePickerBuilder(); }
+inline MenuItemBuilder MenuItem() { return MenuItemBuilder(); }
+inline MenuBarBuilder MenuBar() { return MenuBarBuilder(); }
+inline StatusBarBuilder StatusBar() { return StatusBarBuilder(); }
 inline TextAreaBuilder TextArea() { return TextAreaBuilder(); }
 inline VirtualListBuilder VirtualList() { return VirtualListBuilder(); }
 inline TreeViewBuilder TreeView() { return TreeViewBuilder(); }

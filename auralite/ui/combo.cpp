@@ -140,8 +140,13 @@ void Combo::SelectIndex(int index, bool notify) {
     selected_indices_.clear();
     return;
   }
-  selected_ = std::clamp(index, 0, static_cast<int>(items_.size()) - 1);
+  const int next = std::clamp(index, 0, static_cast<int>(items_.size()) - 1);
+  const bool changed = next != selected_;
+  selected_ = next;
   filter_.clear();
+  if (changed) {
+    NotifyAccValueChanged();
+  }
   if (multi_) {
     selected_indices_.assign(1, selected_);
     if (notify) {
@@ -187,6 +192,7 @@ ListView* Combo::PopupList() const {
 }
 
 void Combo::ClosePopup() {
+  const bool was_open = open_;
   if (multi_ && open_) {
     SetMultiFromPopup();
   }
@@ -194,6 +200,9 @@ void Combo::ClosePopup() {
   popup_index_map_.clear();
   if (window_ && window_->popup()) {
     window_->ClearPopup();
+  }
+  if (was_open) {
+    NotifyAccExpandCollapseChanged();
   }
 }
 
@@ -232,10 +241,14 @@ void Combo::CommitPopupSelection() {
     return;
   }
   SelectIndex(popup_index_map_[static_cast<size_t>(popup_idx)], true);
+  const bool was_open = open_;
   open_ = false;
   popup_index_map_.clear();
   if (window_) {
     window_->RequestClearPopup();
+  }
+  if (was_open) {
+    NotifyAccExpandCollapseChanged();
   }
 }
 
@@ -286,17 +299,25 @@ void Combo::OpenPopup() {
     list->on_selection_changed([this](int popup_idx) {
       if (popup_idx < 0 ||
           popup_idx >= static_cast<int>(popup_index_map_.size())) {
+        const bool was_open = open_;
         open_ = false;
         if (window_) {
           window_->RequestClearPopup();
         }
+        if (was_open) {
+          NotifyAccExpandCollapseChanged();
+        }
         return;
       }
       SelectIndex(popup_index_map_[static_cast<size_t>(popup_idx)], true);
+      const bool was_open = open_;
       open_ = false;
       popup_index_map_.clear();
       if (window_) {
         window_->RequestClearPopup();
+      }
+      if (was_open) {
+        NotifyAccExpandCollapseChanged();
       }
     });
   }
@@ -317,10 +338,15 @@ void Combo::OpenPopup() {
       // Dismiss already ran ClearPopup; sync from last known state is done
       // in SetMultiFromPopup during checks. Just clear flags.
     }
+    const bool was_open = open_;
     open_ = false;
     popup_index_map_.clear();
+    if (was_open) {
+      NotifyAccExpandCollapseChanged();
+    }
   }, this);
   window_->SetFocusNode(this);
+  NotifyAccExpandCollapseChanged();
 }
 
 std::wstring Combo::SummaryLabel() const {
@@ -498,6 +524,9 @@ void Combo::OnChar(wchar_t ch) {
 }
 
 AccRole Combo::acc_role() const {
+  if (acc_role_override_) {
+    return *acc_role_override_;
+  }
   return AccRole::ComboBox;
 }
 
@@ -509,6 +538,54 @@ std::wstring Combo::AccDefaultName() const {
     return items_[static_cast<size_t>(selected_)];
   }
   return {};
+}
+
+std::wstring Combo::AccValue() const {
+  return AccDefaultName();
+}
+
+bool Combo::AccSetValue(const std::wstring& value) {
+  for (int i = 0; i < static_cast<int>(items_.size()); ++i) {
+    if (items_[static_cast<size_t>(i)] == value) {
+      SelectIndex(i, true);
+      return true;
+    }
+  }
+  if (value.empty()) {
+    return false;
+  }
+  int idx = 0;
+  for (wchar_t c : value) {
+    if (c < L'0' || c > L'9') {
+      return false;
+    }
+    idx = idx * 10 + static_cast<int>(c - L'0');
+  }
+  if (idx < 0 || idx >= static_cast<int>(items_.size())) {
+    return false;
+  }
+  SelectIndex(idx, true);
+  return true;
+}
+
+bool Combo::AccIsExpanded() const {
+  return open_;
+}
+
+bool Combo::AccExpand() {
+  if (open_) {
+    return true;
+  }
+  OpenPopup();
+  return open_;
+}
+
+bool Combo::AccCollapse() {
+  if (!open_) {
+    return true;
+  }
+  ClosePopup();
+  return true;
 }
 
 }  // namespace auralite::ui

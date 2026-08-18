@@ -17,6 +17,14 @@ enum class AccRole {
   RadioButton,
   ComboBox,
   MenuItem,
+  Slider,
+  ProgressBar,
+  Tab,
+  List,
+  Tree,
+  Spinner,
+  MenuBar,
+  StatusBar,
 };
 
 struct AccState {

@@ -1,6 +1,7 @@
 #include "auralite/ui/popup_host.h"
 
 #include "auralite/ui/submenu.h"
+#include "auralite/ui/yaml_loader.h"
 
 #include <cmath>
 #include <optional>
@@ -80,6 +81,7 @@ void PopupHost::ClearOpenState() {
   UninstallMouseHook();
   UninstallOwnerHook();
   owner_ = nullptr;
+  show_options_ = PopupShowOptions{};
   if (g_current == this) {
     g_current = nullptr;
   }
@@ -105,17 +107,26 @@ void PopupHost::Show(HWND owner, POINT screen, std::unique_ptr<Node> root,
   if (stack_.empty()) {
     ClearOpenState();
   }
-  show_options_ = PopupShowOptions{};
 }
 
 void PopupHost::ShowFromYaml(HWND owner, POINT screen,
                              const std::string& path_or_yaml,
                              const HandlerMap& handlers) {
   ViewFactory f;
-  auto root = f.CreateFromYaml(path_or_yaml, handlers);
-  if (root) {
-    Show(owner, screen, std::move(root));
+  WindowYaml spec;
+  auto root = f.CreateFromYaml(path_or_yaml, handlers, &spec);
+  if (!root) {
+    return;
   }
+  PopupShowOptions opt;
+  if (spec.has_corner_radius) {
+    opt.corner_radius = spec.options.corner_radius;
+  }
+  if (spec.has_border_width) {
+    opt.border_width = spec.options.border_width;
+  }
+  opt.theme = spec.theme;
+  Show(owner, screen, std::move(root), opt);
 }
 
 std::unique_ptr<Node> PopupHost::Push(const RectF& anchor_screen,
@@ -237,11 +248,30 @@ std::function<void()> PopupHost::WrapDismiss(std::function<void()> fn) {
 
 SizeF PopupHost::MeasureFit(Node* root) {
   if (!root) {
-    return SizeF{120.f, 1.f};
+    return SizeF{72.f, 1.f};
+  }
+  std::string theme = show_options_.theme;
+  if (theme.empty()) {
+    if (Window* owner_ui = Window::FromHwnd(owner_)) {
+      theme = owner_ui->theme_name();
+    }
+  }
+  Theme::Scope theme_scope(std::move(theme));
+  // Popup HWND size hugs content. A Fill root would otherwise expand to the
+  // 400 DIP measure cap (MenuBar Column + Fill buttons).
+  const SizePolicy saved_w = root->width_policy();
+  const SizePolicy saved_h = root->height_policy();
+  if (saved_w == SizePolicy::Fill) {
+    root->hug_width();
+  }
+  if (saved_h == SizePolicy::Fill) {
+    root->hug_height();
   }
   SizeF s = root->Measure(400.f, 800.f);
-  if (s.w < 120.f) {
-    s.w = 120.f;
+  root->set_width_policy(saved_w);
+  root->set_height_policy(saved_h);
+  if (s.w < 72.f) {
+    s.w = 72.f;
   }
   if (s.h < 1.f) {
     s.h = 1.f;
@@ -249,7 +279,27 @@ SizeF PopupHost::MeasureFit(Node* root) {
   return s;
 }
 
-void PopupHost::PlaceRoot(Window* w, POINT screen, SizeF content) {
+void PopupHost::Replace(std::unique_ptr<Node> root, POINT screen) {
+  if (!root) {
+    return;
+  }
+  if (stack_.empty() || !owner_) {
+    Show(owner_, screen, std::move(root), show_options_);
+    return;
+  }
+  DismissFrom(1);
+  if (stack_.empty() || !stack_[0].window) {
+    Show(owner_, screen, std::move(root), show_options_);
+    return;
+  }
+  SizeF content = MeasureFit(root.get());
+  Window* raw = stack_[0].window.get();
+  raw->SetPopupChrome(show_options_.corner_radius, show_options_.border_width);
+  raw->SetRoot(std::move(root));
+  PlaceRoot(raw, screen, content, false);
+}
+
+void PopupHost::PlaceRoot(Window* w, POINT screen, SizeF content, bool activate) {
   if (!w || !w->hwnd()) {
     return;
   }
@@ -263,9 +313,13 @@ void PopupHost::PlaceRoot(Window* w, POINT screen, SizeF content) {
     desired.y -= static_cast<LONG>(std::ceil(px.h));
   }
   POINT tl = ClampTopLeft(desired, px, area);
+  UINT flags = SWP_SHOWWINDOW;
+  if (!activate) {
+    flags |= SWP_NOACTIVATE;
+  }
   SetWindowPos(w->hwnd(), HWND_TOPMOST, tl.x, tl.y,
                static_cast<int>(std::ceil(px.w)),
-               static_cast<int>(std::ceil(px.h)), SWP_SHOWWINDOW);
+               static_cast<int>(std::ceil(px.h)), flags);
 }
 
 void PopupHost::PlaceChild(Window* w, const RectF& anchor, SizeF content) {
@@ -306,6 +360,10 @@ std::unique_ptr<Node> PopupHost::ShowLayer(std::unique_ptr<Node> root,
   }
 
   Window* raw = window.get();
+  if (!show_options_.theme.empty()) {
+    raw->set_theme(show_options_.theme);
+  }
+  raw->SetPopupChrome(show_options_.corner_radius, show_options_.border_width);
   // Deactivate outside stack → dismiss entire stack. Nested Push activates a
   // deeper layer already in stack_; that must not dismiss parents.
   raw->set_on_deactivate_outside([this](HWND activating) {

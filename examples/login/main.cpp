@@ -8,14 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "auralite/ui/application.h"
-#include "auralite/ui/button.h"
-#include "auralite/ui/column.h"
-#include "auralite/ui/dsl.h"
-#include "auralite/ui/factory.h"
-#include "auralite/ui/label.h"
-#include "auralite/ui/text_field.h"
-#include "auralite/ui/window.h"
+#include "auralite/ui.h"
 
 namespace {
 

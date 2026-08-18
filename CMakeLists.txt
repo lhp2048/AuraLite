@@ -46,7 +46,7 @@ target_compile_definitions(auralite_d2d
     UNICODE
     _UNICODE
 )
-target_link_libraries(auralite_d2d PUBLIC d2d1 dwrite windowscodecs ole32)
+target_link_libraries(auralite_d2d PUBLIC d2d1 dwrite windowscodecs ole32 msimg32)
 if(MSVC)
   target_compile_options(auralite_d2d PRIVATE /W3 /utf-8 /permissive-)
 endif()
@@ -185,6 +185,12 @@ add_library(auralite_ui STATIC
   auralite/ui/progress_bar.cpp
   auralite/ui/slider.cpp
   auralite/ui/combo.cpp
+  auralite/ui/spin_box.cpp
+  auralite/ui/civil_date.cpp
+  auralite/ui/date_picker.cpp
+  auralite/ui/menu_bar.cpp
+  auralite/ui/menu_item.cpp
+  auralite/ui/status_bar.cpp
   auralite/ui/text_area.cpp
   auralite/ui/scroll_view.cpp
   auralite/ui/vertical_scrollbar.cpp
@@ -236,6 +242,7 @@ target_link_libraries(auralite_ui
     user32
     gdi32
     shell32
+    dwmapi
 )
 if(NOT AURALITE_BUILD_BASE)
   message(FATAL_ERROR "auralite_ui requires AURALITE_BUILD_BASE for MessageLoop")
@@ -438,6 +445,16 @@ if(AURALITE_BUILD_UI_DEMOS)
   )
   if(MSVC)
     target_compile_options(toast_test PRIVATE /W3 /utf-8 /permissive-)
+  endif()
+
+  add_executable(widget_test examples/widget_test/main.cpp)
+  target_link_libraries(widget_test PRIVATE AuraLite::UI)
+  target_compile_definitions(widget_test PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(widget_test PRIVATE /W3 /utf-8 /permissive-)
   endif()
 
   add_executable(acc_test examples/acc_test/main.cpp)

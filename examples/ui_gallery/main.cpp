@@ -30,6 +30,7 @@
 #include "auralite/ui/combo.h"
 #include "auralite/ui/progress_bar.h"
 #include "auralite/ui/slider.h"
+#include "auralite/ui/status_bar.h"
 #include "auralite/ui/text_area.h"
 #include "auralite/ui/text_field.h"
 #include "auralite/ui/tile.h"
@@ -189,19 +190,25 @@ POINT ScreenPointBelowNode(auralite::ui::Node* node,
   return pt;
 }
 
+void SetStatus(auralite::ui::StatusBar* bar, const std::wstring& text) {
+  if (bar) {
+    bar->set_item(0, text);
+  }
+}
+
 auralite::ui::HandlerMap MakePopupMenuHandlers(
     auralite::ui::PopupHost* host, auralite::ui::Window* window,
-    auralite::ui::Label* status, auralite::ui::SplitView* split_ptr) {
+    auralite::ui::StatusBar* status, auralite::ui::SplitView* split_ptr) {
   auralite::ui::HandlerMap handlers;
   handlers["refresh"] = host->WrapDismiss([status, window] {
     if (status) {
-      status->text(L"PopupHost: Refresh");
+      SetStatus(status,L"PopupHost: Refresh");
     }
     window->Invalidate();
   });
   handlers["about"] = host->WrapDismiss([status, window] {
     if (status) {
-      status->text(L"PopupHost: About");
+      SetStatus(status,L"PopupHost: About");
     }
     MessageBoxW(window->hwnd(),
                 L"AuraLite Phase 2 UI Gallery\n"
@@ -217,7 +224,7 @@ auralite::ui::HandlerMap MakePopupMenuHandlers(
       split_ptr->Layout(split_ptr->bounds());
     }
     if (status) {
-      status->text(L"PopupHost: split reset");
+      SetStatus(status,L"PopupHost: split reset");
     }
     window->Invalidate();
   });
@@ -225,7 +232,7 @@ auralite::ui::HandlerMap MakePopupMenuHandlers(
 }
 
 void ShowMenuYaml(auralite::ui::PopupHost* host, auralite::ui::Window* window,
-                  auralite::ui::Label* status, auralite::ui::SplitView* split,
+                  auralite::ui::StatusBar* status, auralite::ui::SplitView* split,
                   const std::string& yaml_path, POINT screen,
                   const wchar_t* style_label) {
   if (!host || !window) {
@@ -233,13 +240,13 @@ void ShowMenuYaml(auralite::ui::PopupHost* host, auralite::ui::Window* window,
   }
   if (yaml_path.empty()) {
     if (status) {
-      status->text(L"菜单 YAML 未找到");
+      SetStatus(status,L"菜单 YAML 未找到");
       window->Invalidate();
     }
     return;
   }
   if (status && style_label) {
-    status->text(std::wstring(L"打开菜单样式: ") + style_label);
+    SetStatus(status,std::wstring(L"打开菜单样式: ") + style_label);
     window->Invalidate();
   }
   auto handlers = MakePopupMenuHandlers(host, window, status, split);
@@ -247,7 +254,7 @@ void ShowMenuYaml(auralite::ui::PopupHost* host, auralite::ui::Window* window,
 }
 
 void WireMenuStyleButtons(auralite::ui::Node* root, auralite::ui::PopupHost* host,
-                          auralite::ui::Window* window, auralite::ui::Label* status,
+                          auralite::ui::Window* window, auralite::ui::StatusBar* status,
                           auralite::ui::SplitView* split) {
   if (!root || !host || !window) {
     return;
@@ -258,9 +265,9 @@ void WireMenuStyleButtons(auralite::ui::Node* root, auralite::ui::PopupHost* hos
     const wchar_t* label;
   };
   const StyleBind binds[] = {
-      {"menu_style_classic", "menu_classic.yaml", L"经典扁平"},
-      {"menu_style_buttons", "popup_menu.yaml", L"按钮风"},
-      {"menu_style_dark", "menu_dark.yaml", L"深色"},
+      {"menu_style_classic", "menu_classic.yaml", L"直角经典"},
+      {"menu_style_dark", "menu_dark.yaml", L"圆角深色"},
+      {"menu_style_buttons", "popup_menu.yaml", L"混用自定义"},
   };
   for (const StyleBind& b : binds) {
     auto* btn = dynamic_cast<auralite::ui::Button*>(root->FindByName(b.name));
@@ -301,32 +308,19 @@ std::vector<uint8_t> MakeSolidBgra(UINT size, uint8_t b, uint8_t g, uint8_t r) {
   return pixels;
 }
 
-auralite::ui::Label* FindLastLabel(auralite::ui::Node* node) {
-  auralite::ui::Label* last = nullptr;
+auralite::ui::StatusBar* FindStatusBar(auralite::ui::Node* node) {
+  auralite::ui::StatusBar* named = nullptr;
+  auralite::ui::StatusBar* first = nullptr;
   std::function<void(auralite::ui::Node*)> walk = [&](auralite::ui::Node* n) {
     if (!n) {
       return;
     }
-    if (auto* label = dynamic_cast<auralite::ui::Label*>(n)) {
-      last = label;
-    }
-    for (const auto& child : n->children()) {
-      walk(child.get());
-    }
-  };
-  walk(node);
-  return last;
-}
-
-auralite::ui::Label* FindStatusLabel(auralite::ui::Node* node) {
-  auralite::ui::Label* found = nullptr;
-  std::function<void(auralite::ui::Node*)> walk = [&](auralite::ui::Node* n) {
-    if (!n) {
-      return;
-    }
-    if (n->name() == "status") {
-      if (auto* label = dynamic_cast<auralite::ui::Label*>(n)) {
-        found = label;
+    if (auto* bar = dynamic_cast<auralite::ui::StatusBar*>(n)) {
+      if (!first) {
+        first = bar;
+      }
+      if (n->name() == "status") {
+        named = bar;
       }
     }
     for (const auto& child : n->children()) {
@@ -334,7 +328,7 @@ auralite::ui::Label* FindStatusLabel(auralite::ui::Node* node) {
     }
   };
   walk(node);
-  return found;
+  return named ? named : first;
 }
 
 auralite::ui::SplitView* FindSplit(auralite::ui::Node* node) {
@@ -390,7 +384,7 @@ void ApplyDemoPixels(auralite::ui::Node* node) {
   }
 }
 
-void OpenGalleryDialog(auralite::ui::Window* owner, auralite::ui::Label* status,
+void OpenGalleryDialog(auralite::ui::Window* owner, auralite::ui::StatusBar* status,
                        const char* yaml_file) {
   auralite::ui::Window dlg;
   auralite::ui::WindowYaml spec;
@@ -413,9 +407,12 @@ void OpenGalleryDialog(auralite::ui::Window* owner, auralite::ui::Label* status,
                                 : auralite::ui::Window::WindowOptions::Dialog(
                                       owner->hwnd());
   if (!dlg.Create(title, dw, dh, opt)) {
-    status->text(L"Dialog create failed");
+    SetStatus(status,L"Dialog create failed");
     owner->Invalidate();
     return;
+  }
+  if (!spec.theme.empty()) {
+    dlg.set_theme(spec.theme);
   }
   if (!root) {
     auto shell = std::make_unique<auralite::ui::Column>();
@@ -438,11 +435,11 @@ void OpenGalleryDialog(auralite::ui::Window* owner, auralite::ui::Label* status,
   }
   dlg.SetRoot(std::move(root));
   dlg.RunModal();
-  status->text(L"Dialog closed");
+  SetStatus(status,L"Dialog closed");
   owner->Invalidate();
 }
 
-void OpenModelessRounded(auralite::ui::Window* owner, auralite::ui::Label* status,
+void OpenModelessRounded(auralite::ui::Window* owner, auralite::ui::StatusBar* status,
                          std::unique_ptr<auralite::ui::Window>* slot) {
   if (!owner || !status || !slot) {
     return;
@@ -450,7 +447,7 @@ void OpenModelessRounded(auralite::ui::Window* owner, auralite::ui::Label* statu
   if (*slot && (*slot)->hwnd()) {
     ShowWindow((*slot)->hwnd(), SW_SHOW);
     SetForegroundWindow((*slot)->hwnd());
-    status->text(L"Modeless already open");
+    SetStatus(status,L"Modeless already open");
     owner->Invalidate();
     return;
   }
@@ -468,7 +465,7 @@ void OpenModelessRounded(auralite::ui::Window* owner, auralite::ui::Label* statu
   opt.resizable = true;
   auralite::ui::Window* w = slot->get();
   if (!w->Create(L"Modeless", 360, 240, opt)) {
-    status->text(L"Modeless create failed");
+    SetStatus(status,L"Modeless create failed");
     owner->Invalidate();
     return;
   }
@@ -493,7 +490,7 @@ void OpenModelessRounded(auralite::ui::Window* owner, auralite::ui::Label* statu
   root->AddChild(std::move(body));
   w->SetRoot(std::move(root));
   ShowWindow(w->hwnd(), SW_SHOW);
-  status->text(L"Modeless opened");
+  SetStatus(status,L"Modeless opened");
   owner->Invalidate();
 }
 
@@ -524,7 +521,7 @@ HWND CreateDemoStatic() {
   return label;
 }
 
-void OpenNativeHostDemo(auralite::ui::Window* owner, auralite::ui::Label* status,
+void OpenNativeHostDemo(auralite::ui::Window* owner, auralite::ui::StatusBar* status,
                         GalleryState* state) {
   if (!owner || !status || !state) {
     return;
@@ -532,7 +529,7 @@ void OpenNativeHostDemo(auralite::ui::Window* owner, auralite::ui::Label* status
   if (state->native_win && state->native_win->hwnd()) {
     ShowWindow(state->native_win->hwnd(), SW_SHOW);
     SetForegroundWindow(state->native_win->hwnd());
-    status->text(L"NativeHost demo already open");
+    SetStatus(status,L"NativeHost demo already open");
     owner->Invalidate();
     return;
   }
@@ -550,7 +547,7 @@ void OpenNativeHostDemo(auralite::ui::Window* owner, auralite::ui::Label* status
   opt.resizable = true;
   auralite::ui::Window* w = state->native_win.get();
   if (!w->Create(L"NativeHost", 420, 320, opt)) {
-    status->text(L"NativeHost demo create failed");
+    SetStatus(status,L"NativeHost demo create failed");
     owner->Invalidate();
     return;
   }
@@ -593,7 +590,7 @@ void OpenNativeHostDemo(auralite::ui::Window* owner, auralite::ui::Label* status
     w->Close();
     const bool alive =
         state->native_borrowed && IsWindow(state->native_borrowed);
-    status->text(alive ? L"NativeHost 已关：Owned 已销毁，Borrowed 仍在"
+    SetStatus(status,alive ? L"NativeHost 已关：Owned 已销毁，Borrowed 仍在"
                        : L"NativeHost 已关：Borrowed 也没了");
     owner->Invalidate();
   });
@@ -618,7 +615,7 @@ void OpenNativeHostDemo(auralite::ui::Window* owner, auralite::ui::Label* status
   }
 
   ShowWindow(w->hwnd(), SW_SHOW);
-  status->text(L"NativeHost demo opened");
+  SetStatus(status,L"NativeHost demo opened");
   owner->Invalidate();
 }
 
@@ -632,7 +629,7 @@ void ApplyTreeAnimate(auralite::ui::Node* node, bool on) {
   }
 }
 
-void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
+void WireInteractive(auralite::ui::Node* node, auralite::ui::StatusBar* status,
                      auralite::ui::Window* window,
                      std::unique_ptr<auralite::ui::Window>* modeless,
                      GalleryState* state) {
@@ -641,7 +638,7 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
   }
   if (auto* cb = dynamic_cast<auralite::ui::Checkbox*>(node)) {
     cb->on_changed([status, window](bool checked) {
-      status->text(checked ? L"Checkbox: on" : L"Checkbox: off");
+      SetStatus(status,checked ? L"Checkbox: on" : L"Checkbox: off");
       window->Invalidate();
     });
   }
@@ -649,7 +646,7 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
     const std::wstring label = radio->text();
     radio->on_changed([status, window, label](bool checked) {
       if (checked) {
-        status->text(L"Radio: " + label);
+        SetStatus(status,L"Radio: " + label);
         window->Invalidate();
       }
     });
@@ -663,24 +660,24 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
           t->animate(on);
           window->SyncToastFade();
         }
-        status->text(on ? L"动画: 开" : L"动画: 关");
+        SetStatus(status,on ? L"动画: 开" : L"动画: 关");
         window->Invalidate();
       });
     } else {
       sw->on_changed([status, window](bool on) {
-        status->text(on ? L"Switch: on" : L"Switch: off");
+        SetStatus(status,on ? L"Switch: on" : L"Switch: off");
         window->Invalidate();
       });
     }
   }
   if (auto* list = dynamic_cast<auralite::ui::ListView*>(node)) {
     list->on_selection_changed([status, window](int index) {
-      status->text(L"List selected: " + std::to_wstring(index));
+      SetStatus(status,L"List selected: " + std::to_wstring(index));
       window->Invalidate();
     });
     if (list->checkable()) {
       list->on_check_changed([status, window](int index, bool checked) {
-        status->text(L"List check " + std::to_wstring(index) +
+        SetStatus(status,L"List check " + std::to_wstring(index) +
                      (checked ? L": on" : L": off"));
         window->Invalidate();
       });
@@ -689,11 +686,11 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
   if (auto* field = dynamic_cast<auralite::ui::TextField*>(node)) {
     if (!field->is_password()) {
       field->on_change([status, window](const std::wstring& t) {
-        status->text(L"TextField: " + t);
+        SetStatus(status,L"TextField: " + t);
         window->Invalidate();
       });
       field->on_submit([status, window, field]() {
-        status->text(L"Submit: " + field->text());
+        SetStatus(status,L"Submit: " + field->text());
         window->Invalidate();
       });
     }
@@ -702,32 +699,32 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
     const std::wstring text = btn->text();
     if (text == L"Button") {
       btn->on_click([status, window]() {
-        status->text(L"Button clicked");
+        SetStatus(status,L"Button clicked");
         window->Invalidate();
       });
     } else if (text == L"Light" || text == L"Dark") {
       btn->on_click([status, window, text]() {
         const std::string name = (text == L"Light") ? "light" : "dark";
         auralite::ui::Theme::SetActive(name);
-        status->text(L"Theme: " + text);
+        SetStatus(status,L"Theme: " + text);
         window->Invalidate();
       });
     } else if (text == L"Float" || text == L"RB" || text == L"left+right" ||
                text == L"A" || text == L"B" || text == L"焦1" || text == L"焦2" ||
                text == L"焦3") {
       btn->on_click([status, window, text]() {
-        status->text(L"Clicked: " + text);
+        SetStatus(status,L"Clicked: " + text);
         window->Invalidate();
       });
     } else if (text.size() == 2 && (text[0] == L'T' || text[0] == L'G') &&
                text[1] >= L'1' && text[1] <= L'9') {
       btn->on_click([status, window, text]() {
-        status->text(L"Tile: " + text);
+        SetStatus(status,L"Tile: " + text);
         window->Invalidate();
       });
     } else if (text == L"图标") {
       btn->on_click([status, window]() {
-        status->text(L"Icon button");
+        SetStatus(status,L"Icon button");
         window->Invalidate();
       });
     } else if (text == L"切换显隐") {
@@ -736,23 +733,23 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
             window->root() ? window->root()->FindByName("hide_me") : nullptr;
         if (auto* lab = dynamic_cast<auralite::ui::Label*>(target)) {
           lab->set_visible(!lab->visible());
-          status->text(lab->visible() ? L"已显示" : L"已隐藏");
+          SetStatus(status,lab->visible() ? L"已显示" : L"已隐藏");
           window->RequestLayout();
         }
       });
     } else if (text == L"浮动") {
       btn->on_click([status, window]() {
-        status->text(L"浮动按钮 · 仅布局页右下角");
+        SetStatus(status,L"浮动按钮 · 仅布局页右下角");
         window->Invalidate();
       });
     } else if (text == L"全局浮层") {
       btn->on_click([status, window]() {
-        status->text(L"全局浮层 · 靠右垂直居中");
+        SetStatus(status,L"全局浮层 · 靠右垂直居中");
         window->Invalidate();
       });
     } else if (text == L"页内浮动") {
       btn->on_click([status, window]() {
-        status->text(L"页内浮动 · 仅 Tab 页面 B");
+        SetStatus(status,L"页内浮动 · 仅 Tab 页面 B");
         window->Invalidate();
       });
     } else if (text == L"Open Dialog" || text == L"Open Square Dialog") {
@@ -793,7 +790,7 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
                               .duration_sec(duration)
                               .animate(anim)
                               .Build());
-        status->text(text);
+        SetStatus(status,text);
         window->Invalidate();
       });
     }
@@ -806,9 +803,12 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
             index < static_cast<int>(tab->headers().size())) {
           title = tab->headers()[static_cast<size_t>(index)];
         }
-        status->text(L"分类: " + title);
+        SetStatus(status, L"分类: " + title);
+        if (status) {
+          status->set_item(1, title);
+        }
       } else {
-        status->text(L"Tab: page " + std::to_wstring(index));
+        SetStatus(status, L"Tab: page " + std::to_wstring(index));
       }
       window->Invalidate();
     });
@@ -840,7 +840,7 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
                       th.font_ui.c_str(), auralite::TextHAlign::Center);
     });
     uc->on_mouse_down([status, window](const auralite::ui::MouseEvent&) {
-      status->text(L"UserControl clicked");
+      SetStatus(status,L"UserControl clicked");
       window->Invalidate();
     });
   }
@@ -866,7 +866,7 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
       }
       wchar_t buf[64];
       swprintf_s(buf, L"Slider: %.2f", v);
-      status->text(buf);
+      SetStatus(status,buf);
       window->Invalidate();
     });
   }
@@ -874,7 +874,7 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
     combo->BindWindow(window);
     if (combo->multi()) {
       combo->on_multi_changed([status, window, combo](const std::vector<int>& idxs) {
-        status->text(L"Combo multi: " + std::to_wstring(idxs.size()) + L" 项");
+        SetStatus(status,L"Combo multi: " + std::to_wstring(idxs.size()) + L" 项");
         window->Invalidate();
         (void)combo;
       });
@@ -884,20 +884,52 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
         if (index >= 0 && index < static_cast<int>(combo->items().size())) {
           label = combo->items()[static_cast<size_t>(index)];
         }
-        status->text(L"Combo: " + label);
+        SetStatus(status,L"Combo: " + label);
         window->Invalidate();
       });
     }
   }
+  if (auto* spin = dynamic_cast<auralite::ui::SpinBox*>(node)) {
+    spin->on_changed([status, window](double v) {
+      wchar_t buf[64];
+      swprintf_s(buf, L"SpinBox: %.0f", v);
+      SetStatus(status,buf);
+      window->Invalidate();
+    });
+  }
+  if (auto* dp = dynamic_cast<auralite::ui::DatePicker*>(node)) {
+    dp->BindWindow(window);
+    dp->on_changed(
+        [status, window](auralite::ui::CivilDate d, int hour, int minute,
+                         int second) {
+          SetStatus(status, L"DatePicker: " +
+                       auralite::ui::FormatYmdHms(d, hour, minute, second));
+          window->Invalidate();
+        });
+  }
+  if (auto* mb = dynamic_cast<auralite::ui::MenuBar*>(node)) {
+    mb->BindWindow(window);
+    mb->on_command([status, window](const std::wstring& menu,
+                                    const std::wstring& item) {
+      if (item == L"退出") {
+        if (window && window->hwnd()) {
+          PostMessageW(window->hwnd(), WM_CLOSE, 0, 0);
+        }
+        return;
+      }
+      SetStatus(status, menu + L" / " + item);
+      window->Invalidate();
+    });
+  }
   if (auto* area = dynamic_cast<auralite::ui::TextArea*>(node)) {
     area->on_change([status, window](const std::wstring& t) {
-      status->text(L"TextArea chars: " + std::to_wstring(t.size()));
+      SetStatus(status,L"TextArea chars: " + std::to_wstring(t.size()));
       window->Invalidate();
     });
   }
   if (auto* vlist = dynamic_cast<auralite::ui::VirtualList*>(node)) {
     vlist->on_selection_changed([status, window](int index) {
-      status->text(L"VirtualList: " + std::to_wstring(index));
+      SetStatus(status,L"VirtualList: " + std::to_wstring(index));
       window->Invalidate();
     });
     vlist->on_sort_changed([status, window](int col, auralite::ui::ListSortDir dir) {
@@ -907,11 +939,11 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
       } else if (dir == auralite::ui::ListSortDir::Desc) {
         d = L"降序";
       }
-      status->text(L"VirtualList 排序 col=" + std::to_wstring(col) + L" " + d);
+      SetStatus(status,L"VirtualList 排序 col=" + std::to_wstring(col) + L" " + d);
       window->Invalidate();
     });
     vlist->on_check_changed([status, window](int index, bool checked) {
-      status->text(L"VirtualList check " + std::to_wstring(index) +
+      SetStatus(status,L"VirtualList check " + std::to_wstring(index) +
                    (checked ? L": on" : L": off"));
       window->Invalidate();
     });
@@ -919,11 +951,11 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
   if (auto* tree = dynamic_cast<auralite::ui::TreeView*>(node)) {
     tree->checkable(true);
     tree->on_selection_changed([status, window, tree](int id) {
-      status->text(L"TreeView: " + tree->text(id));
+      SetStatus(status,L"TreeView: " + tree->text(id));
       window->Invalidate();
     });
     tree->on_expanded_changed([status, window](int id, bool expanded) {
-      status->text(L"TreeView id " + std::to_wstring(id) +
+      SetStatus(status,L"TreeView id " + std::to_wstring(id) +
                    (expanded ? L" expanded" : L" collapsed"));
       window->Invalidate();
     });
@@ -934,11 +966,11 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
       } else if (st == auralite::ui::TreeCheckState::Partial) {
         s = L"部分";
       }
-      status->text(L"TreeView 勾选 " + tree->text(id) + L": " + s);
+      SetStatus(status,L"TreeView 勾选 " + tree->text(id) + L": " + s);
       window->Invalidate();
     });
     tree->on_load_children([status, window, tree](int id) {
-      status->text(L"TreeView 懒加载: " + tree->text(id));
+      SetStatus(status,L"TreeView 懒加载: " + tree->text(id));
       // Simulate async fill (sync here for demo).
       tree->AddChild(id, L"云端灯-1");
       tree->AddChild(id, L"云端灯-2");
@@ -970,7 +1002,7 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
             if (auto* btn = dynamic_cast<auralite::ui::Button*>(
                     row.FindByName("action"))) {
               btn->on_click([status, window, index]() {
-                status->text(L"ItemList 详情: row " + std::to_wstring(index));
+                SetStatus(status,L"ItemList 详情: row " + std::to_wstring(index));
                 window->Invalidate();
               });
             }
@@ -995,7 +1027,7 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
           });
     }
     items->on_selection_changed([status, window](int index) {
-      status->text(L"ItemList: row " + std::to_wstring(index));
+      SetStatus(status,L"ItemList: row " + std::to_wstring(index));
       window->Invalidate();
     });
     items->on_sort_changed([status, window](int col, auralite::ui::ListSortDir dir) {
@@ -1005,13 +1037,13 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
       } else if (dir == auralite::ui::ListSortDir::Desc) {
         d = L"降序";
       }
-      status->text(L"ItemList 排序 col=" + std::to_wstring(col) + L" " + d);
+      SetStatus(status,L"ItemList 排序 col=" + std::to_wstring(col) + L" " + d);
       window->Invalidate();
     });
   }
   if (auto* img_btn = dynamic_cast<auralite::ui::ImageButton*>(node)) {
     img_btn->on_click([status, window]() {
-      status->text(L"ImageButton clicked");
+      SetStatus(status,L"ImageButton clicked");
       window->Invalidate();
     });
   }
@@ -1021,7 +1053,7 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::Label* status,
     }
     if (lab->text() == L"放到这里") {
       lab->on_drop([status, window](const auralite::ui::DragEvent& e) {
-        status->text(L"收到: " + e.data);
+        SetStatus(status,L"收到: " + e.data);
         window->Invalidate();
       });
     }
@@ -1318,6 +1350,23 @@ std::unique_ptr<auralite::ui::Node> MakeControlsPage() {
                  .multi(true)
                  .items({L"红", L"橙", L"黄", L"绿", L"蓝"})
                  .selected_indices({0, 2}))
+      .child(Label().text(L"SpinBox").font_size(13.f).preferred_height(18.f))
+      .child(SpinBox().value(3).min_value(0).max_value(10).step(1))
+      .child(Label().text(L"DatePicker").font_size(13.f).preferred_height(18.f))
+      .child(DatePicker().year(2026).month(8).day(18))
+      .child(Label()
+                 .text(L"DatePicker（日期时间，含秒）")
+                 .font_size(13.f)
+                 .preferred_height(18.f))
+      .child(DatePicker()
+                 .year(2026)
+                 .month(8)
+                 .day(18)
+                 .time(true)
+                 .seconds(true)
+                 .hour(19)
+                 .minute(30)
+                 .second(0))
       .child(Label()
                  .text(L"TextArea（软换行）")
                  .font_size(13.f)
@@ -1620,8 +1669,8 @@ std::unique_ptr<auralite::ui::Node> MakeWindowPage() {
                  .child(std::move(overflow_col)))
       .child(Row()
                  .spacing(8.f)
-                 .child(MakeHugButton(L"Open Dialog", L"圆角无边框对话框"))
-                 .child(MakeHugButton(L"Open Square Dialog", L"直角无边框对话框"))
+                 .child(MakeHugButton(L"Open Dialog", L"圆角深色对话框（window.theme: dark）"))
+                 .child(MakeHugButton(L"Open Square Dialog", L"直角对话框（跟进程主题）"))
                  .child(MakeHugButton(L"Open Modeless", L"非模态圆角窗：拖标题栏移动，双击最大化，拖边缩放"))
                  .child(MakeHugButton(L"Open NativeHost", L"嵌 Win32 EDIT/STATIC：Owned 关窗销毁，Borrowed 保留")))
       .child(Label()
@@ -1651,21 +1700,21 @@ std::unique_ptr<auralite::ui::Node> MakeWindowPage() {
                  .spacing(8.f)
                  .child(Button()
                             .name("menu_style_classic")
-                            .text(L"经典扁平")
-                            .hug_width()
-                            .fixed_height(32.f))
-                 .child(Button()
-                            .name("menu_style_buttons")
-                            .text(L"按钮风")
+                            .text(L"直角经典")
                             .hug_width()
                             .fixed_height(32.f))
                  .child(Button()
                             .name("menu_style_dark")
-                            .text(L"深色")
+                            .text(L"圆角深色")
+                            .hug_width()
+                            .fixed_height(32.f))
+                 .child(Button()
+                            .name("menu_style_buttons")
+                            .text(L"混用自定义")
                             .hug_width()
                             .fixed_height(32.f)))
       .child(Label()
-                 .text(L"空白处右键 = 经典菜单（menu_classic.yaml）")
+                 .text(L"空白处右键 = 直角菜单（menu_classic.yaml）")
                  .font_size(12.f)
                  .preferred_height(20.f))
       .Build();
@@ -1718,44 +1767,80 @@ std::unique_ptr<auralite::ui::Node> BuildFluentGallery() {
   global_fab->tooltip(
       L"全局浮层：靠右垂直居中，切页仍在；底 50% 透明");
 
+  auto menubar = MenuBar()
+                     .corner_radius(8.f)
+                     .border_width(1.f)
+                     .add_menu(L"文件",
+                               {{.text = L"打开", .icon = L"folder"},
+                                {L"-", {}, true},
+                                {.text = L"退出"}})
+                     .add_menu(L"编辑",
+                               {{.text = L"复制", .icon = L"copy"},
+                                {.text = L"粘贴", .icon = L"paste"}})
+                     .add_menu(L"查看",
+                               {{.text = L"状态栏", .checkable = true, .checked = true},
+                                {.text = L"侧栏", .checkable = true},
+                                {L"-", {}, true},
+                                {.text = L"列表",
+                                 .checked = true,
+                                 .radio_group = 1,
+                                 .icon = L"list"},
+                                {.text = L"网格", .radio_group = 1, .icon = L"grid"}})
+                     .Build();
+  menubar->set_name("menubar");
+
+  auto status_bar =
+      StatusBar()
+          .items({L"就绪 · 从资源管理器拖文件到窗口", L"控件", L"UTF-8"})
+          .Build();
+  status_bar->set_name("status");
+
   return Absolute()
       .fill_width()
       .fill_height()
       .child(Column()
                  .fill_width()
                  .fill_height()
-                 .padding(12.f)
-                 .spacing(8.f)
-                 .child(Label().text(L"AuraLite UI Gallery").font_size(22.f))
-                 .child(Row()
-                            .spacing(8.f)
-                            .v_align(auralite::ui::Align::Center)
-                            .child(Button()
-                                       .text(L"Light")
-                                       .hug_width()
-                                       .fixed_height(32.f))
-                            .child(Button()
-                                       .text(L"Dark")
-                                       .hug_width()
-                                       .fixed_height(32.f))
-                            .child(std::move(anim_sw)))
-                 .child(Label()
-                            .name("status")
-                            .text(L"就绪 · 从资源管理器拖文件到窗口")
-                            .font_size(13.f)
-                            .preferred_height(22.f))
-                 .child(Tab()
-                            .name("gallery_nav")
-                            .selected(0)
-                            .headers({L"控件", L"布局", L"列表", L"窗口", L"拖放"})
-                            .header_height(36.f)
+                 .padding(0.f)
+                 .spacing(0.f)
+                 .child(std::move(menubar))
+                 .child(Column()
                             .fill_width()
                             .fill_height()
-                            .child(GalleryScrollPage(MakeControlsPage()))
-                            .child(GalleryLayoutTabPage())
-                            .child(GalleryScrollPage(MakeListsPage()))
-                            .child(GalleryScrollPage(MakeWindowPage()))
-                            .child(GalleryScrollPage(MakeDragPage()))))
+                            .padding(12.f)
+                            .spacing(8.f)
+                            .child(Label()
+                                       .text(L"AuraLite UI Gallery")
+                                       .font_size(22.f))
+                            .child(Row()
+                                       .spacing(8.f)
+                                       .v_align(auralite::ui::Align::Center)
+                                       .child(Button()
+                                                  .text(L"Light")
+                                                  .hug_width()
+                                                  .fixed_height(32.f))
+                                       .child(Button()
+                                                  .text(L"Dark")
+                                                  .hug_width()
+                                                  .fixed_height(32.f))
+                                       .child(std::move(anim_sw)))
+                            .child(Tab()
+                                       .name("gallery_nav")
+                                       .selected(0)
+                                       .headers({L"控件", L"布局", L"列表",
+                                                 L"窗口", L"拖放"})
+                                       .header_height(36.f)
+                                       .fill_width()
+                                       .fill_height()
+                                       .child(GalleryScrollPage(
+                                           MakeControlsPage()))
+                                       .child(GalleryLayoutTabPage())
+                                       .child(GalleryScrollPage(MakeListsPage()))
+                                       .child(GalleryScrollPage(
+                                           MakeWindowPage()))
+                                       .child(GalleryScrollPage(
+                                           MakeDragPage()))))
+                 .child(std::move(status_bar)))
       .child(std::move(global_fab))
       .Build();
 }
@@ -1877,10 +1962,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
 
   ApplyDemoPixels(root.get());
 
-  auralite::ui::Label* status = FindStatusLabel(root.get());
-  if (!status) {
-    status = FindLastLabel(root.get());
-  }
+  auralite::ui::StatusBar* status = FindStatusBar(root.get());
   std::unique_ptr<auralite::ui::Window> modeless;
   GalleryState gallery_state;
   WireInteractive(root.get(), status, &window, &modeless, &gallery_state);
@@ -1892,7 +1974,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
     }
     std::wstring msg = L"文件 " + std::to_wstring(e.paths.size()) + L": " +
                        e.paths.front();
-    status->text(msg);
+    SetStatus(status,msg);
     window.Invalidate();
   });
 
@@ -1905,11 +1987,11 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
   root->set_on_context_menu(
       [&popup_host, &window, &popup_yaml, status, split_ptr](int sx, int sy) {
         ShowMenuYaml(&popup_host, &window, status, split_ptr, popup_yaml,
-                     POINT{sx, sy}, L"经典扁平");
+                     POINT{sx, sy}, L"直角经典");
       });
 
   if (status && !fluent) {
-    status->text(L"YAML 模式 · 点菜单样式按钮或右键经典菜单");
+    SetStatus(status, L"YAML 模式 · 点菜单样式按钮或右键经典菜单");
   }
 
   window.SetRoot(std::move(root));

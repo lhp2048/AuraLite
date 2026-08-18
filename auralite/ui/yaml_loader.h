@@ -23,6 +23,9 @@ struct WindowYaml {
   enum class Kind { Unspecified, Main, Dialog, Popup };
   Kind kind = Kind::Unspecified;
   Window::WindowOptions options{};
+  bool has_corner_radius = false;
+  bool has_border_width = false;
+  std::string theme;
 
   int width_or(int fallback) const { return width > 0 ? width : fallback; }
   int height_or(int fallback) const { return height > 0 ? height : fallback; }
@@ -53,10 +56,12 @@ struct WindowYaml {
 //          height: 180
 //          kind: dialog
 //          caption: false
+//          theme: dark
 //          corner_radius: 8
 //          border_width: 1
 //        Column: { ... }
-//      `theme` calls Theme::SetActive before the tree is built.
+//      Root `theme` calls Theme::SetActive (process) before the tree is built.
+//      `window.theme` is per-window (Window::set_theme); empty inherits process.
 //      `window` fills |window_out| if provided. Both keys are peeled so
 //      LoadYamlNode still sees exactly one type key.
 //      create_options() calls WindowOptions::Normalize: corner_radius /

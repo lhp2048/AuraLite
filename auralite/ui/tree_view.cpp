@@ -12,6 +12,13 @@ TreeView::TreeView() {
   fixed_height(200.f);
 }
 
+AccRole TreeView::acc_role() const {
+  if (acc_role_override_) {
+    return *acc_role_override_;
+  }
+  return AccRole::Tree;
+}
+
 void TreeView::Clear() {
   nodes_.clear();
   roots_.clear();

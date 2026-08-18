@@ -12,6 +12,13 @@ ListView::ListView() {
   hug_height();
 }
 
+AccRole ListView::acc_role() const {
+  if (acc_role_override_) {
+    return *acc_role_override_;
+  }
+  return AccRole::List;
+}
+
 ListView& ListView::font_size(float size) {
   font_size_ = size;
   return *this;

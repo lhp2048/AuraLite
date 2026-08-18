@@ -233,6 +233,11 @@ Node& Node::bg(const ColorF& c) {
   return *this;
 }
 
+Node& Node::clear_bg() {
+  bg_.reset();
+  return *this;
+}
+
 Node& Node::set_visible(bool v) {
   if (visible_ == v) {
     return *this;
@@ -348,6 +353,76 @@ bool Node::AccToggle() {
 
 bool Node::AccSetValue(const std::wstring&) {
   return false;
+}
+
+double Node::AccRangeValue() const {
+  return 0.0;
+}
+
+double Node::AccRangeMinimum() const {
+  return 0.0;
+}
+
+double Node::AccRangeMaximum() const {
+  return 1.0;
+}
+
+double Node::AccRangeSmallChange() const {
+  return 0.05;
+}
+
+double Node::AccRangeLargeChange() const {
+  return 0.1;
+}
+
+bool Node::AccRangeReadOnly() const {
+  return true;
+}
+
+bool Node::AccSetRangeValue(double) {
+  return false;
+}
+
+bool Node::AccIsExpanded() const {
+  return false;
+}
+
+bool Node::AccExpand() {
+  return false;
+}
+
+bool Node::AccCollapse() {
+  return false;
+}
+
+void Node::NotifyAccToggleChanged() {
+  if (host_window_) {
+    host_window_->RaiseAccToggleChanged(this);
+  }
+}
+
+void Node::NotifyAccValueChanged() {
+  if (host_window_) {
+    host_window_->RaiseAccValueChanged(this);
+  }
+}
+
+void Node::NotifyAccRangeChanged() {
+  if (host_window_) {
+    host_window_->RaiseAccRangeChanged(this);
+  }
+}
+
+void Node::NotifyAccExpandCollapseChanged() {
+  if (host_window_) {
+    host_window_->RaiseAccExpandCollapseChanged(this);
+  }
+}
+
+void Node::NotifyAccStructureChanged() {
+  if (host_window_) {
+    host_window_->RaiseAccStructureChanged();
+  }
 }
 
 bool Node::AccIncluded() const {

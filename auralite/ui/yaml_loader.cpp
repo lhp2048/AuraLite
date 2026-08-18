@@ -109,6 +109,22 @@ bool ParseAccRole(const std::string& raw, AccRole* out) {
     *out = AccRole::ComboBox;
   } else if (k == "menuitem" || k == "menu_item") {
     *out = AccRole::MenuItem;
+  } else if (k == "slider") {
+    *out = AccRole::Slider;
+  } else if (k == "progressbar" || k == "progress") {
+    *out = AccRole::ProgressBar;
+  } else if (k == "tab") {
+    *out = AccRole::Tab;
+  } else if (k == "list") {
+    *out = AccRole::List;
+  } else if (k == "tree") {
+    *out = AccRole::Tree;
+  } else if (k == "spinner" || k == "spinbox" || k == "spin") {
+    *out = AccRole::Spinner;
+  } else if (k == "menubar" || k == "menu_bar") {
+    *out = AccRole::MenuBar;
+  } else if (k == "statusbar" || k == "status_bar") {
+    *out = AccRole::StatusBar;
   } else {
     return false;
   }
@@ -159,9 +175,11 @@ void ParseWindowYaml(const YAML::Node& n, WindowYaml* out) {
   }
   if (n["corner_radius"]) {
     out->options.corner_radius = n["corner_radius"].as<float>();
+    out->has_corner_radius = true;
   }
   if (n["border_width"]) {
     out->options.border_width = n["border_width"].as<float>();
+    out->has_border_width = true;
   }
   if (n["resizable"]) {
     out->options.resizable = n["resizable"].as<bool>();
@@ -171,6 +189,9 @@ void ParseWindowYaml(const YAML::Node& n, WindowYaml* out) {
   }
   if (n["min_height"]) {
     out->options.min_height = n["min_height"].as<int>();
+  }
+  if (n["theme"] && n["theme"].IsScalar()) {
+    out->theme = n["theme"].as<std::string>();
   }
 }
 

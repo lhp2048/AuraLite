@@ -89,9 +89,10 @@ class Canvas {
   Canvas(const Canvas&) = delete;
   Canvas& operator=(const Canvas&) = delete;
 
-  // Create factories and a DC render target backed by a DIB. Present BitBlts
-  // the dirty client rect (including NativeHost holes). Window then redraws
-  // intersecting NativeHost guests. Safe to call again after device loss.
+  // Create factories and a DC render target backed by a DIB. Present
+  // AlphaBlends the dirty client rect with opaque alpha (BitBlt leaves A=0
+  // on DWM and new pixels flash as glass during live resize). Window then
+  // redraws intersecting NativeHost guests. Safe to call again after device loss.
   bool Init(HWND hwnd);
   // Popup: same DIB path, present via UpdateLayeredWindow.
   bool InitLayered(HWND hwnd);
@@ -102,8 +103,8 @@ class Canvas {
 
   bool BeginDraw();
   // Returns false if the target must be recreated (e.g. device lost).
-  // |present_dc| is BeginPaint's HDC (already clipped). Null uses GetDC.
-  // |present_px| is the client dirty rect to BitBlt; null presents the full DIB.
+  // |present_dc| is BeginPaint's HDC. Null uses GetDC.
+  // |present_px| is the client dirty rect to present; null presents the full DIB.
   bool EndDraw(HDC present_dc = nullptr, const RECT* present_px = nullptr);
 
   void Resize(UINT width, UINT height);
@@ -164,6 +165,7 @@ class Canvas {
   void DiscardDeviceResources();
   bool CreateDibSurface(UINT w, UINT h);
   void DestroyDibSurface();
+  void ForceDibOpaque();
   bool BindDib();
   void PresentDib(HDC present_dc, const RECT* present_px);
   ID2D1SolidColorBrush* BrushFor(const ColorF& color);

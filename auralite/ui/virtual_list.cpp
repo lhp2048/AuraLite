@@ -20,6 +20,13 @@ VirtualList::VirtualList() {
   fixed_height(200.f);
 }
 
+AccRole VirtualList::acc_role() const {
+  if (acc_role_override_) {
+    return *acc_role_override_;
+  }
+  return AccRole::List;
+}
+
 VirtualList& VirtualList::item_count(ItemCountFn fn) {
   count_fn_ = std::move(fn);
   InvalidateData();

@@ -22,6 +22,8 @@ class TreeView : public Node {
 
   TreeView();
 
+  AccRole acc_role() const override;
+
   void Clear();
   // Returns node id (>=0). parent_id < 0 => root.
   int AddNode(int parent_id, std::wstring text, bool expanded = false);

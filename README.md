@@ -1,8 +1,14 @@
 # AuraLite
 
-Windows 声明式 UI 库。本文描述 **`master`**：`auralite::ui` 控件树 + Direct2D 画布 + YAML / C++ fluent 双轨。
+Windows 声明式 UI 库。定位：**轻量、现代、快捷**。
 
-Views 时代（GDI+ / D2D）在 **`1.x`** / **`2.x`**，不是本分支的用法。
+本文描述 **3.x**（`master`）：`auralite::ui` 控件树 + Direct2D 画布 + YAML / C++ fluent 双轨。
+
+| 版本 | 内容 |
+|------|------|
+| **1.x** / **2.x** | Views（GDI+ / D2D），用法不同 |
+| **3.x**（当前） | 本仓库默认：`auralite::` / `AuraLite::UI` |
+| **4.x** | 更名（仓库、命名空间、产物与「AuraLite」脱钩）；控件与契约以 3.x 为准 |
 
 上游：https://github.com/lhp2048/AuraLite
 
@@ -13,13 +19,51 @@ Views 时代（GDI+ / D2D）在 **`1.x`** / **`2.x`**，不是本分支的用法
 
 ## 这是什么
 
-- **控件树**在 `auralite::Canvas` 上自绘（Direct2D + DirectWrite + WIC），不走 `view::`。
-- **YAML 与 C++ fluent DSL** 共用同一套布局和属性；`ui_gallery --check` 要求两棵树 Dump 对齐。
-- **单位是 DIP**（96 DIP = 1 逻辑英寸）。`Window::Create(w, h)` 的宽高是 DIP；Per-Monitor V2 下 `WM_DPICHANGED` 会重布局。
-- **主题**是进程级契约：`Theme::Active()` / `Theme::SetActive("dark")`。
-- 新代码 **C++20**，只链 `AuraLite::UI`（传递 `AuraLite::D2D`、yaml-cpp、`AuraLite::Base` / MessageLoop）。
+- 一层 **控件树**，在 `auralite::Canvas` 上自绘（Direct2D + DirectWrite + WIC）。
+- **YAML 与 C++ fluent** 同一套布局和属性；`ui_gallery --check` 要求 Dump 对齐。
+- 单位 **DIP**（96 DIP = 1 逻辑英寸）。`Window::Create(w, h)` 是 DIP；Per-Monitor V2 下 `WM_DPICHANGED` 重布局。
+- **主题**：稀疏色 > 窗口 `set_theme` / `window.theme` > 进程 `Theme::SetActive`。弹出层跟所属窗口。
+- 应用 include：`#include "auralite/ui.h"`。C++20，链 `AuraLite::UI`（传递 `AuraLite::D2D`、yaml-cpp、`AuraLite::Base`）。
 
-默认 **不编译** `AuraLite.UILegacy`。禁止 `#include` `view_framework`、禁止链接 `AuraLite.UILegacy.lib`。
+默认 **不编译** `AuraLite.UILegacy`。禁止 `#include` `view_framework`，禁止链接 `AuraLite.UILegacy.lib`。
+
+## 边界
+
+模型如此，不是待办：
+
+| 做 | 不做 |
+|----|------|
+| 键鼠 Win32 桌面：窗、表单、列表/树、菜单、日期时间、Toast、嵌 HWND | 跨平台、可视化设计师、触摸手势、命令冒泡 |
+| token + 每窗主题 + 控件 `bg` / `text_color` | 样式表 / 选择器、控件级 `set_theme`、控件级 `opacity` |
+| 控件级 UIA（角色、名字、Invoke / Value / Toggle / RangeValue、Tab Selection） | 列表/树项级 pattern、高对比、RTL |
+| Fill / Hug / Fixed + 锚点 | 百分比尺寸、`elevation` / `z-index` |
+| 单向绑定 + 控件事件写回 | YAML 绑定表达式、自动双向、`ObservableList` diff |
+| `UserControl` / 列表 + 对话框组合复杂 UI | DataGrid、ColorPicker、Accordion、富文本 |
+
+输入是鼠标消息 + 窗级 `AddAccelerator`；触摸屏靠系统合成单击。`NativeHost` 是空气墙：不转发输入、不随 `ScrollView` 半裁。
+
+## 公开 API
+
+应用侧一个头即可：
+
+```cpp
+#include "auralite/ui.h"
+```
+
+这是公开面的索引（控件、窗、主题、YAML、DSL、绑定、reactive、async）。单头仍可按文件 include，路径与下表一致。
+
+| 组 | 头文件 |
+|----|--------|
+| 入口 | `auralite/ui.h` |
+| 画布 | `auralite/canvas.h` |
+| 宿主 | `auralite/ui/application.h` · `window.h` · `theme.h` · `theme_yaml.h` · `types.h` · `acc.h` · `anim.h` · `node.h` |
+| 布局 | `column.h` · `row.h` · `tile.h` · `tab.h` · `absolute.h` · `split_view.h` · `scroll_view.h` |
+| 控件 | `title_bar.h` · `label.h` · `button.h` · `image_button.h` · `image_view.h` · `text_field.h` · `text_area.h` · `checkbox.h` · `radio.h` · `switch_control.h` · `progress_bar.h` · `slider.h` · `combo.h` · `spin_box.h` · `date_picker.h` · `civil_date.h` · `menu_bar.h` · `menu_item.h` · `status_bar.h` · `list_view.h` · `item_list.h` · `virtual_list.h` · `tree_view.h` · `list_columns.h` · `user_control.h` · `native_host.h` · `toast.h` · `submenu.h` · `popup_host.h` · `context_menu.h` · `text_layout.h` |
+| 声明 | `factory.h` · `yaml_loader.h` · `dsl.h` · `bind.h` |
+| 绑定 | `auralite/reactive/signal.h` · `observe.h` |
+| 异步 | `auralite/async/awaiters.h` |
+
+**不要从应用 include（内部实现）：** `ui/tooltip_overlay.h`、`ui/toast_overlay.h`、`ui/uia/provider.h`、`ui/vertical_scrollbar.h`、`ui/horizontal_scrollbar.h`、`reactive/detail/tracker.h`、`async/task_lambda.h`。Tooltip 用 `Node::tooltip()`；Toast 用 `Window` / `Toast` 控件。滚动条随列表 / `ScrollView`。
 
 ## 快速开始
 
@@ -60,8 +104,8 @@ CMake 开关：
 - UTF-8；UI 字符串宽字符；2 空格缩进
 - `TypeName:` 作为唯一 map key（如 `Column:` / `Button:`）
 - 容器：`children:`；`ScrollView.content`；`SplitView.leading` / `trailing`
-- 根级可选 `theme: dark`（加载时 `Theme::SetActive`）
-- 根级可选 `window:`（HWND 元数据，不进控件树）：`title` / `width` / `height` / `kind`（`main` \| `dialog` \| `popup`）/ `corner_radius` / `border_width` / `resizable` / `min_width` / `min_height` / `topmost` / `center_on_owner`
+- 根级可选 `theme: dark`（进程 `Theme::SetActive`）
+- 根级可选 `window:`（HWND 元数据，不进控件树）：`title` / `width` / `height` / `kind`（`main` \| `dialog` \| `popup`）/ `theme` / `corner_radius` / `border_width` / `resizable` / `min_width` / `min_height` / `topmost` / `center_on_owner`
 - `on_click: handler_name` → 应用侧 `HandlerMap`
 - 布局细则见 [`LAYOUT.md`](LAYOUT.md)
 
@@ -78,6 +122,7 @@ Column:
 C++ 等价：
 
 ```cpp
+#include "auralite/ui.h"
 using namespace auralite::ui::dsl;
 auto root = Column()
     .fill_width()
@@ -116,11 +161,12 @@ auto root = Column()
 | `Label` | 默认单行 `trim: clip`；`wrap: true` 软换行；单行可 `trim: start\|middle\|end` 省略号 |
 | `TextField` / `TextArea` | 单行 / 多行（`wrap` 软换行） |
 | `Checkbox` / `Radio` / `Switch` | 选择 |
-| `ProgressBar` / `Slider` / `Combo` | 进度、滑块、下拉（Combo 需 `BindWindow`） |
+| `ProgressBar` / `Slider` / `Combo` / `SpinBox` / `DatePicker` | 进度、滑块、下拉、步进、日期。DatePicker 需 `BindWindow`；弹出层点年/月/时/分/秒数字可选，箭头或滚轮微调；`time: true` 时分，再加 `seconds: true` / `second` 显示秒 |
+| `MenuBar` / `MenuItem` / `StatusBar` | 顶栏菜单（PopupHost）、默认菜单行、底栏状态。MenuBar `items` 一律生成 `MenuItem`。弹出层是普通 `Column`：`MenuItem` 当默认行，可与 `Button` / `Submenu` 等混排（Button 即自定义菜单行）。`MenuItem`：`separator` / `checkable`+`checked` / `radio_group` / `icon` |
 | `VirtualList` / `ItemList` / `ListView` / `TreeView` | 列表与树 |
 | `UserControl` | 自绘扩展 |
 | `NativeHost` | HWND 黑盒洞（YAML 只占位；`Attach` / `AttachBorrowed` 在代码里） |
-| `PopupHost` / `Submenu` | 自绘弹出层（推荐） |
+| `PopupHost` / `Submenu` | 自绘弹出层（推荐）。`window.corner_radius` / `window.border_width`（默认 8 / 1） |
 | `Toast` | 轻提示 |
 | `ContextMenu` | Legacy `TrackPopupMenu`；新菜单用 `PopupHost` |
 
@@ -145,16 +191,29 @@ TitleBar:
 
 无边框窗（`caption: false`）默认可拖边 / 角缩放（约 6 DIP，光标随边变化）。`kind: dialog` / `WindowOptions::Dialog()` 默认 `resizable: false`。最大化时关掉。边上的 Button 优先于缩放。`window.resizable` / `min_width` / `min_height` 可配。
 
-**NativeHost（空气墙）：** 只同步 DIP 矩形和显隐，不画、不转发输入。**不**随 `ScrollView` 半裁或离屏合成；滚出视口时 HWND 仍完整显示。YAML 的 `NativeHost:` 只是占位，HWND 必须在代码里 `Attach(hwnd)`（关宿主销毁）或 `AttachBorrowed(hwnd)`（只拆父子）。特殊裁剪需求用 `UserControl` 自绘。
+**窗口铬与呈现：**
 
-**本分支不做：** 富文本、YAML 热重载、完整 schema、百分比尺寸、控件级 opacity、项级 UIA pattern。
+| | 系统标题栏 `caption: true` | 无边框可缩放（应用窗 / NativeHost demo） | Dialog（`resizable: false`） | Tooltip / 菜单 Popup |
+|--|--|--|--|--|
+| 外形 | 系统非客户区 | 自绘 `TitleBar`；Win11 DWM 圆角 | `SetWindowRgn` 切圆角 | 分层窗 alpha 圆角 |
+| 呈现 | 不透明 DIB → `AlphaBlend` 到 `BeginPaint` DC | 同左 | 同左 | `UpdateLayeredWindow` |
+
+无边框可缩放窗仍带 `WS_CAPTION`（任务栏、最小化、贴边），用 `DWMWA_COLOR_NONE` 藏掉系统标题栏，可见标题只来自 `TitleBar`。不要给这类窗 `SetWindowRgn`：DWM 会把新露出来的像素当成玻璃，拖边缩放会闪、会透桌面。Dialog 不能缩放，可以继续 RGN。
+
+客户区是 32 位 DIB。贴到 DWM 窗口必须走 `AlphaBlend`（A=255）。`BitBlt` 不写 alpha，拖大小时新边是全透明。父窗不设 `WS_CLIPCHILDREN`：先铺满 DIB，再 `NativeHost::RedrawGuests`，避免子 HWND 在合成表面挖出透明洞。
+
+**NativeHost（空气墙）：** 只同步 DIP 矩形和显隐，不画、不转发输入。**不**随 `ScrollView` 半裁或离屏合成；滚出视口时 HWND 仍完整显示。YAML 的 `NativeHost:` 只是占位，HWND 必须在代码里 `Attach(hwnd)`（关宿主销毁）或 `AttachBorrowed(hwnd)`（只拆父子）。特殊裁剪需求用 `UserControl` 自绘。Gallery：P 页 **Open NativeHost**。
 
 ## 主题
 
-- `Theme::Active()` 提供颜色 / 字体 token；内置 `light` / `dark`，也可从 YAML 注册
-- `Theme::SetActive("dark")` 会 Invalidate 已绑定窗口
-- 控件未设 `font_size` 时回落 `fonts.size`；颜色可稀疏覆盖
-- Gallery：`examples/ui_gallery/themes/`
+优先级：控件稀疏色（`bg` / `text_color`）> 窗口主题 > 进程 `Theme::SetActive`。
+
+- `Theme::Active()`：当前绘制用的 token（内置 `light` / `dark`，可 YAML 注册）
+- `Theme::SetActive("dark")`：进程默认；未 `set_theme` 的窗跟着变
+- `Window::set_theme("dark")` / `window.theme: dark`：这一窗及其弹出层；空名跟进程
+- 根 YAML `theme:` 只切进程，不是窗口字段
+- 未设 `font_size` 时回落 `fonts.size`
+- Gallery：`examples/ui_gallery/themes/`；**Open Dialog** 为 `window.theme: dark`
 
 ## 弹出层
 
@@ -166,7 +225,7 @@ TitleBar:
 | `Submenu` | hover/click → `Push` 子层 |
 | `WrapDismiss` | 包装 `on_click`：执行后关整栈 |
 
-面板背景在根 `Column`/`Row` 上设 `bg: "#RRGGBBAA"`。Gallery 右键默认 `menu_classic.yaml`。
+面板背景在根 `Column`/`Row` 上设 `bg: "#RRGGBBAA"`。Gallery 右键默认直角 `menu_classic.yaml`（圆角见 `menu_dark.yaml`；`popup_menu.yaml` 演示 MenuItem + Button 混用）。
 
 ## 响应式与异步
 
@@ -191,12 +250,10 @@ label->OwnSubscription(BindText(*label, text));
 button->on_click([&] { n.Set(n.Peek() + 1); });
 ```
 
-不做：YAML 绑定表达式、自动双向绑定、`ObservableList` 细粒度 diff。
-
 ## 无障碍 / 动画
 
-- MSAA stub + UIA provider（控件级角色与名字；`acc_name` / tooltip）
-- `anim`：属性动画；控件 hover 等可走主题过渡
+- 控件级 UIA：角色、名字、Invoke / Value / Toggle；Slider·Progress·Spin 的 RangeValue；Combo 展开；Tab Selection；焦点 / 值 / 勾选会发事件。列表与树没有项级对象。
+- `anim`：属性动画；hover 等可走主题过渡
 - Tooltip 由窗口托管 overlay
 
 ## Demo / 测试
@@ -208,7 +265,7 @@ button->on_click([&] { n.Set(n.Peek() + 1); });
 | `ui_layout_test` | 布局单测 |
 | `theme_test` / `dpi_test` / `dialog_test` | 主题、DPI、模态对话框 |
 | `reactive_test` / `async_test` / `reactive_demo` / `reactive_gallery` | Signal / 协程 |
-| `acc_test` / `uia_test` / `toast_test` / `anim_test` / `drag_test` | 无障碍、Toast、动画、拖放 |
+| `acc_test` / `uia_test` / `widget_test` / `toast_test` / `anim_test` / `drag_test` | 无障碍、新控件、Toast、动画、拖放 |
 
 ```powershell
 cmake --build build --config Debug --target ui_gallery ui_layout_test theme_test
@@ -243,4 +300,4 @@ AuraLite/
 | 新栈系统宏 | `WINVER` / `_WIN32_WINNT` = `0x0A00` |
 | 库形态 | 静态库 |
 
-接入应用：头文件搜索路径加本仓库根目录；链接 `AuraLite.UI.lib` + `AuraLite.Base.lib` + `auralite_d2d.lib`，以及 `d2d1`、`dwrite`、`windowscodecs`、`imm32`、`shcore`、`UIAutomationCore` 等。预处理器：`AURALITE_STATIC`、`NOMINMAX`、`_WIN32_WINNT=0x0A00`。
+接入应用：头文件搜索路径加本仓库根目录；链接 `AuraLite.UI.lib` + `AuraLite.Base.lib` + `auralite_d2d.lib`，以及 `d2d1`、`dwrite`、`windowscodecs`、`msimg32`、`dwmapi`、`imm32`、`shcore`、`UIAutomationCore` 等。预处理器：`AURALITE_STATIC`、`NOMINMAX`、`_WIN32_WINNT=0x0A00`。

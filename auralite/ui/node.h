@@ -164,8 +164,6 @@ class Node {
   Node& on_drop(DropHandler handler);
 
   // Accessibility read API. UIA glue queries these; no mirrored tree.
-
-  // Accessibility read API. UIA glue queries these; no mirrored tree.
   // acc_name overrides control text; tooltip is last-resort name.
   Node& acc_name(std::wstring name);
   const std::wstring& acc_name() const { return acc_name_; }
@@ -179,11 +177,22 @@ class Node {
   virtual bool AccInvoke();
   virtual bool AccToggle();
   virtual bool AccSetValue(const std::wstring& value);
+  virtual double AccRangeValue() const;
+  virtual double AccRangeMinimum() const;
+  virtual double AccRangeMaximum() const;
+  virtual double AccRangeSmallChange() const;
+  virtual double AccRangeLargeChange() const;
+  virtual bool AccRangeReadOnly() const;
+  virtual bool AccSetRangeValue(double value);
+  virtual bool AccIsExpanded() const;
+  virtual bool AccExpand();
+  virtual bool AccCollapse();
   bool AccIncluded() const;
   int acc_id() const { return acc_id_; }
   int EnsureAccId() const;
 
   Node& bg(const ColorF& c);
+  Node& clear_bg();
   bool has_bg() const { return bg_.has_value(); }
   ColorF bg_color() const { return bg_.value_or(ColorF{}); }
 
@@ -206,6 +215,11 @@ class Node {
   virtual void OnAnimateChanged() {}
   virtual void OnHostWindowChanged() {}
   bool CanTween() const;
+  void NotifyAccToggleChanged();
+  void NotifyAccValueChanged();
+  void NotifyAccRangeChanged();
+  void NotifyAccExpandCollapseChanged();
+  void NotifyAccStructureChanged();
   void DeliverDrop(const DragEvent& e);
 
   static bool ContainsPoint(const RectF& r, float x, float y);

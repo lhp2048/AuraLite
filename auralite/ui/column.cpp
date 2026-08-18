@@ -86,6 +86,9 @@ Column& Column::v_align(Align a) {
 SizeF Column::Measure(float max_w, float max_h) {
   const float inner_w = std::max(0.f, max_w - pad_l_ - pad_r_);
   const float inner_h = std::max(0.f, max_h - pad_t_ - pad_b_);
+  // Hug column: Fill children must report intrinsic width, not expand to max_w
+  // (PopupHost menus were measuring as 400 DIP because buttons default to Fill).
+  const bool hug_w = width_policy() == SizePolicy::Hug;
 
   float used_h = 0.f;
   float max_child_w = 0.f;
@@ -95,16 +98,18 @@ SizeF Column::Measure(float max_w, float max_h) {
       continue;
     }
     ++live;
+    const float child_max_w =
+        (hug_w && c->width_policy() == SizePolicy::Fill) ? 0.f : inner_w;
     if (IsFlexHeight(c.get())) {
       if (c->width_policy() == SizePolicy::Fixed && c->preferred_width() > 0.f) {
         max_child_w = std::max(max_child_w, c->preferred_width());
       } else {
-        const SizeF s = c->Measure(inner_w, 0.f);
+        const SizeF s = c->Measure(child_max_w, 0.f);
         max_child_w = std::max(max_child_w, s.w);
       }
       continue;
     }
-    const SizeF s = c->Measure(inner_w, inner_h);
+    const SizeF s = c->Measure(child_max_w, inner_h);
     max_child_w = std::max(max_child_w, s.w);
     used_h += s.h;
   }

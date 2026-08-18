@@ -43,6 +43,7 @@ void Radio::SetCheckedInternal(bool v, bool notify) {
   if (checked_) {
     UncheckGroupPeers();
   }
+  NotifyAccToggleChanged();
   if (notify && on_changed_) {
     on_changed_(checked_);
   }
@@ -55,6 +56,7 @@ void Radio::UncheckRadiosInTree(Node* node, Radio* except, int group) {
   if (auto* radio = dynamic_cast<Radio*>(node)) {
     if (radio != except && radio->group_id_ == group && radio->checked_) {
       radio->checked_ = false;
+      radio->NotifyAccToggleChanged();
     }
   }
   for (const auto& child : node->children()) {

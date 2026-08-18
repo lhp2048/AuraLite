@@ -273,6 +273,7 @@ void TextField::DeleteSelectionOrChar(bool forward) {
 }
 
 void TextField::NotifyChanged() {
+  NotifyAccValueChanged();
   if (on_change_) {
     on_change_(text_);
   }

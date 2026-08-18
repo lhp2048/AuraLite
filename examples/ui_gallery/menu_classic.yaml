@@ -1,31 +1,31 @@
-# Classic context-menu look (default right-click in ui_gallery).
-# Panel bg + flat left-aligned rows; Submenu row chrome matches Buttons.
-# Note: layered popups ignore mouse on fully transparent pixels — item bg
-# must be non-zero alpha (use panel-matching fill, not #00000000).
+# Square chrome + MenuItem: icons, separator, check, radio.
+# Layered popups ignore fully transparent pixels — keep panel fill opaque.
+window:
+  corner_radius: 0
+  border_width: 1
 Column:
   bg: "#F5F7FAF2"
-  width: 200
+  width: 220
   padding: [4, 4, 4, 4]
   spacing: 0
   children:
+    - MenuItem: { text: "Refresh status", icon: list, font_size: 13, on_click: refresh }
+    - MenuItem: { text: "About gallery", icon: file, font_size: 13, on_click: about }
+    - MenuItem: { separator: true }
+    - MenuItem: { text: "状态栏", checkable: true, checked: true, font_size: 13 }
+    - MenuItem: { text: "侧栏", checkable: true, font_size: 13 }
+    - MenuItem: { separator: true }
+    - MenuItem: { text: "列表", radio_group: 1, checked: true, icon: list, font_size: 13 }
+    - MenuItem: { text: "网格", radio_group: 1, icon: grid, font_size: 13 }
+    - MenuItem: { separator: true }
     - Button:
-        text: "Refresh status"
+        text: "自定义按钮行"
         width: fill
         height: 28
-        corner_radius: 4
+        variant: secondary
         text_align: left
         font_size: 13
-        bg: "#F5F7FAF2"
-        bg_hover: "#E6EEFA"
-        bg_pressed: "#D7E4F7"
-        on_click: refresh
-    - Button:
-        text: "About gallery"
-        width: fill
-        height: 28
         corner_radius: 4
-        text_align: left
-        font_size: 13
         bg: "#F5F7FAF2"
         bg_hover: "#E6EEFA"
         bg_pressed: "#D7E4F7"
@@ -45,14 +45,4 @@ Column:
             padding: 4
             spacing: 0
             children:
-              - Button:
-                  text: "Reset split ratio"
-                  width: fill
-                  height: 28
-                  corner_radius: 4
-                  text_align: left
-                  font_size: 13
-                  bg: "#F5F7FAF2"
-                  bg_hover: "#E6EEFA"
-                  bg_pressed: "#D7E4F7"
-                  on_click: split_reset
+              - MenuItem: { text: "Reset split ratio", icon: view, font_size: 13, on_click: split_reset }

@@ -143,9 +143,10 @@ namespace base
 | 头文件 | 可仅 `#pragma once` |
 | 方法 | fluent / `snake_case`：`fill_width()`、`set_visible()` |
 | 成员 | 尾下划线仍常用：`visible_` |
-| 绑定 / 协程 | 见 README 阶段三：Signal 仅 UI 线程；MSVC 勿用临时 lambda 协程 |
+| 绑定 / 协程 | 见 README：Signal 仅 UI 线程；MSVC 勿用临时 lambda 协程 |
+| 应用 include | `#include "auralite/ui.h"`（公开面索引）。不要 include overlay / UIA provider / `reactive/detail` |
 
-业务 Theme：绘制路径不散落硬编码色/字体（见阶段二 Theme 设计）。
+业务 Theme：绘制走 `Theme::Active()`，不在控件里写死色/字号（稀疏覆盖除外）。
 
 ---
 

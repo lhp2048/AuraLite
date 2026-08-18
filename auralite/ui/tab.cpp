@@ -44,9 +44,16 @@ Tab& Tab::set_selected(int index) {
     SyncIndicator(true);
     return *this;
   }
-  selected_ = std::clamp(index, 0, n - 1);
+  const int next = std::clamp(index, 0, n - 1);
+  if (next == selected_) {
+    SyncPageVisibility();
+    return *this;
+  }
+  selected_ = next;
   SyncPageVisibility();
   SyncIndicator(false);
+  NotifyAccValueChanged();
+  NotifyAccStructureChanged();
   return *this;
 }
 
@@ -226,6 +233,54 @@ void Tab::OnHostWindowChanged() {
   if (!CanTween()) {
     SyncIndicator(true);
   }
+}
+
+AccRole Tab::acc_role() const {
+  if (acc_role_override_) {
+    return *acc_role_override_;
+  }
+  return AccRole::Tab;
+}
+
+std::wstring Tab::AccValue() const {
+  if (selected_ >= 0 && selected_ < static_cast<int>(headers_.size())) {
+    return headers_[static_cast<size_t>(selected_)];
+  }
+  return std::to_wstring(selected_);
+}
+
+bool Tab::AccSetValue(const std::wstring& value) {
+  for (int i = 0; i < static_cast<int>(headers_.size()); ++i) {
+    if (headers_[static_cast<size_t>(i)] == value) {
+      if (i != selected_) {
+        set_selected(i);
+        if (on_selected_) {
+          on_selected_(selected_);
+        }
+      }
+      return true;
+    }
+  }
+  int idx = 0;
+  if (value.empty()) {
+    return false;
+  }
+  for (wchar_t c : value) {
+    if (c < L'0' || c > L'9') {
+      return false;
+    }
+    idx = idx * 10 + static_cast<int>(c - L'0');
+  }
+  if (page_count() <= 0 || idx < 0 || idx >= page_count()) {
+    return false;
+  }
+  if (idx != selected_) {
+    set_selected(idx);
+    if (on_selected_) {
+      on_selected_(selected_);
+    }
+  }
+  return true;
 }
 
 }  // namespace auralite::ui
