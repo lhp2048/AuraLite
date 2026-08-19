@@ -1,43 +1,43 @@
 cmake_minimum_required(VERSION 3.20)
-project(AuraLite LANGUAGES C CXX)
+project(MxUI LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(NOT WIN32)
-  message(FATAL_ERROR "AuraLite Phase-1 targets Windows only.")
+  message(FATAL_ERROR "MxUI targets Windows only.")
 endif()
 
-set(AURALITE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
+set(MXUI_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Match VS OutDir: bin|lib/<Platform>/<Configuration>/
 if(CMAKE_GENERATOR_PLATFORM)
-  set(AURALITE_PLATFORM "${CMAKE_GENERATOR_PLATFORM}")
+  set(MXUI_PLATFORM "${CMAKE_GENERATOR_PLATFORM}")
 elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
-  set(AURALITE_PLATFORM "x64")
+  set(MXUI_PLATFORM "x64")
 else()
-  set(AURALITE_PLATFORM "Win32")
+  set(MXUI_PLATFORM "Win32")
 endif()
 # VS uses "Win32"; empty / "x86" normalize to Win32.
-if(AURALITE_PLATFORM STREQUAL "" OR AURALITE_PLATFORM STREQUAL "x86")
-  set(AURALITE_PLATFORM "Win32")
+if(MXUI_PLATFORM STREQUAL "" OR MXUI_PLATFORM STREQUAL "x86")
+  set(MXUI_PLATFORM "Win32")
 endif()
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${AURALITE_ROOT}/bin/${AURALITE_PLATFORM}/$<CONFIG>")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${AURALITE_ROOT}/lib/${AURALITE_PLATFORM}/$<CONFIG>")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${AURALITE_ROOT}/lib/${AURALITE_PLATFORM}/$<CONFIG>")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${MXUI_ROOT}/bin/${MXUI_PLATFORM}/$<CONFIG>")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${MXUI_ROOT}/lib/${MXUI_PLATFORM}/$<CONFIG>")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${MXUI_ROOT}/lib/${MXUI_PLATFORM}/$<CONFIG>")
 
-include("${AURALITE_ROOT}/cmake/LegacySources.cmake")
+include("${MXUI_ROOT}/cmake/LegacySources.cmake")
 
 # ---- Direct2D canvas (next-gen) ----
-add_library(auralite_d2d STATIC
-  auralite/canvas_d2d.cpp
+add_library(mx_d2d STATIC
+  mx/canvas_d2d.cpp
 )
-add_library(AuraLite::D2D ALIAS auralite_d2d)
+add_library(MxUI::D2D ALIAS mx_d2d)
 
-target_include_directories(auralite_d2d PUBLIC "${AURALITE_ROOT}")
-target_compile_definitions(auralite_d2d
+target_include_directories(mx_d2d PUBLIC "${MXUI_ROOT}")
+target_compile_definitions(mx_d2d
   PUBLIC
     NOMINMAX
     WINVER=0x0A00
@@ -46,28 +46,21 @@ target_compile_definitions(auralite_d2d
     UNICODE
     _UNICODE
 )
-target_link_libraries(auralite_d2d PUBLIC d2d1 dwrite windowscodecs ole32 msimg32)
+target_link_libraries(mx_d2d PUBLIC d2d1 dwrite windowscodecs ole32 msimg32)
 if(MSVC)
-  target_compile_options(auralite_d2d PRIVATE /W3 /utf-8 /permissive-)
+  target_compile_options(mx_d2d PRIVATE /W3 /utf-8 /permissive-)
 endif()
 
-# ---- Base (MessageLoop) vs Views (frozen; opt-in) ----
-option(AURALITE_BUILD_BASE "Build AuraLite.Base (MessageLoop)" ON)
-option(AURALITE_BUILD_UILEGACY "Build AuraLite.UILegacy (Chromium Views)" OFF)
-# Deprecated alias. ON → Base+UILegacy. OFF → UILegacy off (Base stays ON).
-option(AURALITE_BUILD_LEGACY "Deprecated: ON builds Views; OFF disables Views only" OFF)
-if(AURALITE_BUILD_LEGACY)
-  set(AURALITE_BUILD_BASE ON)
-  set(AURALITE_BUILD_UILEGACY ON)
-endif()
+# ---- Base (MessageLoop; required by mx_ui) ----
+option(MXUI_BUILD_BASE "Build Mx.Base (MessageLoop)" ON)
 
-if(AURALITE_BUILD_BASE)
-  add_library(AuraLite.Base STATIC ${AURALITE_BASE_SOURCES})
-  add_library(AuraLite::Base ALIAS AuraLite.Base)
-  target_include_directories(AuraLite.Base PUBLIC "${AURALITE_ROOT}")
-  target_compile_definitions(AuraLite.Base
+if(MXUI_BUILD_BASE)
+  add_library(Mx.Base STATIC ${MXUI_BASE_SOURCES})
+  add_library(MxUI::Base ALIAS Mx.Base)
+  target_include_directories(Mx.Base PUBLIC "${MXUI_ROOT}")
+  target_compile_definitions(Mx.Base
     PUBLIC
-      AURALITE_STATIC
+      MXUI_STATIC
       NOMINMAX
       WINVER=0x0601
       _WIN32_WINNT=0x0601
@@ -77,72 +70,27 @@ if(AURALITE_BUILD_BASE)
       _CRT_RAND_S
   )
   # Legacy sources are C++14-era; keep C++14 for this target.
-  set_target_properties(AuraLite.Base PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
+  set_target_properties(Mx.Base PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
   if(MSVC)
-    target_compile_options(AuraLite.Base PRIVATE /W3)
+    target_compile_options(Mx.Base PRIVATE /W3)
   endif()
   if(MSVC)
     # zlib .c files
     set_source_files_properties(
-      ${AURALITE_ROOT}/rfc_algorithm/zlib/adler32.c
-      ${AURALITE_ROOT}/rfc_algorithm/zlib/compress.c
-      ${AURALITE_ROOT}/rfc_algorithm/zlib/crc32.c
-      ${AURALITE_ROOT}/rfc_algorithm/zlib/deflate.c
-      ${AURALITE_ROOT}/rfc_algorithm/zlib/gzio.c
-      ${AURALITE_ROOT}/rfc_algorithm/zlib/infback.c
-      ${AURALITE_ROOT}/rfc_algorithm/zlib/inffast.c
-      ${AURALITE_ROOT}/rfc_algorithm/zlib/inflate.c
-      ${AURALITE_ROOT}/rfc_algorithm/zlib/inftrees.c
-      ${AURALITE_ROOT}/rfc_algorithm/zlib/trees.c
-      ${AURALITE_ROOT}/rfc_algorithm/zlib/uncompr.c
-      ${AURALITE_ROOT}/rfc_algorithm/zlib/zutil.c
+      ${MXUI_ROOT}/rfc_algorithm/zlib/adler32.c
+      ${MXUI_ROOT}/rfc_algorithm/zlib/compress.c
+      ${MXUI_ROOT}/rfc_algorithm/zlib/crc32.c
+      ${MXUI_ROOT}/rfc_algorithm/zlib/deflate.c
+      ${MXUI_ROOT}/rfc_algorithm/zlib/gzio.c
+      ${MXUI_ROOT}/rfc_algorithm/zlib/infback.c
+      ${MXUI_ROOT}/rfc_algorithm/zlib/inffast.c
+      ${MXUI_ROOT}/rfc_algorithm/zlib/inflate.c
+      ${MXUI_ROOT}/rfc_algorithm/zlib/inftrees.c
+      ${MXUI_ROOT}/rfc_algorithm/zlib/trees.c
+      ${MXUI_ROOT}/rfc_algorithm/zlib/uncompr.c
+      ${MXUI_ROOT}/rfc_algorithm/zlib/zutil.c
       PROPERTIES LANGUAGE C
     )
-  endif()
-endif()
-
-if(AURALITE_BUILD_UILEGACY)
-  if(NOT AURALITE_BUILD_BASE)
-    message(FATAL_ERROR "AURALITE_BUILD_UILEGACY requires AURALITE_BUILD_BASE")
-  endif()
-  add_library(AuraLite.UILegacy STATIC ${AURALITE_UI_SOURCES})
-  add_library(AuraLite::UILegacy ALIAS AuraLite.UILegacy)
-  target_include_directories(AuraLite.UILegacy PUBLIC "${AURALITE_ROOT}")
-  target_compile_definitions(AuraLite.UILegacy
-    PUBLIC
-      AURALITE_STATIC
-      NOMINMAX
-      WINVER=0x0601
-      _WIN32_WINNT=0x0601
-      NTDDI_VERSION=0x06010000
-      UNICODE
-      _UNICODE
-  )
-  set_target_properties(AuraLite.UILegacy PROPERTIES
-    CXX_STANDARD 14
-    CXX_STANDARD_REQUIRED ON
-    OUTPUT_NAME "AuraLite.UILegacy"
-  )
-  target_link_libraries(AuraLite.UILegacy
-    PUBLIC
-      AuraLite::Base
-      d2d1
-      dwrite
-      windowscodecs
-      msimg32
-      comctl32
-      ole32
-      oleaut32
-      uuid
-      shell32
-      shlwapi
-      imm32
-      dwmapi
-      uxtheme
-      oleacc
-  )
-  if(MSVC)
-    target_compile_options(AuraLite.UILegacy PRIVATE /W3)
   endif()
 endif()
 
@@ -157,71 +105,71 @@ FetchContent_Declare(yaml-cpp
 )
 FetchContent_MakeAvailable(yaml-cpp)
 
-# ---- Declarative UI (auralite::ui); public CMake alias AuraLite::UI ----
-add_library(auralite_ui STATIC
-  auralite/ui/node.cpp
-  auralite/ui/acc.cpp
-  auralite/ui/accel.cpp
-  auralite/ui/anim.cpp
-  auralite/ui/column.cpp
-  auralite/ui/row.cpp
-  auralite/ui/tile.cpp
-  auralite/ui/tab.cpp
-  auralite/ui/title_bar.cpp
-  auralite/ui/toast.cpp
-  auralite/ui/toast_overlay.cpp
-  auralite/ui/absolute.cpp
-  auralite/ui/label.cpp
-  auralite/ui/text_layout.cpp
-  auralite/ui/button.cpp
-  auralite/ui/user_control.cpp
-  auralite/ui/native_host.cpp
-  auralite/ui/image_view.cpp
-  auralite/ui/image_button.cpp
-  auralite/ui/text_field.cpp
-  auralite/ui/checkbox.cpp
-  auralite/ui/radio.cpp
-  auralite/ui/switch_control.cpp
-  auralite/ui/progress_bar.cpp
-  auralite/ui/slider.cpp
-  auralite/ui/combo.cpp
-  auralite/ui/spin_box.cpp
-  auralite/ui/civil_date.cpp
-  auralite/ui/date_picker.cpp
-  auralite/ui/color_picker.cpp
-  auralite/ui/data_grid.cpp
-  auralite/ui/menu_bar.cpp
-  auralite/ui/menu_item.cpp
-  auralite/ui/status_bar.cpp
-  auralite/ui/text_area.cpp
-  auralite/ui/scroll_view.cpp
-  auralite/ui/vertical_scrollbar.cpp
-  auralite/ui/horizontal_scrollbar.cpp
-  auralite/ui/list_view.cpp
-  auralite/ui/list_columns.cpp
-  auralite/ui/item_list.cpp
-  auralite/ui/virtual_list.cpp
-  auralite/ui/tree_view.cpp
-  auralite/ui/split_view.cpp
-  auralite/ui/context_menu.cpp
-  auralite/ui/popup_host.cpp
-  auralite/ui/submenu.cpp
-  auralite/ui/tooltip_overlay.cpp
-  auralite/ui/uia/provider.cpp
-  auralite/ui/window.cpp
-  auralite/ui/theme.cpp
-  auralite/ui/theme_yaml.cpp
-  auralite/ui/application.cpp
-  auralite/ui/factory.cpp
-  auralite/ui/yaml_loader.cpp
-  auralite/reactive/observe.cpp
-  auralite/async/awaiters.cpp
+# ---- Declarative UI (mx::ui); public CMake alias MxUI::UI ----
+add_library(mx_ui STATIC
+  mx/ui/node.cpp
+  mx/ui/acc.cpp
+  mx/ui/accel.cpp
+  mx/ui/anim.cpp
+  mx/ui/column.cpp
+  mx/ui/row.cpp
+  mx/ui/tile.cpp
+  mx/ui/tab.cpp
+  mx/ui/title_bar.cpp
+  mx/ui/toast.cpp
+  mx/ui/toast_overlay.cpp
+  mx/ui/absolute.cpp
+  mx/ui/label.cpp
+  mx/ui/text_layout.cpp
+  mx/ui/button.cpp
+  mx/ui/user_control.cpp
+  mx/ui/native_host.cpp
+  mx/ui/image_view.cpp
+  mx/ui/image_button.cpp
+  mx/ui/text_field.cpp
+  mx/ui/checkbox.cpp
+  mx/ui/radio.cpp
+  mx/ui/switch_control.cpp
+  mx/ui/progress_bar.cpp
+  mx/ui/slider.cpp
+  mx/ui/combo.cpp
+  mx/ui/spin_box.cpp
+  mx/ui/civil_date.cpp
+  mx/ui/date_picker.cpp
+  mx/ui/color_picker.cpp
+  mx/ui/data_grid.cpp
+  mx/ui/menu_bar.cpp
+  mx/ui/menu_item.cpp
+  mx/ui/status_bar.cpp
+  mx/ui/text_area.cpp
+  mx/ui/scroll_view.cpp
+  mx/ui/vertical_scrollbar.cpp
+  mx/ui/horizontal_scrollbar.cpp
+  mx/ui/list_view.cpp
+  mx/ui/list_columns.cpp
+  mx/ui/item_list.cpp
+  mx/ui/virtual_list.cpp
+  mx/ui/tree_view.cpp
+  mx/ui/split_view.cpp
+  mx/ui/context_menu.cpp
+  mx/ui/popup_host.cpp
+  mx/ui/submenu.cpp
+  mx/ui/tooltip_overlay.cpp
+  mx/ui/uia/provider.cpp
+  mx/ui/window.cpp
+  mx/ui/theme.cpp
+  mx/ui/theme_yaml.cpp
+  mx/ui/application.cpp
+  mx/ui/factory.cpp
+  mx/ui/yaml_loader.cpp
+  mx/reactive/observe.cpp
+  mx/async/awaiters.cpp
 )
-set_target_properties(auralite_ui PROPERTIES OUTPUT_NAME "AuraLite.UI")
-add_library(AuraLite::UI ALIAS auralite_ui)
-target_include_directories(auralite_ui PUBLIC "${AURALITE_ROOT}")
-target_compile_features(auralite_ui PUBLIC cxx_std_20)
-target_compile_definitions(auralite_ui
+set_target_properties(mx_ui PROPERTIES OUTPUT_NAME "Mx.UI")
+add_library(MxUI::UI ALIAS mx_ui)
+target_include_directories(mx_ui PUBLIC "${MXUI_ROOT}")
+target_compile_features(mx_ui PUBLIC cxx_std_20)
+target_compile_definitions(mx_ui
   PUBLIC
     NOMINMAX
     UNICODE
@@ -229,9 +177,9 @@ target_compile_definitions(auralite_ui
     WINVER=0x0A00
     _WIN32_WINNT=0x0A00
 )
-target_link_libraries(auralite_ui
+target_link_libraries(mx_ui
   PUBLIC
-    AuraLite::D2D
+    MxUI::D2D
     yaml-cpp
     imm32
     shcore
@@ -246,17 +194,17 @@ target_link_libraries(auralite_ui
     shell32
     dwmapi
 )
-if(NOT AURALITE_BUILD_BASE)
-  message(FATAL_ERROR "auralite_ui requires AURALITE_BUILD_BASE for MessageLoop")
+if(NOT MXUI_BUILD_BASE)
+  message(FATAL_ERROR "mx_ui requires MXUI_BUILD_BASE for MessageLoop")
 endif()
-target_link_libraries(auralite_ui PUBLIC AuraLite::Base)
+target_link_libraries(mx_ui PUBLIC MxUI::Base)
 if(MSVC)
-  target_compile_options(auralite_ui PRIVATE /W3 /utf-8 /permissive- /wd4828)
+  target_compile_options(mx_ui PRIVATE /W3 /utf-8 /permissive- /wd4828)
 endif()
 
 # ---- reactive_test (Signal / Computed / Observe; console) ----
 add_executable(reactive_test examples/reactive_test/main.cpp)
-target_link_libraries(reactive_test PRIVATE AuraLite::UI)
+target_link_libraries(reactive_test PRIVATE MxUI::UI)
 target_compile_definitions(reactive_test PRIVATE
   NOMINMAX UNICODE _UNICODE
   WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -267,7 +215,7 @@ endif()
 
 # ---- async_test (ResumeOnUi / Delay / RunAsync / SpawnUi; console) ----
 add_executable(async_test examples/async_test/main.cpp)
-target_link_libraries(async_test PRIVATE AuraLite::UI)
+target_link_libraries(async_test PRIVATE MxUI::UI)
 target_compile_definitions(async_test PRIVATE
   NOMINMAX UNICODE _UNICODE
   WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -277,10 +225,10 @@ if(MSVC)
 endif()
 
 # ---- D2D demo + legacy smoke tests (same OutDir as library.sln) ----
-option(AURALITE_BUILD_D2D_DEMO "Build Direct2D smoke demo" ON)
-if(AURALITE_BUILD_D2D_DEMO)
+option(MXUI_BUILD_D2D_DEMO "Build Direct2D smoke demo" ON)
+if(MXUI_BUILD_D2D_DEMO)
   add_executable(d2d_demo WIN32 examples/d2d_demo/main.cpp)
-  target_link_libraries(d2d_demo PRIVATE AuraLite::D2D)
+  target_link_libraries(d2d_demo PRIVATE MxUI::D2D)
   target_compile_definitions(d2d_demo PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -290,10 +238,10 @@ if(AURALITE_BUILD_D2D_DEMO)
   endif()
 endif()
 
-option(AURALITE_BUILD_UI_SMOKE "Build auralite::ui smoke demo" ON)
-if(AURALITE_BUILD_UI_SMOKE)
+option(MXUI_BUILD_UI_SMOKE "Build mx::ui smoke demo" ON)
+if(MXUI_BUILD_UI_SMOKE)
   add_executable(ui_smoke WIN32 examples/ui_smoke/main.cpp)
-  target_link_libraries(ui_smoke PRIVATE AuraLite::UI)
+  target_link_libraries(ui_smoke PRIVATE MxUI::UI)
   target_compile_definitions(ui_smoke PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -303,10 +251,10 @@ if(AURALITE_BUILD_UI_SMOKE)
   endif()
 endif()
 
-option(AURALITE_BUILD_UI_DEMOS "Build Phase-2 login_demo + ui_gallery" ON)
-if(AURALITE_BUILD_UI_DEMOS)
+option(MXUI_BUILD_UI_DEMOS "Build Phase-2 login_demo + ui_gallery" ON)
+if(MXUI_BUILD_UI_DEMOS)
   add_executable(login_demo WIN32 examples/login/main.cpp)
-  target_link_libraries(login_demo PRIVATE AuraLite::UI)
+  target_link_libraries(login_demo PRIVATE MxUI::UI)
   target_compile_definitions(login_demo PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -316,7 +264,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
   add_custom_command(TARGET login_demo POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${AURALITE_ROOT}/examples/login/login_window.yaml"
+      "${MXUI_ROOT}/examples/login/login_window.yaml"
       "$<TARGET_FILE_DIR:login_demo>/login_window.yaml"
     COMMENT "Copy login_window.yaml next to login_demo"
   )
@@ -325,24 +273,24 @@ if(AURALITE_BUILD_UI_DEMOS)
     cmake_policy(SET CMP0169 OLD)
   endif()
   include(FetchContent)
-  set(AURALITE_WEBVIEW2_VERSION "1.0.2849.39")
+  set(MXUI_WEBVIEW2_VERSION "1.0.2849.39")
   FetchContent_Declare(webview2_sdk
-    URL "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/${AURALITE_WEBVIEW2_VERSION}"
+    URL "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/${MXUI_WEBVIEW2_VERSION}"
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
   )
   FetchContent_GetProperties(webview2_sdk)
   if(NOT webview2_sdk_POPULATED)
     FetchContent_Populate(webview2_sdk)
   endif()
-  if(AURALITE_PLATFORM STREQUAL "Win32")
-    set(AURALITE_WEBVIEW2_ARCH "x86")
-  elseif(AURALITE_PLATFORM STREQUAL "ARM64")
-    set(AURALITE_WEBVIEW2_ARCH "arm64")
+  if(MXUI_PLATFORM STREQUAL "Win32")
+    set(MXUI_WEBVIEW2_ARCH "x86")
+  elseif(MXUI_PLATFORM STREQUAL "ARM64")
+    set(MXUI_WEBVIEW2_ARCH "arm64")
   else()
-    set(AURALITE_WEBVIEW2_ARCH "x64")
+    set(MXUI_WEBVIEW2_ARCH "x64")
   endif()
-  set(AURALITE_WEBVIEW2_LIB
-    "${webview2_sdk_SOURCE_DIR}/build/native/${AURALITE_WEBVIEW2_ARCH}/WebView2LoaderStatic.lib")
+  set(MXUI_WEBVIEW2_LIB
+    "${webview2_sdk_SOURCE_DIR}/build/native/${MXUI_WEBVIEW2_ARCH}/WebView2LoaderStatic.lib")
   if(NOT EXISTS "${webview2_sdk_SOURCE_DIR}/build/native/include/WebView2.h")
     message(FATAL_ERROR "WebView2 SDK missing after download (need WebView2.h)")
   endif()
@@ -350,8 +298,8 @@ if(AURALITE_BUILD_UI_DEMOS)
   target_include_directories(webview_browser PRIVATE
     "${webview2_sdk_SOURCE_DIR}/build/native/include")
   target_link_libraries(webview_browser PRIVATE
-    AuraLite::UI
-    "${AURALITE_WEBVIEW2_LIB}"
+    MxUI::UI
+    "${MXUI_WEBVIEW2_LIB}"
     version
     ole32
     user32
@@ -365,7 +313,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(ui_gallery WIN32 examples/ui_gallery/main.cpp)
-  target_link_libraries(ui_gallery PRIVATE AuraLite::UI)
+  target_link_libraries(ui_gallery PRIVATE MxUI::UI)
   target_compile_definitions(ui_gallery PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -375,49 +323,49 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
   add_custom_command(TARGET ui_gallery POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${AURALITE_ROOT}/examples/ui_gallery/gallery.yaml"
+      "${MXUI_ROOT}/examples/ui_gallery/gallery.yaml"
       "$<TARGET_FILE_DIR:ui_gallery>/gallery.yaml"
     COMMENT "Copy gallery.yaml next to ui_gallery"
   )
   add_custom_command(TARGET ui_gallery POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${AURALITE_ROOT}/examples/ui_gallery/dialog.yaml"
+      "${MXUI_ROOT}/examples/ui_gallery/dialog.yaml"
       "$<TARGET_FILE_DIR:ui_gallery>/dialog.yaml"
     COMMENT "Copy dialog.yaml next to ui_gallery"
   )
   add_custom_command(TARGET ui_gallery POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${AURALITE_ROOT}/examples/ui_gallery/dialog_square.yaml"
+      "${MXUI_ROOT}/examples/ui_gallery/dialog_square.yaml"
       "$<TARGET_FILE_DIR:ui_gallery>/dialog_square.yaml"
     COMMENT "Copy dialog_square.yaml next to ui_gallery"
   )
   add_custom_command(TARGET ui_gallery POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${AURALITE_ROOT}/examples/ui_gallery/popup_menu.yaml"
+      "${MXUI_ROOT}/examples/ui_gallery/popup_menu.yaml"
       "$<TARGET_FILE_DIR:ui_gallery>/popup_menu.yaml"
     COMMENT "Copy popup_menu.yaml next to ui_gallery"
   )
   add_custom_command(TARGET ui_gallery POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${AURALITE_ROOT}/examples/ui_gallery/menu_classic.yaml"
+      "${MXUI_ROOT}/examples/ui_gallery/menu_classic.yaml"
       "$<TARGET_FILE_DIR:ui_gallery>/menu_classic.yaml"
     COMMENT "Copy menu_classic.yaml next to ui_gallery"
   )
   add_custom_command(TARGET ui_gallery POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${AURALITE_ROOT}/examples/ui_gallery/menu_dark.yaml"
+      "${MXUI_ROOT}/examples/ui_gallery/menu_dark.yaml"
       "$<TARGET_FILE_DIR:ui_gallery>/menu_dark.yaml"
     COMMENT "Copy menu_dark.yaml next to ui_gallery"
   )
   add_custom_command(TARGET ui_gallery POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-      "${AURALITE_ROOT}/examples/ui_gallery/themes"
+      "${MXUI_ROOT}/examples/ui_gallery/themes"
       "$<TARGET_FILE_DIR:ui_gallery>/themes"
     COMMENT "Copy themes next to ui_gallery"
   )
 
   add_executable(ui_layout_test examples/ui_layout_test/main.cpp)
-  target_link_libraries(ui_layout_test PRIVATE AuraLite::UI)
+  target_link_libraries(ui_layout_test PRIVATE MxUI::UI)
   target_compile_definitions(ui_layout_test PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -427,7 +375,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(reactive_demo WIN32 examples/reactive_demo/main.cpp)
-  target_link_libraries(reactive_demo PRIVATE AuraLite::UI)
+  target_link_libraries(reactive_demo PRIVATE MxUI::UI)
   target_compile_definitions(reactive_demo PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -437,7 +385,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(reactive_gallery WIN32 examples/reactive_gallery/main.cpp)
-  target_link_libraries(reactive_gallery PRIVATE AuraLite::UI)
+  target_link_libraries(reactive_gallery PRIVATE MxUI::UI)
   target_compile_definitions(reactive_gallery PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -447,13 +395,13 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
   add_custom_command(TARGET reactive_gallery POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-      "${AURALITE_ROOT}/examples/ui_gallery/themes"
+      "${MXUI_ROOT}/examples/ui_gallery/themes"
       "$<TARGET_FILE_DIR:reactive_gallery>/themes"
     COMMENT "Copy themes next to reactive_gallery"
   )
 
   add_executable(theme_picker WIN32 examples/theme_picker/main.cpp)
-  target_link_libraries(theme_picker PRIVATE AuraLite::UI)
+  target_link_libraries(theme_picker PRIVATE MxUI::UI)
   target_compile_definitions(theme_picker PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -463,7 +411,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(theme_test examples/theme_test/main.cpp)
-  target_link_libraries(theme_test PRIVATE AuraLite::UI)
+  target_link_libraries(theme_test PRIVATE MxUI::UI)
   target_compile_definitions(theme_test PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -473,7 +421,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(control_anim_test examples/control_anim_test/main.cpp)
-  target_link_libraries(control_anim_test PRIVATE AuraLite::UI)
+  target_link_libraries(control_anim_test PRIVATE MxUI::UI)
   target_compile_definitions(control_anim_test PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -483,7 +431,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(anim_test examples/anim_test/main.cpp)
-  target_link_libraries(anim_test PRIVATE AuraLite::UI)
+  target_link_libraries(anim_test PRIVATE MxUI::UI)
   target_compile_definitions(anim_test PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -493,7 +441,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(toast_test examples/toast_test/main.cpp)
-  target_link_libraries(toast_test PRIVATE AuraLite::UI)
+  target_link_libraries(toast_test PRIVATE MxUI::UI)
   target_compile_definitions(toast_test PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -503,7 +451,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(widget_test examples/widget_test/main.cpp)
-  target_link_libraries(widget_test PRIVATE AuraLite::UI)
+  target_link_libraries(widget_test PRIVATE MxUI::UI)
   target_compile_definitions(widget_test PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -513,7 +461,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(acc_test examples/acc_test/main.cpp)
-  target_link_libraries(acc_test PRIVATE AuraLite::UI)
+  target_link_libraries(acc_test PRIVATE MxUI::UI)
   target_compile_definitions(acc_test PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -523,7 +471,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(uia_test examples/uia_test/main.cpp)
-  target_link_libraries(uia_test PRIVATE AuraLite::UI)
+  target_link_libraries(uia_test PRIVATE MxUI::UI)
   target_compile_definitions(uia_test PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -533,7 +481,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(dpi_test examples/dpi_test/main.cpp)
-  target_link_libraries(dpi_test PRIVATE AuraLite::UI)
+  target_link_libraries(dpi_test PRIVATE MxUI::UI)
   target_compile_definitions(dpi_test PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -543,7 +491,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(dialog_test examples/dialog_test/main.cpp)
-  target_link_libraries(dialog_test PRIVATE AuraLite::UI)
+  target_link_libraries(dialog_test PRIVATE MxUI::UI)
   target_compile_definitions(dialog_test PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -553,7 +501,7 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 
   add_executable(drag_test examples/drag_test/main.cpp)
-  target_link_libraries(drag_test PRIVATE AuraLite::UI)
+  target_link_libraries(drag_test PRIVATE MxUI::UI)
   target_compile_definitions(drag_test PRIVATE
     NOMINMAX UNICODE _UNICODE
     WINVER=0x0A00 _WIN32_WINNT=0x0A00
@@ -563,40 +511,15 @@ if(AURALITE_BUILD_UI_DEMOS)
   endif()
 endif()
 
-option(AURALITE_BUILD_TESTS "Build test_base / test_view" ON)
-if(AURALITE_BUILD_TESTS AND AURALITE_BUILD_BASE)
+option(MXUI_BUILD_TESTS "Build test_base" ON)
+if(MXUI_BUILD_TESTS AND MXUI_BUILD_BASE)
   add_executable(test_base test_base/main.cpp)
-  target_link_libraries(test_base PRIVATE AuraLite::Base)
+  target_link_libraries(test_base PRIVATE MxUI::Base)
   set_target_properties(test_base PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
   if(MSVC)
     target_compile_options(test_base PRIVATE /W3)
   endif()
 endif()
-if(AURALITE_BUILD_TESTS AND AURALITE_BUILD_UILEGACY)
-  add_executable(test_view WIN32
-    test_view/main.cpp
-    test_view/test_view.rc
-  )
-  target_link_libraries(test_view PRIVATE AuraLite::UILegacy AuraLite::Base)
-  set_target_properties(test_view PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
-  if(MSVC)
-    target_compile_options(test_view PRIVATE /W3)
-  endif()
 
-  add_executable(test_dwrite test_dwrite/main.cpp)
-  target_link_libraries(test_dwrite PRIVATE AuraLite::UILegacy AuraLite::Base)
-  set_target_properties(test_dwrite PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
-  if(MSVC)
-    target_compile_options(test_dwrite PRIVATE /W3)
-  endif()
-
-  add_executable(test_wic_bitmap test_wic_bitmap/main.cpp)
-  target_link_libraries(test_wic_bitmap PRIVATE AuraLite::UILegacy AuraLite::Base)
-  set_target_properties(test_wic_bitmap PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
-  if(MSVC)
-    target_compile_options(test_wic_bitmap PRIVATE /W3)
-  endif()
-endif()
-
-message(STATUS "AuraLite outputs: bin|lib/${AURALITE_PLATFORM}/<Config>/")
-message(STATUS "AuraLite Phase-1: D2D canvas + optional legacy Base/UI via CMake")
+message(STATUS "MxUI outputs: bin|lib/${MXUI_PLATFORM}/<Config>/")
+message(STATUS "MxUI: D2D canvas + Base MessageLoop via CMake")

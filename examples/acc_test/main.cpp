@@ -6,23 +6,23 @@
 #include <string>
 #include <vector>
 
-#include "auralite/ui/acc.h"
-#include "auralite/ui/button.h"
-#include "auralite/ui/checkbox.h"
-#include "auralite/ui/column.h"
-#include "auralite/ui/combo.h"
-#include "auralite/ui/factory.h"
-#include "auralite/ui/label.h"
-#include "auralite/ui/list_view.h"
-#include "auralite/ui/progress_bar.h"
-#include "auralite/ui/radio.h"
-#include "auralite/ui/slider.h"
-#include "auralite/ui/switch_control.h"
-#include "auralite/ui/tab.h"
-#include "auralite/ui/text_area.h"
-#include "auralite/ui/text_field.h"
-#include "auralite/ui/tree_view.h"
-#include "auralite/ui/yaml_loader.h"
+#include "mx/ui/acc.h"
+#include "mx/ui/button.h"
+#include "mx/ui/checkbox.h"
+#include "mx/ui/column.h"
+#include "mx/ui/combo.h"
+#include "mx/ui/factory.h"
+#include "mx/ui/label.h"
+#include "mx/ui/list_view.h"
+#include "mx/ui/progress_bar.h"
+#include "mx/ui/radio.h"
+#include "mx/ui/slider.h"
+#include "mx/ui/switch_control.h"
+#include "mx/ui/tab.h"
+#include "mx/ui/text_area.h"
+#include "mx/ui/text_field.h"
+#include "mx/ui/tree_view.h"
+#include "mx/ui/yaml_loader.h"
 
 namespace {
 
@@ -38,7 +38,7 @@ void Expect(const char* name, bool cond) {
 }
 
 void TestLayoutIgnored() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Column col;
   Expect("column ignored", col.acc_role() == AccRole::Ignore);
   Expect("column not included", !col.AccIncluded());
@@ -50,7 +50,7 @@ void TestLayoutIgnored() {
 }
 
 void TestButton() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Button btn;
   btn.text(L"确定");
   Expect("button role", btn.acc_role() == AccRole::Button);
@@ -77,7 +77,7 @@ void TestButton() {
 }
 
 void TestLabelTextField() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Label lab;
   lab.text(L"用户名");
   Expect("label role", lab.acc_role() == AccRole::Text);
@@ -97,7 +97,7 @@ void TestLabelTextField() {
 }
 
 void TestToggleControls() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Checkbox box;
   box.text(L"记住我");
   Expect("checkbox role", box.acc_role() == AccRole::CheckBox);
@@ -120,7 +120,7 @@ void TestToggleControls() {
 }
 
 void TestCollectAndHidden() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   auto root = std::make_unique<Column>();
   auto btn = std::make_unique<Button>();
   btn->text(L"A");
@@ -144,7 +144,7 @@ void TestCollectAndHidden() {
 }
 
 void TestFindSkipsHidden() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   auto root = std::make_unique<Column>();
   auto btn = std::make_unique<Button>();
   btn->text(L"X");
@@ -161,7 +161,7 @@ void TestFindSkipsHidden() {
 }
 
 void TestTabOffstageHidden() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Tab tab;
   auto page0 = std::make_unique<Column>();
   auto a = std::make_unique<Button>();
@@ -194,7 +194,7 @@ void TestTabOffstageHidden() {
 }
 
 void TestYamlAccName() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   ViewFactory factory;
   auto n = LoadYamlString(
       "Button:\n  text: OK\n  acc_name: 确认\n", factory, {});
@@ -215,7 +215,7 @@ void TestYamlAccName() {
 }
 
 void TestComboTextArea() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Combo combo;
   combo.items({L"红", L"绿"});
   combo.selected(1);
@@ -233,7 +233,7 @@ void TestComboTextArea() {
 }
 
 void TestRangeListRoles() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Slider slider;
   slider.value(0.25f).step(0.1f);
   Expect("slider role", slider.acc_role() == AccRole::Slider);

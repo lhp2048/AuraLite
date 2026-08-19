@@ -1,14 +1,14 @@
 #include <cstdio>
 #include <windows.h>
 
-#include "auralite/async/task_lambda.h"
-#include "auralite/ui/button.h"
-#include "auralite/ui/column.h"
-#include "auralite/ui/native_host.h"
-#include "auralite/ui/text_area.h"
-#include "auralite/ui/text_field.h"
-#include "auralite/ui/title_bar.h"
-#include "auralite/ui/window.h"
+#include "mx/async/task_lambda.h"
+#include "mx/ui/button.h"
+#include "mx/ui/column.h"
+#include "mx/ui/native_host.h"
+#include "mx/ui/text_area.h"
+#include "mx/ui/text_field.h"
+#include "mx/ui/title_bar.h"
+#include "mx/ui/window.h"
 #include "base/at_exit.h"
 #include "message_framework/message_loop.h"
 
@@ -28,7 +28,7 @@ void Expect(bool cond, const char* name) {
 }  // namespace
 
 int main() {
-  using auralite::ui::Window;
+  using mx::ui::Window;
 
   {
     Window::WindowOptions o;
@@ -132,8 +132,8 @@ int main() {
   }
 
   {
-    using auralite::ui::Column;
-    using auralite::ui::TitleBar;
+    using mx::ui::Column;
+    using mx::ui::TitleBar;
     Window w;
     Window::WindowOptions o;
     o.caption = false;
@@ -146,18 +146,18 @@ int main() {
     bar->title(L"t");
     root->AddChild(std::move(bar));
     w.SetRoot(std::move(root));
-    w.root()->Layout(auralite::ui::RectF{0.f, 0.f, 360.f, 240.f});
+    w.root()->Layout(mx::ui::RectF{0.f, 0.f, 360.f, 240.f});
     const float dpi = w.dpi();
-    const int x = static_cast<int>(auralite::PxFromDip(40.f, dpi));
-    const int y = static_cast<int>(auralite::PxFromDip(18.f, dpi));
+    const int x = static_cast<int>(mx::PxFromDip(40.f, dpi));
+    const int y = static_cast<int>(mx::PxFromDip(18.f, dpi));
     SendMessageW(w.hwnd(), WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(x, y));
     Expect(w.is_maximized(), "titlebar dblclk maximizes");
     w.Close();
   }
 
   {
-    using auralite::ui::Column;
-    using auralite::ui::TitleBar;
+    using mx::ui::Column;
+    using mx::ui::TitleBar;
     Window w;
     Window::WindowOptions o;
     o.caption = false;
@@ -170,17 +170,17 @@ int main() {
     bar->title(L"t");
     root->AddChild(std::move(bar));
     w.SetRoot(std::move(root));
-    w.root()->Layout(auralite::ui::RectF{0.f, 0.f, 360.f, 240.f});
-    auralite::ui::Node* min = w.root()->FindByName("minimize");
+    w.root()->Layout(mx::ui::RectF{0.f, 0.f, 360.f, 240.f});
+    mx::ui::Node* min = w.root()->FindByName("minimize");
     Expect(min != nullptr, "min slot exists");
     ShowWindow(w.hwnd(), SW_SHOW);
     if (min) {
-      const auralite::ui::RectF b = min->bounds();
+      const mx::ui::RectF b = min->bounds();
       const float dpi = w.dpi();
       const int x =
-          static_cast<int>(auralite::PxFromDip(b.x + b.w * 0.5f, dpi));
+          static_cast<int>(mx::PxFromDip(b.x + b.w * 0.5f, dpi));
       const int y =
-          static_cast<int>(auralite::PxFromDip(b.y + b.h * 0.5f, dpi));
+          static_cast<int>(mx::PxFromDip(b.y + b.h * 0.5f, dpi));
       SendMessageW(w.hwnd(), WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
       SendMessageW(w.hwnd(), WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     }
@@ -189,8 +189,8 @@ int main() {
   }
 
   {
-    using auralite::ui::Column;
-    using auralite::ui::TitleBar;
+    using mx::ui::Column;
+    using mx::ui::TitleBar;
     Window dlg;
     Expect(dlg.Create(L"dlg-dbl", 200, 120, Window::WindowOptions::Dialog()),
            "Create dialog dblclk");
@@ -199,10 +199,10 @@ int main() {
     bar->title(L"d").minimize(false).maximize(false);
     root->AddChild(std::move(bar));
     dlg.SetRoot(std::move(root));
-    dlg.root()->Layout(auralite::ui::RectF{0.f, 0.f, 200.f, 120.f});
+    dlg.root()->Layout(mx::ui::RectF{0.f, 0.f, 200.f, 120.f});
     const float dpi = dlg.dpi();
-    const int x = static_cast<int>(auralite::PxFromDip(40.f, dpi));
-    const int y = static_cast<int>(auralite::PxFromDip(18.f, dpi));
+    const int x = static_cast<int>(mx::PxFromDip(40.f, dpi));
+    const int y = static_cast<int>(mx::PxFromDip(18.f, dpi));
     SendMessageW(dlg.hwnd(), WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(x, y));
     Expect(!dlg.is_maximized(), "dialog dblclk does not maximize");
     dlg.Close();
@@ -251,7 +251,7 @@ int main() {
   EnableWindow(owner.hwnd(), TRUE);
   Expect(dlg.Create(L"dlg", 200, 120, Window::WindowOptions::Dialog(owner.hwnd())),
          "dlg create");
-  auralite::async::PostFn([&] {
+  mx::async::PostFn([&] {
     Expect(!IsWindowEnabled(owner.hwnd()), "owner disabled in modal");
     dlg.EndModal(IDOK);
   });
@@ -260,10 +260,10 @@ int main() {
   DestroyWindow(owner.hwnd());
 
   {
-    using auralite::ui::Button;
-    using auralite::ui::Column;
-    using auralite::ui::TextArea;
-    using auralite::ui::TextField;
+    using mx::ui::Button;
+    using mx::ui::Column;
+    using mx::ui::TextArea;
+    using mx::ui::TextField;
 
     Window w;
     Expect(w.Create(L"def", 280, 160, Window::WindowOptions::Dialog()),
@@ -284,8 +284,8 @@ int main() {
   }
 
   {
-    using auralite::ui::Button;
-    using auralite::ui::Column;
+    using mx::ui::Button;
+    using mx::ui::Column;
 
     Window w;
     Expect(w.Create(L"def2", 280, 160, Window::WindowOptions::Dialog()),
@@ -309,9 +309,9 @@ int main() {
   }
 
   {
-    using auralite::ui::Button;
-    using auralite::ui::Column;
-    using auralite::ui::TextArea;
+    using mx::ui::Button;
+    using mx::ui::Column;
+    using mx::ui::TextArea;
 
     Window w;
     Expect(w.Create(L"def3", 280, 160, Window::WindowOptions::Dialog()),
@@ -332,9 +332,9 @@ int main() {
   }
 
   {
-    using auralite::ui::Button;
-    using auralite::ui::Column;
-    using auralite::ui::TextField;
+    using mx::ui::Button;
+    using mx::ui::Column;
+    using mx::ui::TextField;
 
     Window w;
     Expect(w.Create(L"def4", 280, 160, Window::WindowOptions::Dialog()),
@@ -356,11 +356,11 @@ int main() {
   }
 
   {
-    using auralite::ui::KeyChord;
-    using auralite::ui::KeyEvent;
-    using auralite::ui::ParseKeyChord;
+    using mx::ui::KeyChord;
+    using mx::ui::KeyEvent;
+    using mx::ui::ParseKeyChord;
 
-    auralite::ui::KeyChord chord;
+    mx::ui::KeyChord chord;
     Expect(ParseKeyChord("Ctrl+S", &chord) && chord.vk == 'S' && chord.ctrl &&
                !chord.alt && !chord.shift,
            "Parse Ctrl+S");
@@ -373,10 +373,10 @@ int main() {
   }
 
   {
-    using auralite::ui::Button;
-    using auralite::ui::Column;
-    using auralite::ui::KeyEvent;
-    using auralite::ui::TextField;
+    using mx::ui::Button;
+    using mx::ui::Column;
+    using mx::ui::KeyEvent;
+    using mx::ui::TextField;
 
     Window w;
     Expect(w.Create(L"accel", 280, 160, Window::WindowOptions::Dialog()),
@@ -418,8 +418,8 @@ int main() {
   }
 
   {
-    using auralite::ui::Column;
-    using auralite::ui::NativeHost;
+    using mx::ui::Column;
+    using mx::ui::NativeHost;
     Window w;
     Window::WindowOptions o;
     o.quit_on_close = false;
@@ -435,7 +435,7 @@ int main() {
     host->fixed_height(80.f);
     root->AddChild(std::move(host));
     w.SetRoot(std::move(root));
-    w.root()->Layout(auralite::ui::RectF{0.f, 0.f, 240.f, 160.f});
+    w.root()->Layout(mx::ui::RectF{0.f, 0.f, 240.f, 160.f});
     ph->AttachBorrowed(guest);
     Expect(ph->hwnd() == guest, "Attach stores hwnd");
     Expect(!ph->owns_hwnd(), "borrowed does not own");
@@ -454,8 +454,8 @@ int main() {
   }
 
   {
-    using auralite::ui::Column;
-    using auralite::ui::NativeHost;
+    using mx::ui::Column;
+    using mx::ui::NativeHost;
     Window w;
     Window::WindowOptions o;
     o.quit_on_close = false;
@@ -470,7 +470,7 @@ int main() {
     host->fixed_height(80.f);
     root->AddChild(std::move(host));
     w.SetRoot(std::move(root));
-    w.root()->Layout(auralite::ui::RectF{0.f, 0.f, 240.f, 160.f});
+    w.root()->Layout(mx::ui::RectF{0.f, 0.f, 240.f, 160.f});
     ph->Attach(guest);
     Expect(ph->owns_hwnd(), "Attach owns by default");
     w.Close();
@@ -478,8 +478,8 @@ int main() {
   }
 
   {
-    using auralite::ui::Column;
-    using auralite::ui::NativeHost;
+    using mx::ui::Column;
+    using mx::ui::NativeHost;
     Window w;
     Window::WindowOptions o;
     o.quit_on_close = false;
@@ -493,7 +493,7 @@ int main() {
     host->fixed_height(80.f);
     root->AddChild(std::move(host));
     w.SetRoot(std::move(root));
-    w.root()->Layout(auralite::ui::RectF{0.f, 0.f, 240.f, 160.f});
+    w.root()->Layout(mx::ui::RectF{0.f, 0.f, 240.f, 160.f});
     ph->Attach(guest);
     HWND released = ph->Release();
     Expect(released == guest, "Release returns hwnd");

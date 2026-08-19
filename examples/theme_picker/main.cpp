@@ -6,11 +6,11 @@
 #include <memory>
 #include <string>
 
-#include "auralite/ui.h"
+#include "mx/ui.h"
 
 namespace {
 
-using namespace auralite::ui;
+using namespace mx::ui;
 
 constexpr char kCustomTheme[] = "custom";
 

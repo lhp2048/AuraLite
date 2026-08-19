@@ -1,4 +1,4 @@
-# AuraLite 界面库评估
+# MxUI 界面库评估
 
 **版本：** 3.x（`master`）  
 **评估日期：** 2026-08-19  
@@ -53,7 +53,7 @@
 
 | 项    | 状态                                                       |
 | ---- | -------------------------------------------------------- |
-| 源码   | `auralite/ui/color_picker.{h,cpp}`                       |
+| 源码   | `mx/ui/color_picker.{h,cpp}`                       |
 | 接入   | `factory` · `dsl` · `ui.h` · CMake                       |
 | 能力   | `mode: simple|full`；`alpha`；YAML `#RRGGBB` / `#RRGGBBAA` |
 | 要求   | `BindWindow`（与 DatePicker 相同 popup 模型）                   |
@@ -68,7 +68,7 @@
 
 | 项    | 状态                                                           |
 | ---- | ------------------------------------------------------------ |
-| 源码   | `auralite/ui/data_grid.{h,cpp}`（继承 `VirtualList`）            |
+| 源码   | `mx/ui/data_grid.{h,cpp}`（继承 `VirtualList`）            |
 | 接入   | `factory` · `dsl` · `ui.h` · CMake                           |
 | 能力   | 表头、列宽拖拽、冻结列、虚拟滚动、内置 `cells_`、文本单元格编辑、**默认排序** |
 | 编辑   | 双击 / F2 / Enter；`BindWindow`；点外部提交；Esc 取消                    |
@@ -96,7 +96,7 @@
 ## 与常见库对照（预期管理）
 
 
-| 能力          | AuraLite 3.x | Qt Widgets | WinUI 3 |
+| 能力          | MxUI 3.x | Qt Widgets | WinUI 3 |
 | ----------- | ------------ | ---------- | ------- |
 | 跨平台         | ✗            | ✓          | ✗       |
 | 依赖体积        | 小（静态 lib）    | 大          | 中       |
@@ -138,7 +138,7 @@ README 边界表 intentional，**不是待办 backlog**：
 **验证命令：**
 
 ```powershell
-cmake --build build --config Debug --target ui_gallery widget_test auralite_ui
+cmake --build build --config Debug --target ui_gallery widget_test mx_ui
 .\bin\x64\Debug\widget_test.exe
 .\bin\x64\Debug\ui_gallery.exe
 .\bin\x64\Debug\ui_gallery.exe --check
@@ -163,5 +163,5 @@ cmake --build build --config Debug --target ui_gallery widget_test auralite_ui
 
 ## 一句话
 
-> AuraLite 3.x：**8.4 分**的 Windows 轻量界面库——标准件齐、双轨声明式成熟，**DataGrid / ColorPicker 已纳入正式控件面**；短板仍在 enterprise 表格、富文本与项级无障碍，以及非 Win32 生态。
+> MxUI 3.x：**8.4 分**的 Windows 轻量界面库——标准件齐、双轨声明式成熟，**DataGrid / ColorPicker 已纳入正式控件面**；短板仍在 enterprise 表格、富文本与项级无障碍，以及非 Win32 生态。
 

@@ -4,18 +4,18 @@
 #include <cstdlib>
 #include <string>
 
-#include "auralite/ui/civil_date.h"
-#include "auralite/ui/color_picker.h"
-#include "auralite/ui/data_grid.h"
-#include "auralite/ui/date_picker.h"
-#include "auralite/ui/button.h"
-#include "auralite/ui/column.h"
-#include "auralite/ui/factory.h"
-#include "auralite/ui/menu_bar.h"
-#include "auralite/ui/menu_item.h"
-#include "auralite/ui/spin_box.h"
-#include "auralite/ui/status_bar.h"
-#include "auralite/ui/yaml_loader.h"
+#include "mx/ui/civil_date.h"
+#include "mx/ui/color_picker.h"
+#include "mx/ui/data_grid.h"
+#include "mx/ui/date_picker.h"
+#include "mx/ui/button.h"
+#include "mx/ui/column.h"
+#include "mx/ui/factory.h"
+#include "mx/ui/menu_bar.h"
+#include "mx/ui/menu_item.h"
+#include "mx/ui/spin_box.h"
+#include "mx/ui/status_bar.h"
+#include "mx/ui/yaml_loader.h"
 
 namespace {
 
@@ -31,7 +31,7 @@ void Expect(const char* name, bool cond) {
 }
 
 void TestCivilDate() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Expect("leap 2024", IsLeapYear(2024));
   Expect("not leap 2025", !IsLeapYear(2025));
   Expect("feb 2024", DaysInMonth(2024, 2) == 29);
@@ -48,7 +48,7 @@ void TestCivilDate() {
 }
 
 void TestSpinBox() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   SpinBox spin;
   spin.min_value(0).max_value(10).step(1).value(3);
   Expect("spin role", spin.acc_role() == AccRole::Spinner);
@@ -59,7 +59,7 @@ void TestSpinBox() {
 }
 
 void TestDatePicker() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   DatePicker dp;
   dp.year(2026).month(8).day(18);
   Expect("date role combo", dp.acc_role() == AccRole::ComboBox);
@@ -77,9 +77,9 @@ void TestDatePicker() {
 }
 
 void TestColorPicker() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   ColorPicker cp;
-  cp.color(auralite::ColorF::FromRgb(40, 110, 200));
+  cp.color(mx::ColorF::FromRgb(40, 110, 200));
   Expect("color role combo", cp.acc_role() == AccRole::ComboBox);
   Expect("color hex", cp.hex() == L"#286EC8");
   Expect("color set hex", cp.set_hex(L"#FF0000") && cp.hex() == L"#FF0000");
@@ -92,7 +92,7 @@ void TestColorPicker() {
 }
 
 void TestDataGrid() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   DataGrid grid;
   grid.columns({{L"A", 80.f}, {L"B", 80.f}});
   grid.set_row_count(2);
@@ -223,7 +223,7 @@ void TestDataGrid() {
 }
 
 void TestBars() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   MenuBar bar;
   bar.add_menu(L"文件", {{L"打开"}, {L"-", {}, true}, {L"退出"}});
   bar.add_menu(L"编辑", {{L"复制"}});
@@ -255,7 +255,7 @@ void TestBars() {
 }
 
 void TestYaml() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   ViewFactory factory;
   auto spin = LoadYamlString("SpinBox:\n  value: 3\n  min: 0\n  max: 10\n",
                              factory, {});

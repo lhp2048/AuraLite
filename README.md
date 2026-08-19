@@ -1,33 +1,34 @@
-# AuraLite
+# MxUI
 
-Windows 声明式 UI 库。定位：**轻量、现代、快捷**。
+Windows 声明式 UI 库（MX 品牌）。定位：**轻量、现代、快捷**。
 
-本文描述 **3.x**（`master`）：`auralite::ui` 控件树 + Direct2D 画布 + YAML / C++ fluent 双轨。
+曾用名 AuraLite；GitHub 仓库路径暂仍为 `lhp2048/AuraLite`，Family 子模块目录暂为 `3rd-party/AuraLite`。
+
+本文描述 **3.x**（`master`）：`mx::ui` 控件树 + Direct2D 画布 + YAML / C++ fluent 双轨。
 
 | 版本 | 内容 |
 |------|------|
 | **1.x** / **2.x** | Views（GDI+ / D2D），用法不同 |
-| **3.x**（当前） | 本仓库默认：`auralite::` / `AuraLite::UI` |
-| **4.x** | 更名（仓库、命名空间、产物与「AuraLite」脱钩）；控件与契约以 3.x 为准 |
+| **3.x**（当前） | `mx::` / `MxUI::UI`（由 AuraLite 更名，契约不变） |
 
 上游：https://github.com/lhp2048/AuraLite
 
 | 文档 | 内容 |
 |------|------|
 | [`LAYOUT.md`](LAYOUT.md) | Column / Row / Absolute、`h_align` / `v_align`、锚点、Fill/Hug |
-| [`CODING.md`](CODING.md) | 编码风格（`auralite/` 新栈 vs legacy） |
+| [`CODING.md`](CODING.md) | 编码风格（`mx/` 新栈 vs legacy） |
 | [`WIN7.md`](WIN7.md) | 可选 Win7 特殊编译（默认不做） |
 | [`LIBRARY_SCORE.md`](LIBRARY_SCORE.md) | 界面库评估（维度分、DataGrid/ColorPicker、边界） |
 
 ## 这是什么
 
-- 一层 **控件树**，在 `auralite::Canvas` 上自绘（Direct2D + DirectWrite + WIC）。
+- 一层 **控件树**，在 `mx::Canvas` 上自绘（Direct2D + DirectWrite + WIC）。
 - **YAML 与 C++ fluent** 同一套布局和属性；`ui_gallery --check` 要求 Dump 对齐。
 - 单位 **DIP**（96 DIP = 1 逻辑英寸）。`Window::Create(w, h)` 是 DIP；Per-Monitor V2 下 `WM_DPICHANGED` 重布局。
 - **主题**：稀疏色 > 窗口 `set_theme` / `window.theme` > 进程 `Theme::SetActive`。弹出层跟所属窗口。
-- 应用 include：`#include "auralite/ui.h"`。C++20，链 `AuraLite::UI`（传递 `AuraLite::D2D`、yaml-cpp、`AuraLite::Base`）。
+- 应用 include：`#include "mx/ui.h"`。C++20，链 `MxUI::UI`（传递 `MxUI::D2D`、yaml-cpp、`MxUI::Base`）。
 
-默认 **不编译** `AuraLite.UILegacy`。禁止 `#include` `view_framework`，禁止链接 `AuraLite.UILegacy.lib`。
+默认已移除 Chromium Views（`view_framework` / `gfx` / `animation`）。MessageLoop 在 `Mx.Base`（`base/` + `message_framework/`）。
 
 ## 边界
 
@@ -49,21 +50,21 @@ Windows 声明式 UI 库。定位：**轻量、现代、快捷**。
 应用侧一个头即可：
 
 ```cpp
-#include "auralite/ui.h"
+#include "mx/ui.h"
 ```
 
 这是公开面的索引（控件、窗、主题、YAML、DSL、绑定、reactive、async）。单头仍可按文件 include，路径与下表一致。
 
 | 组 | 头文件 |
 |----|--------|
-| 入口 | `auralite/ui.h` |
-| 画布 | `auralite/canvas.h` |
-| 宿主 | `auralite/ui/application.h` · `window.h` · `theme.h` · `theme_yaml.h` · `types.h` · `acc.h` · `anim.h` · `node.h` |
+| 入口 | `mx/ui.h` |
+| 画布 | `mx/canvas.h` |
+| 宿主 | `mx/ui/application.h` · `window.h` · `theme.h` · `theme_yaml.h` · `types.h` · `acc.h` · `anim.h` · `node.h` |
 | 布局 | `column.h` · `row.h` · `tile.h` · `tab.h` · `absolute.h` · `split_view.h` · `scroll_view.h` |
 | 控件 | `title_bar.h` · `label.h` · `button.h` · `image_button.h` · `image_view.h` · `text_field.h` · `text_area.h` · `checkbox.h` · `radio.h` · `switch_control.h` · `progress_bar.h` · `slider.h` · `combo.h` · `spin_box.h` · `date_picker.h` · `color_picker.h` · `civil_date.h` · `menu_bar.h` · `menu_item.h` · `status_bar.h` · `list_view.h` · `item_list.h` · `virtual_list.h` · `data_grid.h` · `tree_view.h` · `list_columns.h` · `user_control.h` · `native_host.h` · `toast.h` · `submenu.h` · `popup_host.h` · `context_menu.h` · `text_layout.h` |
 | 声明 | `factory.h` · `yaml_loader.h` · `dsl.h` · `bind.h` |
-| 绑定 | `auralite/reactive/signal.h` · `observe.h` |
-| 异步 | `auralite/async/awaiters.h` |
+| 绑定 | `mx/reactive/signal.h` · `observe.h` |
+| 异步 | `mx/async/awaiters.h` |
 
 **不要从应用 include（内部实现）：** `ui/tooltip_overlay.h`、`ui/toast_overlay.h`、`ui/uia/provider.h`、`ui/vertical_scrollbar.h`、`ui/horizontal_scrollbar.h`、`reactive/detail/tracker.h`、`async/task_lambda.h`。Tooltip 用 `Node::tooltip()`；Toast 用 `Window` / `Toast` 控件。滚动条随列表 / `ScrollView`。
 
@@ -71,7 +72,7 @@ Windows 声明式 UI 库。定位：**轻量、现代、快捷**。
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Debug --target ui_gallery ui_layout_test auralite_ui
+cmake --build build --config Debug --target ui_gallery ui_layout_test mx_ui
 .\bin\x64\Debug\ui_gallery.exe
 .\bin\x64\Debug\ui_gallery.exe --fluent
 .\bin\x64\Debug\ui_gallery.exe --check
@@ -91,16 +92,13 @@ cmake --build build --config Debug --target ui_gallery ui_layout_test auralite_u
 
 | 目标 | 说明 | 产物 |
 |------|------|------|
-| `auralite_d2d` (`AuraLite::D2D`) | `auralite::Canvas` / `Image` | `auralite_d2d.lib` |
-| `auralite_ui` (`AuraLite::UI`) | 控件树 + YAML + DSL + reactive/async | `AuraLite.UI.lib` |
-| `AuraLite.Base` | MessageLoop（新栈依赖） | `AuraLite.Base.lib` |
-| `AuraLite.UILegacy` | 冻结的 Chromium Views，默认关闭 | `AuraLite.UILegacy.lib` |
+| `mx_d2d` (`MxUI::D2D`) | `mx::Canvas` / `Image` | `mx_d2d.lib` |
+| `mx_ui` (`MxUI::UI`) | 控件树 + YAML + DSL + reactive/async | `Mx.UI.lib` |
+| `Mx.Base` | MessageLoop（新栈依赖，不能删） | `Mx.Base.lib` |
 
 CMake 开关：
 
-- `AURALITE_BUILD_BASE` 默认 ON（MessageLoop）
-- `AURALITE_BUILD_UILEGACY` 默认 OFF
-- 旧别名 `AURALITE_BUILD_LEGACY=ON` 会打开 Views；`OFF` 只关 Views，不关 Base
+- `MXUI_BUILD_BASE` 默认 ON（MessageLoop；`mx_ui` 需要它）
 
 ## YAML 子集
 
@@ -125,8 +123,8 @@ Column:
 C++ 等价：
 
 ```cpp
-#include "auralite/ui.h"
-using namespace auralite::ui::dsl;
+#include "mx/ui.h"
+using namespace mx::ui::dsl;
 auto root = Column()
     .fill_width()
     .fill_height()
@@ -147,7 +145,7 @@ auto root = Column()
 
 ### 与 DuiLib 对照
 
-| DuiLib | AuraLite |
+| DuiLib | MxUI |
 |--------|----------|
 | Vertical / HorizontalLayout | `Column` / `Row` + weight + h_align / v_align |
 | TileLayout | `Tile` |
@@ -234,16 +232,16 @@ TitleBar:
 
 | 模块 | 说明 |
 |------|------|
-| `auralite::reactive` | `Signal` / `Computed` / `Observe` / `Batch`（**仅 UI 线程**，Debug assert） |
-| `auralite::async` | `ResumeOnUi` / `Delay` / `RunAsync` / `SpawnUi`（挂 `MessageLoopForUI`） |
+| `mx::reactive` | `Signal` / `Computed` / `Observe` / `Batch`（**仅 UI 线程**，Debug assert） |
+| `mx::async` | `ResumeOnUi` / `Delay` / `RunAsync` / `SpawnUi`（挂 `MessageLoopForUI`） |
 | 绑定 | 单向 `BindText` / `BindVisible` / `BindEnabled` / `BindChecked` / `BindValue` / `BindItems`；写回用控件事件 |
 
 关窗后不再 resume：把 `Window::alive_flag()` 传给 `Delay` / `RunAsync`。**MSVC 禁止用临时 lambda 启动协程**，用自由函数或具名可调用对象。
 
 ```cpp
-using namespace auralite::reactive;
-using namespace auralite::ui;
-using namespace auralite::async;
+using namespace mx::reactive;
+using namespace mx::ui;
+using namespace mx::async;
 
 Signal<int> n{0};
 Computed<std::wstring> text{[&] {
@@ -281,13 +279,12 @@ cmake --build build --config Debug --target ui_gallery ui_layout_test theme_test
 ## 目录
 
 ```
-AuraLite/
-  auralite/           # 新栈：ui / reactive / async / canvas
+MxUI/
+  mx/                 # 新栈：ui / reactive / async / canvas
   examples/           # gallery、login、各类 *_test
   cmake/
   LAYOUT.md  README.md  CODING.md
-  base/  message_framework/   # AuraLite.Base
-  gfx/  animation/  view_framework/   # UILegacy，默认不编
+  base/  message_framework/   # Mx.Base（MessageLoop，新栈依赖）
   lib/<Platform>/<Config>/
   bin/<Platform>/<Config>/
 ```
@@ -300,9 +297,9 @@ AuraLite/
 | 平台 | x64（亦可 Win32） |
 | 配置 | Debug / Release |
 | CRT | `/MD`（Debug `/MDd`） |
-| 新栈语言 | C++20（`AuraLite::UI`） |
-| Base / UILegacy | C++14 |
+| 新栈语言 | C++20（`MxUI::UI`） |
+| Base（MessageLoop） | C++14 |
 | 新栈系统宏 | `WINVER` / `_WIN32_WINNT` = `0x0A00` |
 | 库形态 | 静态库 |
 
-接入应用：头文件搜索路径加本仓库根目录；链接 `AuraLite.UI.lib` + `AuraLite.Base.lib` + `auralite_d2d.lib`，以及 `d2d1`、`dwrite`、`windowscodecs`、`msimg32`、`dwmapi`、`imm32`、`shcore`、`UIAutomationCore` 等。预处理器：`AURALITE_STATIC`、`NOMINMAX`、`_WIN32_WINNT=0x0A00`。
+接入应用：头文件搜索路径加本仓库根目录；链接 `Mx.UI.lib` + `Mx.Base.lib` + `mx_d2d.lib`，以及 `d2d1`、`dwrite`、`windowscodecs`、`msimg32`、`dwmapi`、`imm32`、`shcore`、`UIAutomationCore` 等。预处理器：`MXUI_STATIC`、`NOMINMAX`、`_WIN32_WINNT=0x0A00`。

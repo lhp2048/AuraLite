@@ -9,14 +9,14 @@
 #include <cwctype>
 #include <string>
 
-#include "auralite/ui.h"
+#include "mx/ui.h"
 
 namespace {
 
 using Microsoft::WRL::Callback;
 using Microsoft::WRL::ComPtr;
 
-constexpr wchar_t kHostClass[] = L"AuraLite.WebViewHost";
+constexpr wchar_t kHostClass[] = L"MxUI.WebViewHost";
 constexpr wchar_t kHome[] = L"https://www.bing.com/";
 
 std::wstring Trim(std::wstring s) {
@@ -47,7 +47,7 @@ std::wstring UserDataFolder() {
   if (n == 0 || n >= MAX_PATH) {
     return {};
   }
-  std::wstring root = std::wstring(appdata) + L"\\AuraLite";
+  std::wstring root = std::wstring(appdata) + L"\\MxUI";
   std::wstring dir = root + L"\\webview_browser";
   CreateDirectoryW(root.c_str(), nullptr);
   CreateDirectoryW(dir.c_str(), nullptr);
@@ -55,9 +55,9 @@ std::wstring UserDataFolder() {
 }
 
 struct BrowserApp {
-  auralite::ui::Window window;
-  auralite::ui::TextField* url = nullptr;
-  auralite::ui::TitleBar* bar = nullptr;
+  mx::ui::Window window;
+  mx::ui::TextField* url = nullptr;
+  mx::ui::TitleBar* bar = nullptr;
   HWND host = nullptr;
   WNDPROC host_prev = nullptr;
   ComPtr<ICoreWebView2Controller> controller;
@@ -152,7 +152,7 @@ std::wstring UserDataOrTemp() {
   }
   wchar_t tmp[MAX_PATH] = {};
   GetTempPathW(MAX_PATH, tmp);
-  return std::wstring(tmp) + L"AuraLiteWebView";
+  return std::wstring(tmp) + L"MxUIWebView";
 }
 
 HRESULT StartWebView(BrowserApp* app) {
@@ -241,11 +241,11 @@ HRESULT StartWebView(BrowserApp* app) {
 }  // namespace
 
 int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
-  auralite::ui::Application::EnableDpiAwareness();
+  mx::ui::Application::EnableDpiAwareness();
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   BrowserApp app;
-  auralite::ui::Window::WindowOptions opt;
+  mx::ui::Window::WindowOptions opt;
   opt.caption = false;
   opt.resizable = true;
   opt.corner_radius = 8.f;
@@ -253,24 +253,24 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
   opt.quit_on_close = true;
   opt.min_width = 480;
   opt.min_height = 320;
-  if (!app.window.Create(L"AuraLite Browser", 960, 640, opt)) {
+  if (!app.window.Create(L"MxUI Browser", 960, 640, opt)) {
     MessageBoxW(nullptr, L"Window / Canvas init failed", L"webview_browser",
                 MB_ICONERROR);
     CoUninitialize();
     return 1;
   }
 
-  using namespace auralite::ui::dsl;
+  using namespace mx::ui::dsl;
 
   auto url_b = TextField();
   url_b.text(kHome).placeholder(L"输入网址，回车打开").font_size(13.f);
   app.url = url_b.get();
   auto go_b = Button();
   go_b.text(L"转到").hug_width().fixed_height(32.f).is_default(true);
-  auralite::ui::Button* go = go_b.get();
+  mx::ui::Button* go = go_b.get();
   auto host_b = NativeHost();
   host_b.name("webview").fill_width().fill_height();
-  auralite::ui::NativeHost* native = host_b.get();
+  mx::ui::NativeHost* native = host_b.get();
   auto bar_b = TitleBar();
   bar_b.title(L"浏览器");
   app.bar = bar_b.get();
@@ -288,7 +288,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
                                     .fill_width()
                                     .padding(8.f, 6.f, 8.f, 6.f)
                                     .spacing(8.f)
-                                    .v_align(auralite::ui::Align::Center)
+                                    .v_align(mx::ui::Align::Center)
                                     .child(std::move(url_b))
                                     .child(std::move(go_b)))
                          .child(std::move(host_b))
@@ -315,7 +315,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
 
   ShowWindow(app.window.hwnd(), show);
   UpdateWindow(app.window.hwnd());
-  const int code = auralite::ui::Application::Run();
+  const int code = mx::ui::Application::Run();
   app.CloseWeb();
   CoUninitialize();
   return code;

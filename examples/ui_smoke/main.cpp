@@ -6,24 +6,24 @@
 #include <vector>
 #include <exception>
 
-#include "auralite/ui/application.h"
-#include "auralite/ui/button.h"
-#include "auralite/ui/checkbox.h"
-#include "auralite/ui/column.h"
-#include "auralite/ui/context_menu.h"
-#include "auralite/ui/dsl.h"
-#include "auralite/ui/factory.h"
-#include "auralite/ui/image_button.h"
-#include "auralite/ui/image_view.h"
-#include "auralite/ui/label.h"
-#include "auralite/ui/list_view.h"
-#include "auralite/ui/radio.h"
-#include "auralite/ui/row.h"
-#include "auralite/ui/scroll_view.h"
-#include "auralite/ui/split_view.h"
-#include "auralite/ui/switch_control.h"
-#include "auralite/ui/text_field.h"
-#include "auralite/ui/window.h"
+#include "mx/ui/application.h"
+#include "mx/ui/button.h"
+#include "mx/ui/checkbox.h"
+#include "mx/ui/column.h"
+#include "mx/ui/context_menu.h"
+#include "mx/ui/dsl.h"
+#include "mx/ui/factory.h"
+#include "mx/ui/image_button.h"
+#include "mx/ui/image_view.h"
+#include "mx/ui/label.h"
+#include "mx/ui/list_view.h"
+#include "mx/ui/radio.h"
+#include "mx/ui/row.h"
+#include "mx/ui/scroll_view.h"
+#include "mx/ui/split_view.h"
+#include "mx/ui/switch_control.h"
+#include "mx/ui/text_field.h"
+#include "mx/ui/window.h"
 
 namespace {
 
@@ -56,46 +56,46 @@ std::vector<uint8_t> MakeSolidBgra(UINT size, uint8_t b, uint8_t g, uint8_t r) {
 }  // namespace
 
 int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
-  auralite::ui::Application::EnableDpiAwareness();
+  mx::ui::Application::EnableDpiAwareness();
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
-  auralite::ui::Window window;
-  if (!window.Create(L"AuraLite UI Smoke", 720, 980)) {
+  mx::ui::Window window;
+  if (!window.Create(L"MxUI UI Smoke", 720, 980)) {
     MessageBoxW(nullptr, L"Window / Canvas init failed", L"ui_smoke",
                 MB_ICONERROR);
     CoUninitialize();
     return 1;
   }
 
-  auralite::ui::ContextMenu context_menu;
+  mx::ui::ContextMenu context_menu;
   context_menu.AddItem(1, L"Refresh status")
       .AddSeparator()
-      .AddItem(2, L"About AuraLite")
+      .AddItem(2, L"About MxUI")
       .AddItem(3, L"Reset split ratio");
 
-  auto root = std::make_unique<auralite::ui::Column>();
-  auralite::ui::Column* root_ptr = root.get();
+  auto root = std::make_unique<mx::ui::Column>();
+  mx::ui::Column* root_ptr = root.get();
   root->padding(24.f).spacing(10.f);
 
   {
-    auto title = std::make_unique<auralite::ui::Label>();
-    title->text(L"AuraLite Phase 2 — ViewFactory / YAML / DSL")
+    auto title = std::make_unique<mx::ui::Label>();
+    title->text(L"MxUI Phase 2 — ViewFactory / YAML / DSL")
         .font_size(20.f)
-        .align(auralite::ui::TextAlign::Left);
+        .align(mx::ui::TextAlign::Left);
     root->AddChild(std::move(title));
   }
 
-  auto status = std::make_unique<auralite::ui::Label>();
-  auralite::ui::Label* status_ptr = status.get();
+  auto status = std::make_unique<mx::ui::Label>();
+  mx::ui::Label* status_ptr = status.get();
   status->text(L"Drag the split · right-click for ContextMenu")
       .font_size(14.f)
-      .color(auralite::ColorF::FromRgb(90, 100, 120))
-      .align(auralite::ui::TextAlign::Left);
+      .color(mx::ColorF::FromRgb(90, 100, 120))
+      .align(mx::ui::TextAlign::Left);
   root->AddChild(std::move(status));
 
   // Mini YAML vs DSL tree smoke (same shape + key props: Column → Label + Button).
   {
-    using namespace auralite::ui::dsl;
+    using namespace mx::ui::dsl;
     auto dsl_tree =
         Column()
             .padding(8.f)
@@ -113,7 +113,7 @@ Column:
     - Button: { text: "Mini Button", width: 140, height: 36, on_click: yaml_click }
 )";
 
-    auralite::ui::HandlerMap handlers;
+    mx::ui::HandlerMap handlers;
     handlers["yaml_click"] = [status_ptr, &window]() {
       if (status_ptr) {
         status_ptr->text(L"YAML Button clicked (HandlerMap)");
@@ -121,8 +121,8 @@ Column:
       window.Invalidate();
     };
 
-    auralite::ui::ViewFactory factory;
-    std::unique_ptr<auralite::ui::Node> yaml_tree;
+    mx::ui::ViewFactory factory;
+    std::unique_ptr<mx::ui::Node> yaml_tree;
     try {
       yaml_tree = factory.CreateFromYamlString(kMiniYaml, handlers);
     } catch (const std::exception& ex) {
@@ -131,9 +131,9 @@ Column:
 
     if (yaml_tree) {
       const std::string dsl_dump =
-          auralite::ui::ViewFactory::DumpTree(dsl_tree.get());
+          mx::ui::ViewFactory::DumpTree(dsl_tree.get());
       const std::string yaml_dump =
-          auralite::ui::ViewFactory::DumpTree(yaml_tree.get());
+          mx::ui::ViewFactory::DumpTree(yaml_tree.get());
       const bool same_tree = (dsl_dump == yaml_dump);
       if (status_ptr) {
         status_ptr->text(same_tree
@@ -144,19 +144,19 @@ Column:
     }
   }
 
-  auralite::ui::SplitView* split_ptr = nullptr;
+  mx::ui::SplitView* split_ptr = nullptr;
   {
-    auto left = std::make_unique<auralite::ui::Label>();
+    auto left = std::make_unique<mx::ui::Label>();
     left->text(L"Left pane\n(drag divider →)")
         .font_size(14.f)
-        .align(auralite::ui::TextAlign::Center);
+        .align(mx::ui::TextAlign::Center);
 
-    auto right = std::make_unique<auralite::ui::Label>();
+    auto right = std::make_unique<mx::ui::Label>();
     right->text(L"Right pane")
         .font_size(14.f)
-        .align(auralite::ui::TextAlign::Center);
+        .align(mx::ui::TextAlign::Center);
 
-    auto split = std::make_unique<auralite::ui::SplitView>();
+    auto split = std::make_unique<mx::ui::SplitView>();
     split_ptr = split.get();
     split->preferred_size(480.f, 110.f)
         .set_ratio(0.45f)
@@ -175,9 +175,9 @@ Column:
             status_ptr->text(L"ContextMenu: Refresh");
             break;
           case 2:
-            status_ptr->text(L"ContextMenu: About AuraLite UI");
+            status_ptr->text(L"ContextMenu: About MxUI UI");
             MessageBoxW(window.hwnd(),
-                        L"AuraLite Phase 2\nSplitView + ContextMenu",
+                        L"MxUI Phase 2\nSplitView + ContextMenu",
                         L"About", MB_OK | MB_ICONINFORMATION);
             break;
           case 3:
@@ -202,15 +202,15 @@ Column:
       });
 
   {
-    auto label = std::make_unique<auralite::ui::Label>();
+    auto label = std::make_unique<mx::ui::Label>();
     label->text(L"Username")
         .font_size(13.f)
-        .color(auralite::ColorF::FromRgb(70, 80, 95))
+        .color(mx::ColorF::FromRgb(70, 80, 95))
         .preferred_height(20.f);
     root->AddChild(std::move(label));
   }
   {
-    auto field = std::make_unique<auralite::ui::TextField>();
+    auto field = std::make_unique<mx::ui::TextField>();
     field->placeholder(L"Type here (ASCII + IME)…")
         .preferred_size(320.f, 36.f)
         .on_change([status_ptr, &window](const std::wstring& t) {
@@ -223,15 +223,15 @@ Column:
   }
 
   {
-    auto label = std::make_unique<auralite::ui::Label>();
+    auto label = std::make_unique<mx::ui::Label>();
     label->text(L"Password")
         .font_size(13.f)
-        .color(auralite::ColorF::FromRgb(70, 80, 95))
+        .color(mx::ColorF::FromRgb(70, 80, 95))
         .preferred_height(20.f);
     root->AddChild(std::move(label));
   }
   {
-    auto field = std::make_unique<auralite::ui::TextField>();
+    auto field = std::make_unique<mx::ui::TextField>();
     field->password(true)
         .placeholder(L"Password (no copy)")
         .preferred_size(320.f, 36.f);
@@ -239,18 +239,18 @@ Column:
   }
 
   {
-    auto list_label = std::make_unique<auralite::ui::Label>();
+    auto list_label = std::make_unique<mx::ui::Label>();
     list_label->text(L"Scrollable list (30 items)")
         .font_size(13.f)
-        .color(auralite::ColorF::FromRgb(70, 80, 95))
+        .color(mx::ColorF::FromRgb(70, 80, 95))
         .preferred_height(20.f);
     root->AddChild(std::move(list_label));
   }
   {
-    auto list = std::make_unique<auralite::ui::ListView>();
+    auto list = std::make_unique<mx::ui::ListView>();
     for (int i = 1; i <= 30; ++i) {
       wchar_t buf[64];
-      swprintf_s(buf, L"Item %02d — AuraLite ListView", i);
+      swprintf_s(buf, L"Item %02d — MxUI ListView", i);
       list->AddItem(buf);
     }
     list->on_selection_changed([status_ptr, &window](int index) {
@@ -261,13 +261,13 @@ Column:
     });
     list->set_selected_index(0);
 
-    auto scroll = std::make_unique<auralite::ui::ScrollView>();
+    auto scroll = std::make_unique<mx::ui::ScrollView>();
     scroll->preferred_size(400.f, 180.f).set_content(std::move(list));
     root->AddChild(std::move(scroll));
   }
 
   {
-    auto check = std::make_unique<auralite::ui::Checkbox>();
+    auto check = std::make_unique<mx::ui::Checkbox>();
     check->text(L"Enable option")
         .on_changed([status_ptr, &window](bool checked) {
           if (status_ptr) {
@@ -279,10 +279,10 @@ Column:
   }
 
   {
-    auto radio_row = std::make_unique<auralite::ui::Row>();
+    auto radio_row = std::make_unique<mx::ui::Row>();
     radio_row->spacing(16.f);
     {
-      auto radio_a = std::make_unique<auralite::ui::Radio>();
+      auto radio_a = std::make_unique<mx::ui::Radio>();
       radio_a->text(L"Option A")
           .group_id(1)
           .checked(true)
@@ -295,7 +295,7 @@ Column:
       radio_row->AddChild(std::move(radio_a));
     }
     {
-      auto radio_b = std::make_unique<auralite::ui::Radio>();
+      auto radio_b = std::make_unique<mx::ui::Radio>();
       radio_b->text(L"Option B")
           .group_id(1)
           .on_changed([status_ptr, &window](bool checked) {
@@ -310,7 +310,7 @@ Column:
   }
 
   {
-    auto sw = std::make_unique<auralite::ui::Switch>();
+    auto sw = std::make_unique<mx::ui::Switch>();
     sw->text(L"Notifications")
         .on_changed([status_ptr, &window](bool on) {
           if (status_ptr) {
@@ -322,7 +322,7 @@ Column:
   }
 
   {
-    auto click_btn = std::make_unique<auralite::ui::Button>();
+    auto click_btn = std::make_unique<mx::ui::Button>();
     click_btn->text(L"Click me")
         .preferred_size(160.f, 40.f)
         .on_click([status_ptr, &window]() {
@@ -335,11 +335,11 @@ Column:
   }
 
   {
-    auto msg_btn = std::make_unique<auralite::ui::Button>();
+    auto msg_btn = std::make_unique<mx::ui::Button>();
     msg_btn->text(L"MessageBox")
         .preferred_size(160.f, 40.f)
         .on_click([]() {
-          MessageBoxW(nullptr, L"Hello from auralite::ui::Button", L"ui_smoke",
+          MessageBoxW(nullptr, L"Hello from mx::ui::Button", L"ui_smoke",
                       MB_OK | MB_ICONINFORMATION);
         });
     root->AddChild(std::move(msg_btn));
@@ -347,14 +347,14 @@ Column:
 
   {
     const auto checker = MakeCheckerBgra(64, 8);
-    auto image = std::make_unique<auralite::ui::ImageView>();
+    auto image = std::make_unique<mx::ui::ImageView>();
     image->SetPixels(64, 64, checker.data(), 64 * 4).preferred_size(96.f, 96.f);
     root->AddChild(std::move(image));
   }
 
   {
     const auto solid = MakeSolidBgra(32, 70, 160, 50);
-    auto img_btn = std::make_unique<auralite::ui::ImageButton>();
+    auto img_btn = std::make_unique<mx::ui::ImageButton>();
     img_btn->SetPixels(32, 32, solid.data(), 32 * 4)
         .preferred_size(56.f, 56.f)
         .on_click([status_ptr, &window]() {
@@ -372,7 +372,7 @@ Column:
   ShowWindow(window.hwnd(), show);
   UpdateWindow(window.hwnd());
 
-  const int code = auralite::ui::Application::Run();
+  const int code = mx::ui::Application::Run();
   CoUninitialize();
   return code;
 }

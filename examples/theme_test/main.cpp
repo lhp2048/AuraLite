@@ -5,8 +5,8 @@
 #include <fstream>
 #include <string>
 
-#include "auralite/ui/theme.h"
-#include "auralite/ui/theme_yaml.h"
+#include "mx/ui/theme.h"
+#include "mx/ui/theme_yaml.h"
 
 namespace {
 
@@ -21,15 +21,15 @@ void Expect(bool cond, const char* name) {
   }
 }
 
-bool ColorNear(const auralite::ColorF& c, float r, float g, float b, float a,
+bool ColorNear(const mx::ColorF& c, float r, float g, float b, float a,
                float eps = 0.01f) {
   return std::fabs(c.r - r) < eps && std::fabs(c.g - g) < eps &&
          std::fabs(c.b - b) < eps && std::fabs(c.a - a) < eps;
 }
 
 void TestParseColorHex() {
-  using auralite::ColorF;
-  using auralite::ui::ParseColorHex;
+  using mx::ColorF;
+  using mx::ui::ParseColorHex;
 
   ColorF c{};
   ColorF sentinel = ColorF::FromRgb(1, 2, 3, 4);
@@ -52,7 +52,7 @@ void TestParseColorHex() {
 }
 
 void TestRegisterSetActive() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
 
   Expect(!Theme::Register("", MakeBuiltInLightTokens()), "reject empty name");
 
@@ -74,14 +74,14 @@ void TestRegisterSetActive() {
   Expect(Theme::ActiveName() == "dark", "still dark after fail");
 
   ThemeTokens patched = MakeBuiltInDarkTokens();
-  patched.accent = auralite::ColorF::FromRgb(255, 0, 0);
+  patched.accent = mx::ColorF::FromRgb(255, 0, 0);
   Expect(Theme::Register("dark", patched), "re-register active");
   Expect(ColorNear(Theme::Active().accent, 1.f, 0.f, 0.f, 1.f),
          "active refreshed on re-register");
 }
 
 void TestRegisterFromFileMerge() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
 
   const char* path = "theme_test_overlay.yaml";
   {
@@ -118,7 +118,7 @@ void TestRegisterFromFileMerge() {
 }
 
 void TestWindowScope() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
 
   Theme::RegisterBuiltInLight();
   Theme::RegisterBuiltInDark();

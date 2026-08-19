@@ -1,4 +1,4 @@
-#include "auralite/async/awaiters.h"
+#include "mx/async/awaiters.h"
 
 #include "base/at_exit.h"
 #include "message_framework/message_loop.h"
@@ -23,16 +23,16 @@ int g_cancelled_resumed = 0;
 DWORD g_ui_tid = 0;
 DWORD g_after_async_tid = 0;
 
-auralite::async::FireAndForget RunCancelled(
+mx::async::FireAndForget RunCancelled(
     std::shared_ptr<std::atomic_bool> alive) {
-  using namespace auralite::async;
+  using namespace mx::async;
   co_await Delay(5, alive);
   ++g_cancelled_resumed;
   MessageLoop::current()->Quit();
 }
 
-auralite::async::FireAndForget RunScenario() {
-  using namespace auralite::async;
+mx::async::FireAndForget RunScenario() {
+  using namespace mx::async;
 
   PostFn([] { g_posted = 1; });
   co_await ResumeOnUi();
@@ -66,7 +66,7 @@ int main() {
   base::AtExitManager exit_manager;
   MessageLoopForUI loop;
   g_ui_tid = GetCurrentThreadId();
-  auralite::async::SpawnUi(RunScenario());
+  mx::async::SpawnUi(RunScenario());
   loop.Run(nullptr);
   if (g_posted != 1) {
     std::puts("async_test FAIL: PostFn / ResumeOnUi");

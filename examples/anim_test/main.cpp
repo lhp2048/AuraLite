@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "auralite/ui/anim.h"
+#include "mx/ui/anim.h"
 
 namespace {
 
@@ -30,8 +30,8 @@ void ExpectNear(const char* name, float got, float want, float eps = 0.001f) {
 
 int main() {
   setvbuf(stdout, nullptr, _IONBF, 0);
-  using auralite::ui::AnimationDriver;
-  using auralite::ui::Easing;
+  using mx::ui::AnimationDriver;
+  using mx::ui::Easing;
 
   {
     AnimationDriver d;

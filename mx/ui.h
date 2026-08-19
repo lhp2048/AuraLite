@@ -1,0 +1,68 @@
+#pragma once
+
+// Public MxUI::UI surface. Application code can include this instead of
+// listing widget headers. Prefer this over reaching into overlay / UIA /
+// reactive-detail files (those are not part of the published API).
+
+#include "mx/canvas.h"
+
+#include "mx/ui/acc.h"
+#include "mx/ui/anim.h"
+#include "mx/ui/application.h"
+#include "mx/ui/node.h"
+#include "mx/ui/theme.h"
+#include "mx/ui/theme_yaml.h"
+#include "mx/ui/types.h"
+#include "mx/ui/window.h"
+
+#include "mx/ui/absolute.h"
+#include "mx/ui/column.h"
+#include "mx/ui/row.h"
+#include "mx/ui/scroll_view.h"
+#include "mx/ui/split_view.h"
+#include "mx/ui/tab.h"
+#include "mx/ui/tile.h"
+
+#include "mx/ui/button.h"
+#include "mx/ui/checkbox.h"
+#include "mx/ui/civil_date.h"
+#include "mx/ui/color_picker.h"
+#include "mx/ui/combo.h"
+#include "mx/ui/context_menu.h"
+#include "mx/ui/data_grid.h"
+#include "mx/ui/date_picker.h"
+#include "mx/ui/image_button.h"
+#include "mx/ui/image_view.h"
+#include "mx/ui/item_list.h"
+#include "mx/ui/label.h"
+#include "mx/ui/list_columns.h"
+#include "mx/ui/list_view.h"
+#include "mx/ui/menu_bar.h"
+#include "mx/ui/menu_item.h"
+#include "mx/ui/native_host.h"
+#include "mx/ui/popup_host.h"
+#include "mx/ui/progress_bar.h"
+#include "mx/ui/radio.h"
+#include "mx/ui/slider.h"
+#include "mx/ui/spin_box.h"
+#include "mx/ui/status_bar.h"
+#include "mx/ui/submenu.h"
+#include "mx/ui/switch_control.h"
+#include "mx/ui/text_area.h"
+#include "mx/ui/text_field.h"
+#include "mx/ui/text_layout.h"
+#include "mx/ui/title_bar.h"
+#include "mx/ui/toast.h"
+#include "mx/ui/tree_view.h"
+#include "mx/ui/user_control.h"
+#include "mx/ui/virtual_list.h"
+
+#include "mx/ui/bind.h"
+#include "mx/ui/dsl.h"
+#include "mx/ui/factory.h"
+#include "mx/ui/yaml_loader.h"
+
+#include "mx/reactive/observe.h"
+#include "mx/reactive/signal.h"
+
+#include "mx/async/awaiters.h"

@@ -1,0 +1,52 @@
+#pragma once
+
+#include "mx/ui/node.h"
+
+#include <functional>
+#include <vector>
+
+namespace mx::ui {
+
+// Image-only clickable control (hover / pressed chrome + on_click).
+class ImageButton : public Node {
+ public:
+  using ClickHandler = std::function<void()>;
+
+  ImageButton();
+
+  ImageButton& SetPixels(UINT width, UINT height, const uint8_t* bgra,
+                         UINT stride);
+  ImageButton& preferred_size(float w, float h);
+  ImageButton& on_click(ClickHandler handler);
+  ImageButton& set_enabled(bool e);
+  bool enabled() const { return enabled_; }
+
+  AccRole acc_role() const override;
+  AccState acc_state() const override;
+  bool AccInvoke() override;
+
+  SizeF Measure(float max_w, float max_h) override;
+  void Paint(mx::Canvas& canvas) override;
+
+  void OnMouseDown(const MouseEvent& e) override;
+  void OnMouseUp(const MouseEvent& e) override;
+  void OnMouseEnter(const MouseEvent& e) override;
+  void OnMouseLeave(const MouseEvent& e) override;
+  void OnDeviceLost() override;
+
+ private:
+  void EnsureImage(mx::Canvas& canvas);
+
+  ClickHandler on_click_;
+  bool hovered_ = false;
+  bool pressed_ = false;
+  bool enabled_ = true;
+
+  mx::Image image_;
+  UINT pixel_w_ = 0;
+  UINT pixel_h_ = 0;
+  std::vector<uint8_t> pixels_;
+  UINT stride_ = 0;
+};
+
+}  // namespace mx::ui

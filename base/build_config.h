@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "auralite_export.h"
+#include "mx_export.h"
 
 #define OS_WIN              1
 

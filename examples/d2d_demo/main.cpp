@@ -3,12 +3,12 @@
 #include <string>
 #include <vector>
 
-#include "auralite/canvas.h"
+#include "mx/canvas.h"
 
 namespace {
 
-auralite::Canvas* g_canvas = nullptr;
-auralite::Image* g_image = nullptr;
+mx::Canvas* g_canvas = nullptr;
+mx::Image* g_image = nullptr;
 
 void EnableDpiAwareness() {
   using SetDpiAwarenessContextFn = BOOL(WINAPI*)(DPI_AWARENESS_CONTEXT);
@@ -58,17 +58,17 @@ void PaintDemo(HWND hwnd) {
     return;
   }
 
-  g_canvas->Clear(auralite::ColorF::FromRgb(245, 248, 252));
+  g_canvas->Clear(mx::ColorF::FromRgb(245, 248, 252));
 
   g_canvas->FillRoundedRect({40.f, 40.f, 280.f, 120.f}, 16.f, 16.f,
-                            auralite::ColorF::FromRgb(40, 110, 200));
-  g_canvas->DrawText(L"AuraLite Direct2D", {56.f, 70.f, 250.f, 40.f},
-                     auralite::ColorF::FromRgb(255, 255, 255), 22.f);
+                            mx::ColorF::FromRgb(40, 110, 200));
+  g_canvas->DrawText(L"MxUI Direct2D", {56.f, 70.f, 250.f, 40.f},
+                     mx::ColorF::FromRgb(255, 255, 255), 22.f);
 
   g_canvas->FillRect({40.f, 190.f, 180.f, 80.f},
-                     auralite::ColorF::FromRgb(220, 90, 70));
+                     mx::ColorF::FromRgb(220, 90, 70));
   g_canvas->DrawRect({40.f, 190.f, 180.f, 80.f},
-                     auralite::ColorF::FromRgb(120, 40, 30), 2.f);
+                     mx::ColorF::FromRgb(120, 40, 30), 2.f);
 
   if (g_image && !g_image->empty()) {
     g_canvas->DrawImage(*g_image, {250.f, 190.f, 96.f, 96.f});
@@ -76,12 +76,12 @@ void PaintDemo(HWND hwnd) {
 
   g_canvas->DrawText(
       L"阶段一：矩形 / 圆角 / DirectWrite / 位图",
-      {40.f, 320.f, w - 80.f, 40.f}, auralite::ColorF::FromRgb(30, 40, 55),
+      {40.f, 320.f, w - 80.f, 40.f}, mx::ColorF::FromRgb(30, 40, 55),
       18.f);
 
   g_canvas->DrawText(
-      L"CMake 已编入 Base + UI + auralite_d2d",
-      {40.f, h - 56.f, w - 80.f, 40.f}, auralite::ColorF::FromRgb(90, 100, 120),
+      L"CMake 已编入 Base + UI + mx_d2d",
+      {40.f, h - 56.f, w - 80.f, 40.f}, mx::ColorF::FromRgb(90, 100, 120),
       14.f);
 
   if (!g_canvas->EndDraw()) {
@@ -94,8 +94,8 @@ void PaintDemo(HWND hwnd) {
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   switch (msg) {
     case WM_CREATE: {
-      g_canvas = new auralite::Canvas();
-      g_image = new auralite::Image();
+      g_canvas = new mx::Canvas();
+      g_image = new mx::Image();
       if (!g_canvas->Init(hwnd) || !BuildCheckerImage()) {
         MessageBoxW(hwnd, L"Direct2D 初始化失败", L"d2d_demo", MB_ICONERROR);
         return -1;
@@ -136,7 +136,7 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int show) {
   EnableDpiAwareness();
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
-  const wchar_t* kClass = L"AuraLiteD2DDemo";
+  const wchar_t* kClass = L"MxUID2DDemo";
   WNDCLASSEXW wc = {};
   wc.cbSize = sizeof(wc);
   wc.style = CS_HREDRAW | CS_VREDRAW;
@@ -151,7 +151,7 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int show) {
   }
 
   HWND hwnd = CreateWindowExW(
-      0, kClass, L"AuraLite D2D Demo", WS_OVERLAPPEDWINDOW,
+      0, kClass, L"MxUI D2D Demo", WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT, CW_USEDEFAULT, 720, 480, nullptr, nullptr, instance,
       nullptr);
   if (!hwnd) {

@@ -1,4 +1,4 @@
-# AuraLite 布局说明（`auralite::ui`）
+# MxUI 布局说明（`mx::ui`）
 
 YAML 与 C++ fluent 共用同一套规则。**父控件决定听哪套语言**：流式容器忽略锚点；`Absolute` 才用锚点。写了但父亲不认的属性会静默无效。
 

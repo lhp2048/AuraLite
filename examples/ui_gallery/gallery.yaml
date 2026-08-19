@@ -36,7 +36,7 @@ Absolute:
               padding: 12
               spacing: 8
               children:
-                - Label: { text: "AuraLite UI Gallery", font_size: 22 }
+                - Label: { text: "MxUI Gallery", font_size: 22 }
                 - Row:
                     spacing: 8
                     v_align: center

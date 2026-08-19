@@ -1,0 +1,193 @@
+#pragma once
+
+#include <windows.h>
+#include <d2d1.h>
+#include <dwrite.h>
+#include <string>
+#include <cstdint>
+#include <vector>
+
+namespace mx {
+
+struct ColorF {
+  float r = 0.f;
+  float g = 0.f;
+  float b = 0.f;
+  float a = 1.f;
+
+  ColorF() = default;
+  ColorF(float rr, float gg, float bb, float aa = 1.f)
+      : r(rr), g(gg), b(bb), a(aa) {}
+
+  static ColorF FromRgb(uint8_t rr, uint8_t gg, uint8_t bb, uint8_t aa = 255) {
+    return ColorF(rr / 255.f, gg / 255.f, bb / 255.f, aa / 255.f);
+  }
+};
+
+struct RectF {
+  float x = 0.f;
+  float y = 0.f;
+  float w = 0.f;
+  float h = 0.f;
+};
+
+enum class TextHAlign { Left, Center, Right };
+
+// 96 DIP = 1 logical inch. Layout/hit-test/paint in mx::ui use DIP.
+constexpr float kDipDpi = 96.f;
+
+inline float EffectiveDpi(float dpi) {
+  return dpi > 0.f ? dpi : kDipDpi;
+}
+
+inline float PxFromDip(float dip, float dpi) {
+  return dip * EffectiveDpi(dpi) / kDipDpi;
+}
+
+inline float DipFromPx(float px, float dpi) {
+  return px * kDipDpi / EffectiveDpi(dpi);
+}
+
+class Canvas;
+
+// GPU bitmap owned by a Canvas render target. Recreate after device loss.
+class Image {
+ public:
+  Image();
+  ~Image();
+
+  Image(const Image&) = delete;
+  Image& operator=(const Image&) = delete;
+
+  void Reset();
+
+  // Premultiplied BGRA pixels, top-down.
+  bool CreateFromBgra(Canvas& canvas, UINT width, UINT height,
+                      const uint8_t* bgra, UINT stride);
+
+  // Load PNG/JPEG/BMP/etc via WIC.
+  bool LoadFromFile(Canvas& canvas, const std::wstring& path);
+
+  bool empty() const { return bitmap_ == nullptr; }
+  UINT width() const { return width_; }
+  UINT height() const { return height_; }
+  ID2D1Bitmap* bitmap() const { return bitmap_; }
+
+ private:
+  friend class Canvas;
+  ID2D1Bitmap* bitmap_ = nullptr;
+  UINT width_ = 0;
+  UINT height_ = 0;
+};
+
+// Direct2D-backed drawing surface bound to an HWND.
+class Canvas {
+ public:
+  Canvas();
+  ~Canvas();
+
+  Canvas(const Canvas&) = delete;
+  Canvas& operator=(const Canvas&) = delete;
+
+  // Create factories and a DC render target backed by a DIB. Present
+  // AlphaBlends the dirty client rect with opaque alpha (BitBlt leaves A=0
+  // on DWM and new pixels flash as glass during live resize). Window then
+  // redraws intersecting NativeHost guests. Safe to call again after device loss.
+  bool Init(HWND hwnd);
+  // Popup: same DIB path, present via UpdateLayeredWindow.
+  bool InitLayered(HWND hwnd);
+  void Shutdown();
+
+  // Recreate the DC target if missing (after EndDraw device loss).
+  bool EnsureRenderTarget();
+
+  bool BeginDraw();
+  // Returns false if the target must be recreated (e.g. device lost).
+  // |present_dc| is BeginPaint's HDC. Null uses GetDC.
+  // |present_px| is the client dirty rect to present; null presents the full DIB.
+  bool EndDraw(HDC present_dc = nullptr, const RECT* present_px = nullptr);
+
+  void Resize(UINT width, UINT height);
+
+  void Clear(const ColorF& color);
+  void FillRect(const RectF& rect, const ColorF& color);
+  void FillRoundedRect(const RectF& rect, float radius_x, float radius_y,
+                       const ColorF& color);
+  void DrawRect(const RectF& rect, const ColorF& color, float stroke_width = 1.f);
+  void DrawRoundedRect(const RectF& rect, float radius_x, float radius_y,
+                       const ColorF& color, float stroke_width = 1.f);
+  // Focus rings etc. Uses D2D dash style.
+  void DrawDashedRect(const RectF& rect, const ColorF& color,
+                      float stroke_width = 1.f);
+  void FillEllipse(const RectF& rect, const ColorF& color);
+  void DrawEllipse(const RectF& rect, const ColorF& color,
+                   float stroke_width = 1.f);
+  void DrawLine(float x0, float y0, float x1, float y1, const ColorF& color,
+                float stroke_width = 1.f);
+
+  // Draws UTF-16 text with DirectWrite (ClearType / grayscale via D2D).
+  void DrawText(const std::wstring& text, const RectF& layout_rect,
+                const ColorF& color, float font_size = 16.f,
+                const wchar_t* font_family = L"Microsoft YaHei UI",
+                TextHAlign align = TextHAlign::Left);
+
+  // Width of |text| at |font_size| (empty → 0). Does not require BeginDraw.
+  float MeasureTextWidth(const std::wstring& text, float font_size = 16.f,
+                         const wchar_t* font_family = L"Microsoft YaHei UI");
+
+  void DrawImage(const Image& image, const RectF& dest);
+  void DrawImage(const Image& image, const RectF& src, const RectF& dest);
+
+  // Axis-aligned clip stack (must Pop once per successful Push).
+  void PushAxisAlignedClip(const RectF& rect);
+  void PopAxisAlignedClip();
+
+  bool is_valid() const { return render_target_ != nullptr; }
+  bool is_layered() const { return layered_; }
+  void set_layered_opacity(float a);
+  float layered_opacity() const { return layered_opacity_; }
+  ID2D1RenderTarget* render_target() const { return render_target_; }
+  ID2D1Factory* d2d_factory() const { return d2d_factory_; }
+
+  float dpi() const { return dpi_; }
+  void SetDpi(float dpi);
+  UINT dib_width() const { return dib_w_; }
+  UINT dib_height() const { return dib_h_; }
+  bool PeekDibBgra(int x, int y, uint8_t* b, uint8_t* g, uint8_t* r,
+                   uint8_t* a) const;
+
+  // Layout/hit-test/paint are DIP. Render-target DPI is dpi_ (set by Window).
+  // Pixel buffer size still comes from GetClientRect.
+
+ private:
+  friend class Image;
+  bool CreateDeviceResources();
+  void DiscardDeviceResources();
+  bool CreateDibSurface(UINT w, UINT h);
+  void DestroyDibSurface();
+  void ForceDibOpaque();
+  bool BindDib();
+  void PresentDib(HDC present_dc, const RECT* present_px);
+  ID2D1SolidColorBrush* BrushFor(const ColorF& color);
+
+  HWND hwnd_ = nullptr;
+  bool layered_ = false;
+  float layered_opacity_ = 1.f;
+  float dpi_ = kDipDpi;
+  HDC dib_dc_ = nullptr;
+  HBITMAP dib_bitmap_ = nullptr;
+  HBITMAP dib_old_ = nullptr;
+  void* dib_bits_ = nullptr;
+  UINT dib_w_ = 0;
+  UINT dib_h_ = 0;
+  ID2D1Factory* d2d_factory_ = nullptr;
+  IDWriteFactory* dwrite_factory_ = nullptr;
+  ID2D1RenderTarget* render_target_ = nullptr;
+  ID2D1SolidColorBrush* brush_ = nullptr;
+};
+
+// DirectWrite text width; safe during Measure (no Canvas / BeginDraw needed).
+float MeasureUiTextWidth(const std::wstring& text, float font_size = 16.f,
+                         const wchar_t* font_family = L"Microsoft YaHei UI");
+
+}  // namespace mx

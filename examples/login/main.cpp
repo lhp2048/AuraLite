@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "auralite/ui.h"
+#include "mx/ui.h"
 
 namespace {
 
@@ -62,12 +62,12 @@ std::string ResolveLoginYaml() {
   return {};
 }
 
-void CollectTextFields(auralite::ui::Node* node,
-                       std::vector<auralite::ui::TextField*>* out) {
+void CollectTextFields(mx::ui::Node* node,
+                       std::vector<mx::ui::TextField*>* out) {
   if (!node || !out) {
     return;
   }
-  if (auto* field = dynamic_cast<auralite::ui::TextField*>(node)) {
+  if (auto* field = dynamic_cast<mx::ui::TextField*>(node)) {
     out->push_back(field);
   }
   for (const auto& child : node->children()) {
@@ -75,14 +75,14 @@ void CollectTextFields(auralite::ui::Node* node,
   }
 }
 
-auralite::ui::Label* FindStatusLabel(auralite::ui::Node* node) {
+mx::ui::Label* FindStatusLabel(mx::ui::Node* node) {
   if (!node) {
     return nullptr;
   }
-  auralite::ui::Label* last = nullptr;
-  std::function<void(auralite::ui::Node*)> walk =
-      [&](auralite::ui::Node* n) {
-        if (auto* label = dynamic_cast<auralite::ui::Label*>(n)) {
+  mx::ui::Label* last = nullptr;
+  std::function<void(mx::ui::Node*)> walk =
+      [&](mx::ui::Node* n) {
+        if (auto* label = dynamic_cast<mx::ui::Label*>(n)) {
           last = label;
         }
         for (const auto& child : n->children()) {
@@ -93,8 +93,8 @@ auralite::ui::Label* FindStatusLabel(auralite::ui::Node* node) {
   return last;
 }
 
-std::unique_ptr<auralite::ui::Node> BuildFluentLogin() {
-  using namespace auralite::ui::dsl;
+std::unique_ptr<mx::ui::Node> BuildFluentLogin() {
+  using namespace mx::ui::dsl;
   return Column()
       .padding(24.f)
       .spacing(12.f)
@@ -108,7 +108,7 @@ std::unique_ptr<auralite::ui::Node> BuildFluentLogin() {
       .Build();
 }
 
-bool CreateLoginWindow(auralite::ui::Window* window, const wchar_t* title) {
+bool CreateLoginWindow(mx::ui::Window* window, const wchar_t* title) {
   if (!window) {
     return false;
   }
@@ -119,14 +119,14 @@ bool CreateLoginWindow(auralite::ui::Window* window, const wchar_t* title) {
 }  // namespace
 
 int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
-  auralite::ui::Application::EnableDpiAwareness();
+  mx::ui::Application::EnableDpiAwareness();
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   const bool fluent = UseFluent(cmd_line);
   const wchar_t* title =
-      fluent ? L"AuraLite Login (fluent)" : L"AuraLite Login (YAML)";
+      fluent ? L"MxUI Login (fluent)" : L"MxUI Login (YAML)";
 
-  auralite::ui::Window window;
+  mx::ui::Window window;
   if (!CreateLoginWindow(&window, title)) {
     MessageBoxW(nullptr, L"Window / Canvas init failed", L"login_demo",
                 MB_ICONERROR);
@@ -134,13 +134,13 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
     return 1;
   }
 
-  std::unique_ptr<auralite::ui::Node> root;
+  std::unique_ptr<mx::ui::Node> root;
   std::string yaml_dump;
   std::string fluent_dump;
 
   try {
     auto fluent_tree = BuildFluentLogin();
-    fluent_dump = auralite::ui::ViewFactory::DumpTree(fluent_tree.get());
+    fluent_dump = mx::ui::ViewFactory::DumpTree(fluent_tree.get());
 
     if (fluent) {
       root = std::move(fluent_tree);
@@ -155,10 +155,10 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
       }
 
       // Handlers filled after tree exists (need field pointers).
-      auralite::ui::HandlerMap handlers;
-      auralite::ui::ViewFactory factory;
+      mx::ui::HandlerMap handlers;
+      mx::ui::ViewFactory factory;
       root = factory.CreateFromYamlFile(yaml_path, handlers);
-      yaml_dump = auralite::ui::ViewFactory::DumpTree(root.get());
+      yaml_dump = mx::ui::ViewFactory::DumpTree(root.get());
     }
   } catch (const std::exception& ex) {
     MessageBoxA(nullptr, ex.what(), "login_demo YAML failed", MB_ICONERROR);
@@ -166,12 +166,12 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
     return 1;
   }
 
-  std::vector<auralite::ui::TextField*> fields;
+  std::vector<mx::ui::TextField*> fields;
   CollectTextFields(root.get(), &fields);
-  auralite::ui::Label* status = FindStatusLabel(root.get());
-  auralite::ui::Button* login_btn = nullptr;
+  mx::ui::Label* status = FindStatusLabel(root.get());
+  mx::ui::Button* login_btn = nullptr;
   for (const auto& child : root->children()) {
-    if (auto* btn = dynamic_cast<auralite::ui::Button*>(child.get())) {
+    if (auto* btn = dynamic_cast<mx::ui::Button*>(child.get())) {
       login_btn = btn;
       break;
     }
@@ -216,7 +216,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR cmd_line, int show) {
   ShowWindow(window.hwnd(), show);
   UpdateWindow(window.hwnd());
 
-  const int code = auralite::ui::Application::Run();
+  const int code = mx::ui::Application::Run();
   CoUninitialize();
   return code;
 }

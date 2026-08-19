@@ -7,13 +7,13 @@
 #include <shlobj.h>
 #include <shellapi.h>
 
-#include "auralite/canvas.h"
-#include "auralite/ui/button.h"
-#include "auralite/ui/column.h"
-#include "auralite/ui/factory.h"
-#include "auralite/ui/label.h"
-#include "auralite/ui/window.h"
-#include "auralite/ui/yaml_loader.h"
+#include "mx/canvas.h"
+#include "mx/ui/button.h"
+#include "mx/ui/column.h"
+#include "mx/ui/factory.h"
+#include "mx/ui/label.h"
+#include "mx/ui/window.h"
+#include "mx/ui/yaml_loader.h"
 
 namespace {
 
@@ -29,8 +29,8 @@ void Expect(const char* name, bool cond) {
 }
 
 LPARAM PackDip(float dip_x, float dip_y, float dpi) {
-  const int x = static_cast<int>(auralite::PxFromDip(dip_x, dpi));
-  const int y = static_cast<int>(auralite::PxFromDip(dip_y, dpi));
+  const int x = static_cast<int>(mx::PxFromDip(dip_x, dpi));
+  const int y = static_cast<int>(mx::PxFromDip(dip_y, dpi));
   return MAKELPARAM(x, y);
 }
 
@@ -63,7 +63,7 @@ HDROP MakeHDrop(const std::vector<std::wstring>& paths, POINT pt) {
 }  // namespace
 
 int main() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
 
   {
     Label n;

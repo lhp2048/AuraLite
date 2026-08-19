@@ -8,32 +8,32 @@
 #include <thread>
 #include <vector>
 
-#include "auralite/async/awaiters.h"
-#include "auralite/reactive/signal.h"
-#include "auralite/ui/application.h"
-#include "auralite/ui/bind.h"
-#include "auralite/ui/button.h"
-#include "auralite/ui/column.h"
-#include "auralite/ui/label.h"
-#include "auralite/ui/virtual_list.h"
-#include "auralite/ui/window.h"
+#include "mx/async/awaiters.h"
+#include "mx/reactive/signal.h"
+#include "mx/ui/application.h"
+#include "mx/ui/bind.h"
+#include "mx/ui/button.h"
+#include "mx/ui/column.h"
+#include "mx/ui/label.h"
+#include "mx/ui/virtual_list.h"
+#include "mx/ui/window.h"
 
 namespace {
 
-using auralite::async::Delay;
-using auralite::async::RunAsync;
-using auralite::async::SpawnUi;
-using auralite::reactive::Computed;
-using auralite::reactive::Signal;
-using auralite::ui::BindEnabled;
-using auralite::ui::BindItems;
-using auralite::ui::BindText;
-using auralite::ui::BindVisible;
-using auralite::ui::Button;
-using auralite::ui::Column;
-using auralite::ui::Label;
-using auralite::ui::VirtualList;
-using auralite::ui::Window;
+using mx::async::Delay;
+using mx::async::RunAsync;
+using mx::async::SpawnUi;
+using mx::reactive::Computed;
+using mx::reactive::Signal;
+using mx::ui::BindEnabled;
+using mx::ui::BindItems;
+using mx::ui::BindText;
+using mx::ui::BindVisible;
+using mx::ui::Button;
+using mx::ui::Column;
+using mx::ui::Label;
+using mx::ui::VirtualList;
+using mx::ui::Window;
 
 struct DemoModel {
   Signal<int> count{0};
@@ -46,7 +46,7 @@ struct DemoModel {
 };
 
 // Free-function coroutine (MSVC is fragile with temporary coroutine lambdas).
-auralite::async::FireAndForget LoadItemsAsync(
+mx::async::FireAndForget LoadItemsAsync(
     std::shared_ptr<DemoModel> model,
     std::shared_ptr<std::atomic_bool> alive) {
   co_await Delay(50, alive);
@@ -69,11 +69,11 @@ auralite::async::FireAndForget LoadItemsAsync(
 }  // namespace
 
 int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
-  auralite::ui::Application::EnableDpiAwareness();
+  mx::ui::Application::EnableDpiAwareness();
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   Window window;
-  if (!window.Create(L"AuraLite reactive_demo", 480, 640)) {
+  if (!window.Create(L"MxUI reactive_demo", 480, 640)) {
     MessageBoxW(nullptr, L"Window / Canvas init failed", L"reactive_demo",
                 MB_ICONERROR);
     CoUninitialize();
@@ -125,14 +125,14 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
 
   auto* list = new VirtualList();
   list->fill_width().fill_height();
-  list->row_height(auralite::ui::VirtualListItemKind::Text, 32.f);
+  list->row_height(mx::ui::VirtualListItemKind::Text, 32.f);
   column->AddChild(std::unique_ptr<VirtualList>(list));
   column->OwnSubscription(BindItems(*list, model->items));
 
   window.SetRoot(std::move(root));
   ShowWindow(window.hwnd(), show);
   UpdateWindow(window.hwnd());
-  const int code = auralite::ui::Application::Run();
+  const int code = mx::ui::Application::Run();
   CoUninitialize();
   return code;
 }

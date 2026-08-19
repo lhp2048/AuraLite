@@ -6,19 +6,19 @@
 #include <string>
 #include <vector>
 
-#include "auralite/ui/absolute.h"
-#include "auralite/ui/button.h"
-#include "auralite/ui/column.h"
-#include "auralite/ui/factory.h"
-#include "auralite/ui/label.h"
-#include "auralite/ui/native_host.h"
-#include "auralite/ui/node.h"
-#include "auralite/ui/row.h"
-#include "auralite/ui/theme.h"
-#include "auralite/ui/tile.h"
-#include "auralite/ui/text_layout.h"
-#include "auralite/ui/title_bar.h"
-#include "auralite/ui/yaml_loader.h"
+#include "mx/ui/absolute.h"
+#include "mx/ui/button.h"
+#include "mx/ui/column.h"
+#include "mx/ui/factory.h"
+#include "mx/ui/label.h"
+#include "mx/ui/native_host.h"
+#include "mx/ui/node.h"
+#include "mx/ui/row.h"
+#include "mx/ui/theme.h"
+#include "mx/ui/tile.h"
+#include "mx/ui/text_layout.h"
+#include "mx/ui/title_bar.h"
+#include "mx/ui/yaml_loader.h"
 
 namespace {
 
@@ -42,14 +42,14 @@ void Expect(const char* name, bool cond) {
   }
 }
 
-bool ColorEq(const auralite::ColorF& a, const auralite::ColorF& b,
+bool ColorEq(const mx::ColorF& a, const mx::ColorF& b,
              float eps = 0.01f) {
   return std::fabs(a.r - b.r) < eps && std::fabs(a.g - b.g) < eps &&
          std::fabs(a.b - b.b) < eps && std::fabs(a.a - b.a) < eps;
 }
 
 void TestRowWeight() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   auto row = std::make_unique<Row>();
   row->spacing(0.f);
   row->fixed_height(40.f);
@@ -77,7 +77,7 @@ void TestRowWeight() {
 }
 
 void TestWeightIgnoredWithoutFill() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   auto row = std::make_unique<Row>();
   row->spacing(0.f);
   row->fixed_height(40.f);
@@ -104,7 +104,7 @@ void TestWeightIgnoredWithoutFill() {
 }
 
 void TestAbsoluteDualAnchor() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   auto host = std::make_unique<Absolute>();
   auto btn = std::make_unique<Button>();
   btn->text(L"x");
@@ -123,7 +123,7 @@ void TestAbsoluteDualAnchor() {
 }
 
 void TestAbsoluteBottomRight() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   auto host = std::make_unique<Absolute>();
   auto btn = std::make_unique<Button>();
   btn->text(L"rb");
@@ -140,7 +140,7 @@ void TestAbsoluteBottomRight() {
 }
 
 void TestClipDefaults() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Node n;
   Expect("Node clip default false", !n.clip_children());
   Absolute abs;
@@ -156,7 +156,7 @@ void TestClipDefaults() {
 }
 
 void TestClipYaml() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   ViewFactory factory;
   auto a = LoadYamlString("Column:\n  children: []\n", factory, {});
   Expect("yaml Column clip default true", a && a->clip_children());
@@ -167,7 +167,7 @@ void TestClipYaml() {
 }
 
 void TestHitTestStillClipsToBounds() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Column col;
   col.Layout(RectF{0, 0, 100, 40});
   auto child = std::make_unique<Button>();
@@ -180,7 +180,7 @@ void TestHitTestStillClipsToBounds() {
 }
 
 void TestTooltipResolve() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Node parent;
   parent.tooltip(L"parent");
   auto child = std::make_unique<Node>();
@@ -201,7 +201,7 @@ void TestTooltipResolve() {
 }
 
 void TestColumnMainAlignCenter() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   auto col = std::make_unique<Column>();
   col->spacing(0.f);
   col->v_align(Align::Center);
@@ -219,7 +219,7 @@ void TestColumnMainAlignCenter() {
 }
 
 void TestColumnHugFillChildren() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Column col;
   col.hug_width();
   col.padding(0.f);
@@ -240,7 +240,7 @@ void TestColumnHugFillChildren() {
 }  // namespace
 
 void TestWindowYaml() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   ViewFactory factory;
   WindowYaml spec;
   auto n = LoadYamlString(
@@ -335,7 +335,7 @@ void TestWindowYaml() {
 }
 
 void TestResizeHitTest() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Expect("center is not edge",
          Window::HitTestResizeEdge(50.f, 50.f, 100.f, 100.f, 6.f, 12.f) ==
              HTNOWHERE);
@@ -360,7 +360,7 @@ void TestResizeHitTest() {
 }
 
 void TestTitleBarHitTest() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   TitleBar bar;
   auto lab = std::make_unique<Label>();
   lab->text(L"Title").fill_width().fixed_height(36.f);
@@ -467,7 +467,7 @@ void TestTitleBarHitTest() {
 }
 
 void TestLabelText() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Theme::RegisterBuiltInLight();
   const wchar_t* font = Theme::Active().font_ui.c_str();
   const std::wstring sample = L"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -520,7 +520,7 @@ void TestLabelText() {
 }
 
 void TestButtonVariant() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Theme::RegisterBuiltInLight();
   Theme::RegisterBuiltInDark();
   Expect("set dark", Theme::SetActive("dark"));
@@ -563,9 +563,9 @@ void TestButtonVariant() {
 
   Button custom;
   custom.variant(ButtonVariant::Secondary)
-      .bg(auralite::ColorF::FromRgb(255, 0, 0));
+      .bg(mx::ColorF::FromRgb(255, 0, 0));
   Expect("explicit bg still wins",
-         ColorEq(custom.resolved_bg(), auralite::ColorF::FromRgb(255, 0, 0)));
+         ColorEq(custom.resolved_bg(), mx::ColorF::FromRgb(255, 0, 0)));
   Expect("custom bg uses body text",
          ColorEq(custom.resolved_label(), Theme::Active().text));
 

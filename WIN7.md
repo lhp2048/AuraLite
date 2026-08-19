@@ -13,7 +13,7 @@
 
 ## 开关
 
-建议：`AURALITE_WIN7=ON`
+建议：`MXUI_WIN7=ON`
 
 - `_WIN32_WINNT` / `WINVER` = `0x0601`
 - **不要**链接 `shcore`（Win8 才有；链进去 Win7 可能缺 `SHCORE.dll` 起不来）
@@ -23,7 +23,7 @@
 
 | 改哪里 | 做什么 |
 |--------|--------|
-| `CMakeLists.txt` | 上述宏；`auralite_ui` 去掉 `shcore` |
+| `CMakeLists.txt` | 上述宏；`mx_ui` 去掉 `shcore` |
 | `window.cpp`：`QueryHwndDpi` / `QueryMonitorDpiNearCursor` | `GetDpiForWindow` / `GetDpiForMonitor` 没有时用 `GetDeviceCaps(LOGPIXELSX)`，禁止回落写死 96 |
 | `Application::EnableDpiAwareness` | 已有 `SetProcessDpiAwarenessContext` → `SetProcessDPIAware`，确认 Win7 走后者 |
 | `Window::ApplyChromeDwm` | 整段跳过，或失败即忽略。不要依赖 `DWMWA_COLOR_NONE` / 圆角 / backdrop |
@@ -66,4 +66,4 @@ Win10 可缩放无边框是 `WS_CAPTION` + **DWM** `COLOR_NONE` 把系统标题�
 | 低 | CMake + DPI 回落 + DWM 跳过 | 约 1～2 天 + 虚机冒烟 |
 | 中 | 无边框 `WS_POPUP` + `THICKFRAME`：无系统标题、拖/关、可缩放 | 再 2～5 天 |
 
-主文件：`CMakeLists.txt`、`auralite/ui/application.cpp`、`auralite/ui/window.cpp`（`Create` / `ApplyChromeDwm` / DPI 查询）。
+主文件：`CMakeLists.txt`、`mx/ui/application.cpp`、`mx/ui/window.cpp`（`Create` / `ApplyChromeDwm` / DPI 查询）。

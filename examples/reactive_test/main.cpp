@@ -1,11 +1,11 @@
-#include "auralite/reactive/signal.h"
-#include "auralite/reactive/observe.h"
+#include "mx/reactive/signal.h"
+#include "mx/reactive/observe.h"
 
 #include <cstdio>
 #include <string>
 
 int main() {
-  using namespace auralite::reactive;
+  using namespace mx::reactive;
   int hits = 0;
   Signal<int> n{0};
   auto sub = Observe([&] {

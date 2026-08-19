@@ -1,8 +1,8 @@
-# Regenerates AuraLite VS2022 projects: Win32+x64, v143, C++11, /MD, Win7+
-# Static libs for modules; AuraLite.dll aggregates them.
+# Regenerates MxUI VS2022 projects: Win32+x64, v143, C++11, /MD, Win7+
+# Static libs for modules; MxUI.dll aggregates them.
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-Write-Host "AuraLite root: $Root"
+Write-Host "MxUI root: $Root"
 
 function Get-ClCompileIncludes([string]$vcxproj) {
   [xml]$xml = Get-Content $vcxproj -Encoding UTF8
@@ -35,7 +35,7 @@ function Write-StaticLibProject {
     [string]$ExtraPreprocessor = ""
   )
   $projPath = Join-Path $Dir "$Name.vcxproj"
-  $outLib = "`$(AuraLiteRoot)lib\`$(Platform)\`$(Configuration)\$Name.lib"
+  $outLib = "`$(MxUIRoot)lib\`$(Platform)\`$(Configuration)\$Name.lib"
   $sb = New-Object System.Text.StringBuilder
   [void]$sb.AppendLine('<?xml version="1.0" encoding="utf-8"?>')
   [void]$sb.AppendLine('<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">')
@@ -72,15 +72,15 @@ function Write-StaticLibProject {
     }
   }
   [void]$sb.AppendLine('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />')
-  [void]$sb.AppendLine('  <Import Project="$(ProjectDir)..\AuraLite.Common.props" />')
+  [void]$sb.AppendLine('  <Import Project="$(ProjectDir)..\MxUI.Common.props" />')
   [void]$sb.AppendLine('  <PropertyGroup>')
-  [void]$sb.AppendLine('    <OutDir>$(AuraLiteRoot)lib\$(Platform)\$(Configuration)\</OutDir>')
-  [void]$sb.AppendLine('    <IntDir>$(AuraLiteRoot)obj\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>')
+  [void]$sb.AppendLine('    <OutDir>$(MxUIRoot)lib\$(Platform)\$(Configuration)\</OutDir>')
+  [void]$sb.AppendLine('    <IntDir>$(MxUIRoot)obj\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>')
   [void]$sb.AppendLine('    <TargetName>$(ProjectName)</TargetName>')
   [void]$sb.AppendLine('  </PropertyGroup>')
   foreach ($cfg in @("Debug","Release")) {
     foreach ($plat in @("Win32","x64")) {
-      $defs = "WIN32;_LIB;AURALITE_IMPLEMENTATION"
+      $defs = "WIN32;_LIB;MXUI_IMPLEMENTATION"
       if ($cfg -eq "Debug") { $defs = "_DEBUG;$defs" } else { $defs = "NDEBUG;$defs" }
       if ($ExtraPreprocessor) { $defs = "$defs;$ExtraPreprocessor" }
       [void]$sb.AppendLine("  <ItemDefinitionGroup Condition=`"'`$(Configuration)|`$(Platform)'=='$cfg|$plat'`">")
@@ -126,9 +126,9 @@ foreach ($m in $modules) {
   Write-StaticLibProject -Name $m.Name -Guid $m.Guid -Dir $dir -Sources $sources -Headers $headers
 }
 
-# --- AuraLite.dll ---
+# --- MxUI.dll ---
 $dllGuid = "A11A11A1-4111-4111-E000-A11A11A11E01"
-$dllDir = Join-Path $Root "AuraLite"
+$dllDir = Join-Path $Root "MxUI"
 New-Item -ItemType Directory -Path $dllDir -Force | Out-Null
 $dllMain = Join-Path $dllDir "dll_main.cpp"
 @"
@@ -148,7 +148,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
 }
 "@ | Set-Content -Path $dllMain -Encoding UTF8
 
-$dllProj = Join-Path $dllDir "AuraLite.vcxproj"
+$dllProj = Join-Path $dllDir "MxUI.vcxproj"
 $libNames = @("base","rfc_algorithm","message_framework","gfx","animation","view_framework")
 $libGuids = @{
   base="B762AF39-B217-41F2-9D7B-E55EDB99F9CC"
@@ -176,7 +176,7 @@ foreach ($cfg in @("Debug","Release")) {
 [void]$sb.AppendLine('    <VCProjectVersion>17.0</VCProjectVersion>')
 [void]$sb.AppendLine("    <ProjectGuid>{$dllGuid}</ProjectGuid>")
 [void]$sb.AppendLine('    <Keyword>Win32Proj</Keyword>')
-[void]$sb.AppendLine('    <RootNamespace>AuraLite</RootNamespace>')
+[void]$sb.AppendLine('    <RootNamespace>MxUI</RootNamespace>')
 [void]$sb.AppendLine('    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>')
 [void]$sb.AppendLine('  </PropertyGroup>')
 [void]$sb.AppendLine('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />')
@@ -195,19 +195,19 @@ foreach ($cfg in @("Debug","Release")) {
   }
 }
 [void]$sb.AppendLine('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />')
-[void]$sb.AppendLine('  <Import Project="$(ProjectDir)..\AuraLite.Common.props" />')
+[void]$sb.AppendLine('  <Import Project="$(ProjectDir)..\MxUI.Common.props" />')
 [void]$sb.AppendLine('  <PropertyGroup>')
-[void]$sb.AppendLine('    <OutDir>$(AuraLiteRoot)bin\$(Platform)\$(Configuration)\</OutDir>')
-[void]$sb.AppendLine('    <IntDir>$(AuraLiteRoot)obj\$(Platform)\$(Configuration)\AuraLite\</IntDir>')
-[void]$sb.AppendLine('    <TargetName>AuraLite</TargetName>')
+[void]$sb.AppendLine('    <OutDir>$(MxUIRoot)bin\$(Platform)\$(Configuration)\</OutDir>')
+[void]$sb.AppendLine('    <IntDir>$(MxUIRoot)obj\$(Platform)\$(Configuration)\MxUI\</IntDir>')
+[void]$sb.AppendLine('    <TargetName>MxUI</TargetName>')
 [void]$sb.AppendLine('  </PropertyGroup>')
 
-$whole = ($libNames | ForEach-Object { "/WHOLEARCHIVE:`$(AuraLiteRoot)lib\`$(Platform)\`$(Configuration)\$_.lib" }) -join " "
+$whole = ($libNames | ForEach-Object { "/WHOLEARCHIVE:`$(MxUIRoot)lib\`$(Platform)\`$(Configuration)\$_.lib" }) -join " "
 $deps = "msimg32.lib;comctl32.lib;ole32.lib;oleaut32.lib;uuid.lib;shell32.lib;shlwapi.lib;imm32.lib;dwmapi.lib;uxtheme.lib;%(AdditionalDependencies)"
 
 foreach ($cfg in @("Debug","Release")) {
   foreach ($plat in @("Win32","x64")) {
-    $defs = "WIN32;_WINDOWS;AURALITE_IMPLEMENTATION;AURALITE_DLL"
+    $defs = "WIN32;_WINDOWS;MXUI_IMPLEMENTATION;MXUI_DLL"
     if ($cfg -eq "Debug") { $defs = "_DEBUG;$defs" } else { $defs = "NDEBUG;$defs" }
     [void]$sb.AppendLine("  <ItemDefinitionGroup Condition=`"'`$(Configuration)|`$(Platform)'=='$cfg|$plat'`">")
     [void]$sb.AppendLine("    <ClCompile>")
@@ -240,7 +240,7 @@ foreach ($n in $libNames) {
 [System.IO.File]::WriteAllText($dllProj, $sb.ToString(), [System.Text.UTF8Encoding]::new($false))
 Write-Host "Wrote $dllProj"
 
-# --- test_view / test_base apps linking AuraLite.dll ---
+# --- test_view / test_base apps linking MxUI.dll ---
 function Write-AppProject {
   param(
     [string]$Name,
@@ -288,15 +288,15 @@ function Write-AppProject {
     }
   }
   [void]$sb.AppendLine('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />')
-  [void]$sb.AppendLine('  <Import Project="$(ProjectDir)..\AuraLite.Common.props" />')
+  [void]$sb.AppendLine('  <Import Project="$(ProjectDir)..\MxUI.Common.props" />')
   [void]$sb.AppendLine('  <PropertyGroup>')
-  [void]$sb.AppendLine('    <OutDir>$(AuraLiteRoot)bin\$(Platform)\$(Configuration)\</OutDir>')
-  [void]$sb.AppendLine('    <IntDir>$(AuraLiteRoot)obj\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>')
+  [void]$sb.AppendLine('    <OutDir>$(MxUIRoot)bin\$(Platform)\$(Configuration)\</OutDir>')
+  [void]$sb.AppendLine('    <IntDir>$(MxUIRoot)obj\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>')
   [void]$sb.AppendLine('  </PropertyGroup>')
   foreach ($cfg in @("Debug","Release")) {
     foreach ($plat in @("Win32","x64")) {
-      $defs = "WIN32;_WINDOWS;AURALITE_DLL"
-      if ($SubSystem -eq "Console") { $defs = "WIN32;_CONSOLE;AURALITE_DLL" }
+      $defs = "WIN32;_WINDOWS;MXUI_DLL"
+      if ($SubSystem -eq "Console") { $defs = "WIN32;_CONSOLE;MXUI_DLL" }
       if ($cfg -eq "Debug") { $defs = "_DEBUG;$defs" } else { $defs = "NDEBUG;$defs" }
       [void]$sb.AppendLine("  <ItemDefinitionGroup Condition=`"'`$(Configuration)|`$(Platform)'=='$cfg|$plat'`">")
       [void]$sb.AppendLine("    <ClCompile>")
@@ -304,8 +304,8 @@ function Write-AppProject {
       [void]$sb.AppendLine("    </ClCompile>")
       [void]$sb.AppendLine("    <Link>")
       [void]$sb.AppendLine("      <SubSystem>$SubSystem</SubSystem>")
-      [void]$sb.AppendLine("      <AdditionalDependencies>AuraLite.lib;%(AdditionalDependencies)</AdditionalDependencies>")
-      [void]$sb.AppendLine("      <AdditionalLibraryDirectories>`$(AuraLiteRoot)bin\`$(Platform)\`$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>")
+      [void]$sb.AppendLine("      <AdditionalDependencies>MxUI.lib;%(AdditionalDependencies)</AdditionalDependencies>")
+      [void]$sb.AppendLine("      <AdditionalLibraryDirectories>`$(MxUIRoot)bin\`$(Platform)\`$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>")
       [void]$sb.AppendLine("    </Link>")
       [void]$sb.AppendLine("  </ItemDefinitionGroup>")
     }
@@ -324,7 +324,7 @@ function Write-AppProject {
     [void]$sb.AppendLine('  </ItemGroup>')
   }
   [void]$sb.AppendLine('  <ItemGroup>')
-  [void]$sb.AppendLine('    <ProjectReference Include="..\AuraLite\AuraLite.vcxproj">')
+  [void]$sb.AppendLine('    <ProjectReference Include="..\MxUI\MxUI.vcxproj">')
   [void]$sb.AppendLine("      <Project>{$dllGuid}</Project>")
   [void]$sb.AppendLine('    </ProjectReference>')
   [void]$sb.AppendLine('  </ItemGroup>')
@@ -355,7 +355,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "animation", "animation\anim
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "view_framework", "view_framework\view_framework.vcxproj", "{3F19C1C0-7F28-4DF0-84CC-C69FFB55F359}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AuraLite", "AuraLite\AuraLite.vcxproj", "{$dllGuid}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MxUI", "MxUI\MxUI.vcxproj", "{$dllGuid}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_base", "test_base\test_base.vcxproj", "{16CD023E-334A-4D66-A243-76A5B30F18B9}"
 EndProject

@@ -10,15 +10,15 @@
 #include <memory>
 #include <string>
 
-#include "auralite/ui/application.h"
-#include "auralite/ui/button.h"
-#include "auralite/ui/checkbox.h"
-#include "auralite/ui/column.h"
-#include "auralite/ui/combo.h"
-#include "auralite/ui/progress_bar.h"
-#include "auralite/ui/slider.h"
-#include "auralite/ui/tab.h"
-#include "auralite/ui/window.h"
+#include "mx/ui/application.h"
+#include "mx/ui/button.h"
+#include "mx/ui/checkbox.h"
+#include "mx/ui/column.h"
+#include "mx/ui/combo.h"
+#include "mx/ui/progress_bar.h"
+#include "mx/ui/slider.h"
+#include "mx/ui/tab.h"
+#include "mx/ui/window.h"
 
 namespace {
 
@@ -120,14 +120,14 @@ class PropSink : public IUIAutomationPropertyChangedEventHandler {
 
 int main() {
   setvbuf(stdout, nullptr, _IONBF, 0);
-  auralite::ui::Application::EnableDpiAwareness();
+  mx::ui::Application::EnableDpiAwareness();
   if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED))) {
     std::puts("FAIL CoInitializeEx");
     return EXIT_FAILURE;
   }
 
-  auralite::ui::Window window;
-  auralite::ui::Window::WindowOptions opt;
+  mx::ui::Window window;
+  mx::ui::Window::WindowOptions opt;
   opt.quit_on_close = false;
   if (!window.Create(L"uia_test", 480, 420, opt)) {
     std::puts("FAIL Window::Create");
@@ -136,28 +136,28 @@ int main() {
   }
 
   int clicks = 0;
-  auto ok = std::make_unique<auralite::ui::Button>();
+  auto ok = std::make_unique<mx::ui::Button>();
   ok->text(L"确定");
   ok->on_click([&] { ++clicks; });
 
-  auto hidden = std::make_unique<auralite::ui::Button>();
+  auto hidden = std::make_unique<mx::ui::Button>();
   hidden->text(L"HiddenOnly");
   hidden->set_visible(false);
 
-  auto menu = std::make_unique<auralite::ui::Button>();
+  auto menu = std::make_unique<mx::ui::Button>();
   menu->text(L"Refresh");
-  menu->set_acc_role(auralite::ui::AccRole::MenuItem);
+  menu->set_acc_role(mx::ui::AccRole::MenuItem);
 
-  auto page0 = std::make_unique<auralite::ui::Column>();
-  auto a = std::make_unique<auralite::ui::Button>();
+  auto page0 = std::make_unique<mx::ui::Column>();
+  auto a = std::make_unique<mx::ui::Button>();
   a->text(L"PageA");
   page0->AddChild(std::move(a));
-  auto page1 = std::make_unique<auralite::ui::Column>();
-  auto b = std::make_unique<auralite::ui::Button>();
+  auto page1 = std::make_unique<mx::ui::Column>();
+  auto b = std::make_unique<mx::ui::Button>();
   b->text(L"PageB");
   page1->AddChild(std::move(b));
-  auto tab = std::make_unique<auralite::ui::Tab>();
-  auralite::ui::Tab* tab_ptr = tab.get();
+  auto tab = std::make_unique<mx::ui::Tab>();
+  mx::ui::Tab* tab_ptr = tab.get();
   tab->AddChild(std::move(page0));
   tab->AddChild(std::move(page1));
   tab->add_header(L"一");
@@ -165,27 +165,27 @@ int main() {
   tab->acc_name(L"分页");
   tab->set_selected(0);
 
-  auto box = std::make_unique<auralite::ui::Checkbox>();
+  auto box = std::make_unique<mx::ui::Checkbox>();
   box->text(L"记住");
-  auralite::ui::Checkbox* box_ptr = box.get();
+  mx::ui::Checkbox* box_ptr = box.get();
 
-  auto slider = std::make_unique<auralite::ui::Slider>();
+  auto slider = std::make_unique<mx::ui::Slider>();
   slider->acc_name(L"音量");
   slider->value(0.2f);
-  auralite::ui::Slider* slider_ptr = slider.get();
+  mx::ui::Slider* slider_ptr = slider.get();
 
-  auto bar = std::make_unique<auralite::ui::ProgressBar>();
+  auto bar = std::make_unique<mx::ui::ProgressBar>();
   bar->acc_name(L"下载");
   bar->value(0.3f);
 
-  auto combo = std::make_unique<auralite::ui::Combo>();
+  auto combo = std::make_unique<mx::ui::Combo>();
   combo->acc_name(L"颜色");
   combo->items({L"红", L"绿"});
   combo->selected(0);
   combo->BindWindow(&window);
-  auralite::ui::Combo* combo_ptr = combo.get();
+  mx::ui::Combo* combo_ptr = combo.get();
 
-  auto root = std::make_unique<auralite::ui::Column>();
+  auto root = std::make_unique<mx::ui::Column>();
   root->AddChild(std::move(ok));
   root->AddChild(std::move(hidden));
   root->AddChild(std::move(menu));

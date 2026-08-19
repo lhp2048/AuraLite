@@ -9,45 +9,45 @@
 #include <thread>
 #include <vector>
 
-#include "auralite/async/awaiters.h"
-#include "auralite/reactive/observe.h"
-#include "auralite/reactive/signal.h"
-#include "auralite/ui/absolute.h"
-#include "auralite/ui/application.h"
-#include "auralite/ui/bind.h"
-#include "auralite/ui/button.h"
-#include "auralite/ui/checkbox.h"
-#include "auralite/ui/column.h"
-#include "auralite/ui/combo.h"
-#include "auralite/ui/context_menu.h"
-#include "auralite/ui/image_button.h"
-#include "auralite/ui/image_view.h"
-#include "auralite/ui/label.h"
-#include "auralite/ui/progress_bar.h"
-#include "auralite/ui/radio.h"
-#include "auralite/ui/row.h"
-#include "auralite/ui/scroll_view.h"
-#include "auralite/ui/slider.h"
-#include "auralite/ui/split_view.h"
-#include "auralite/ui/switch_control.h"
-#include "auralite/ui/tab.h"
-#include "auralite/ui/text_area.h"
-#include "auralite/ui/text_field.h"
-#include "auralite/ui/theme.h"
-#include "auralite/ui/tile.h"
-#include "auralite/ui/tree_view.h"
-#include "auralite/ui/virtual_list.h"
-#include "auralite/ui/window.h"
+#include "mx/async/awaiters.h"
+#include "mx/reactive/observe.h"
+#include "mx/reactive/signal.h"
+#include "mx/ui/absolute.h"
+#include "mx/ui/application.h"
+#include "mx/ui/bind.h"
+#include "mx/ui/button.h"
+#include "mx/ui/checkbox.h"
+#include "mx/ui/column.h"
+#include "mx/ui/combo.h"
+#include "mx/ui/context_menu.h"
+#include "mx/ui/image_button.h"
+#include "mx/ui/image_view.h"
+#include "mx/ui/label.h"
+#include "mx/ui/progress_bar.h"
+#include "mx/ui/radio.h"
+#include "mx/ui/row.h"
+#include "mx/ui/scroll_view.h"
+#include "mx/ui/slider.h"
+#include "mx/ui/split_view.h"
+#include "mx/ui/switch_control.h"
+#include "mx/ui/tab.h"
+#include "mx/ui/text_area.h"
+#include "mx/ui/text_field.h"
+#include "mx/ui/theme.h"
+#include "mx/ui/tile.h"
+#include "mx/ui/tree_view.h"
+#include "mx/ui/virtual_list.h"
+#include "mx/ui/window.h"
 
 namespace {
 
-using auralite::async::Delay;
-using auralite::async::FireAndForget;
-using auralite::async::RunAsync;
-using auralite::async::SpawnUi;
-using auralite::reactive::Computed;
-using auralite::reactive::Signal;
-using namespace auralite::ui;
+using mx::async::Delay;
+using mx::async::FireAndForget;
+using mx::async::RunAsync;
+using mx::async::SpawnUi;
+using mx::reactive::Computed;
+using mx::reactive::Signal;
+using namespace mx::ui;
 
 struct GalleryModel {
   Signal<std::wstring> status{L"Ready — Phase 3 reactive gallery"};
@@ -420,7 +420,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
   InitThemes();
 
   Window window;
-  if (!window.Create(L"AuraLite reactive_gallery", 720, 780)) {
+  if (!window.Create(L"MxUI reactive_gallery", 720, 780)) {
     MessageBoxW(nullptr, L"Window init failed", L"reactive_gallery", MB_ICONERROR);
     CoUninitialize();
     return 1;
@@ -433,7 +433,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int show) {
   Column* root_c = root.get();
   root_c->padding(12.f).spacing(8.f).fill_width().fill_height();
 
-  Add<Label>(root_c)->text(L"AuraLite Reactive Gallery").font_size(22.f);
+  Add<Label>(root_c)->text(L"MxUI Reactive Gallery").font_size(22.f);
 
   auto* status = Add<Label>(root_c);
   status->fixed_height(26.f);

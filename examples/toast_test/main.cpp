@@ -3,11 +3,11 @@
 #include <memory>
 #include <string>
 
-#include "auralite/ui/factory.h"
-#include "auralite/ui/toast.h"
-#include "auralite/ui/theme.h"
-#include "auralite/ui/window.h"
-#include "auralite/ui/yaml_loader.h"
+#include "mx/ui/factory.h"
+#include "mx/ui/toast.h"
+#include "mx/ui/theme.h"
+#include "mx/ui/window.h"
+#include "mx/ui/yaml_loader.h"
 
 namespace {
 
@@ -23,7 +23,7 @@ void Expect(const char* name, bool cond) {
 }
 
 void TestToastNode() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Theme::RegisterBuiltInLight();
   Theme::SetActive("light");
 
@@ -61,7 +61,7 @@ void TestToastNode() {
 }
 
 void TestYamlToast() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   ViewFactory factory;
   auto n = LoadYamlString(
       "Toast:\n  text: 已保存\n  variant: success\n  duration: 1.5\n"
@@ -78,7 +78,7 @@ void TestYamlToast() {
 }
 
 void TestShowToastQueue() {
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Window w;
   Window::WindowOptions opt;
   opt.quit_on_close = false;

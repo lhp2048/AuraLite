@@ -1,26 +1,24 @@
-# AuraLite 编码风格
+# MxUI 编码风格
 
 本仓库**没有** `.clang-format` / clang-tidy 强制配置；风格以本文 + **相邻文件**为准。
 
-来源：早期 Chromium `base` / `gfx` / MessageLoop / Views 裁剪移植。  
+来源：早期 Chromium `base` / MessageLoop 裁剪移植。  
 适用范围（默认）：
 
 | 目录 | 是否按本文 |
 |------|------------|
 | `base/` | 是 |
-| `gfx/` | 是 |
 | `message_framework/` | 是 |
-| `view_framework/` | 是 |
-| 其它与上述同栈的 legacy 源 | 是 |
+| 其它与上述同栈的 Base 源 | 是 |
 
-**例外：** `auralite/`（含 `auralite::ui` / `reactive` / `async`）为 master 新栈，见文末「新栈差异」。改哪棵树，跟哪套风格；**禁止**在 legacy 里写成 fluent UI 风格，也**禁止**在 `auralite::ui` 里强行套 `GetXxx` + 大括号独占行。
+**例外：** `mx/`（含 `mx::ui` / `reactive` / `async`）为 master 新栈，见文末「新栈差异」。改哪棵树，跟哪套风格；**禁止**在 legacy 里写成 fluent UI 风格，也**禁止**在 `mx::ui` 里强行套 `GetXxx` + 大括号独占行。
 
 ---
 
 ## 1. 语言与构建
 
-- Legacy 目标（`AuraLite.Base` / `AuraLite.UILegacy`）：**C++14**（源码可偏 C++11 子集）。
-- 新 UI 目标（`AuraLite::UI` / `auralite_ui`）：**C++20**。
+- Legacy 目标（`Mx.Base` MessageLoop）：**C++14**（源码可偏 C++11 子集）。
+- 新 UI 目标（`MxUI::UI` / `mx_ui`）：**C++20**。
 - 平台：Windows；`UNICODE` / `_UNICODE`；注意 `NOMINMAX`。
 - 新改动优先可编译、可读；不做无关全库格式化。
 
@@ -42,7 +40,7 @@
 #endif //__at_exit_h__
 ```
 
-- Include 顺序习惯：对应标准库 → 本模块/`base`/`gfx` → 其它工程头。用引号路径（`"base/ref_counted.h"`、`"gfx/rect.h"`）。
+- Include 顺序习惯：对应标准库 → 本模块/`base` → 其它工程头。用引号路径（`"base/ref_counted.h"`）。
 - 实现与声明分离；模板/薄包装可全在头文件。
 
 ---
@@ -52,8 +50,6 @@
 | 区域 | 命名空间 |
 |------|----------|
 | `base/` | `base::` |
-| `gfx/` | `gfx::` |
-| `view_framework/` | `view::` |
 | `message_framework/` | 多数泵/代理在 `base::`；**`MessageLoop` 常在全局命名空间**（与上游 Chromium 同期一致，新增同类类型时跟旁边文件，勿擅自「纠正」进 `base::`） |
 
 命名空间花括号风格：
@@ -132,19 +128,19 @@ namespace base
 
 ---
 
-## 9. 新栈差异（`auralite/`）
+## 9. 新栈差异（`mx/`）
 
-`auralite::ui` / `reactive` / `async` **不**强制本节 §3–§6，而遵循旁文件：
+`mx::ui` / `reactive` / `async` **不**强制本节 §3–§6，而遵循旁文件：
 
 | 项 | 新栈常见写法 |
 |----|----------------|
-| 标准 | C++20（`auralite_ui`） |
-| 命名空间 | `auralite::ui` 等嵌套命名空间，常写 `namespace auralite::ui {` |
+| 标准 | C++20（`mx_ui`） |
+| 命名空间 | `mx::ui` 等嵌套命名空间，常写 `namespace mx::ui {` |
 | 头文件 | 可仅 `#pragma once` |
 | 方法 | fluent / `snake_case`：`fill_width()`、`set_visible()` |
 | 成员 | 尾下划线仍常用：`visible_` |
 | 绑定 / 协程 | 见 README：Signal 仅 UI 线程；MSVC 勿用临时 lambda 协程 |
-| 应用 include | `#include "auralite/ui.h"`（公开面索引）。不要 include overlay / UIA provider / `reactive/detail` |
+| 应用 include | `#include "mx/ui.h"`（公开面索引）。不要 include overlay / UIA provider / `reactive/detail` |
 
 业务 Theme：绘制走 `Theme::Active()`，不在控件里写死色/字号（稀疏覆盖除外）。
 
@@ -156,8 +152,8 @@ namespace base
 - [ ] 命名空间与目录匹配（注意 `MessageLoop` 全局例外）
 - [ ] 成员尾 `_`；禁止拷贝处有 `DISALLOW_COPY_AND_ASSIGN`
 - [ ] 新方法偏向 `Get`/`Set`；不与同类现有风格打架
-- [ ] 未引入 `auralite::ui` 的 fluent API 进 `view::` / `base::`
-- [ ] 未把 `view::` / `AuraLite.UILegacy` 引入新功能或 Family Shell
+- [ ] 未引入 `mx::ui` 的 fluent API 进 `base::`
+- [ ] 未把已删除的 `view::` 栈引回新功能或 Family Shell
 - [ ] 注释写清线程与所有权
 
 有冲突时：**同目录最近邻文件 > 本文默认条款**。

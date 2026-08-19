@@ -2,10 +2,10 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "auralite/canvas.h"
-#include "auralite/ui/application.h"
-#include "auralite/ui/column.h"
-#include "auralite/ui/window.h"
+#include "mx/canvas.h"
+#include "mx/ui/application.h"
+#include "mx/ui/column.h"
+#include "mx/ui/window.h"
 
 namespace {
 
@@ -30,13 +30,13 @@ void ExpectNear(float got, float want, const char* name, float eps = 0.01f) {
 }
 
 void TestDcTargetMapsDip() {
-  auralite::ui::Application::EnableDpiAwareness();
+  mx::ui::Application::EnableDpiAwareness();
 
   WNDCLASSW wc = {};
   wc.lpfnWndProc = DefWindowProcW;
   wc.hInstance = GetModuleHandleW(nullptr);
   wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
-  wc.lpszClassName = L"AuraLite.DpiProbe";
+  wc.lpszClassName = L"MxUI.DpiProbe";
   RegisterClassW(&wc);
   HWND hwnd = CreateWindowExW(0, wc.lpszClassName, L"", WS_POPUP, 0, 0, 240,
                               240, nullptr, nullptr, wc.hInstance, nullptr);
@@ -45,7 +45,7 @@ void TestDcTargetMapsDip() {
     return;
   }
 
-  auralite::Canvas canvas;
+  mx::Canvas canvas;
   canvas.SetDpi(192.f);
   Expect(canvas.Init(hwnd), "canvas init");
   Expect(canvas.BeginDraw(), "begin draw");
@@ -66,9 +66,9 @@ void TestDcTargetMapsDip() {
   ExpectNear(dx, 192.f, "dc rt dpi x after BindDC");
   ExpectNear(dip.width, 120.f, "dc rt dip width", 1.f);
 
-  canvas.Clear(auralite::ColorF(1.f, 1.f, 1.f, 1.f));
-  canvas.FillRect(auralite::RectF{0.f, 0.f, 96.f, 96.f},
-                  auralite::ColorF(1.f, 0.f, 0.f, 1.f));
+  canvas.Clear(mx::ColorF(1.f, 1.f, 1.f, 1.f));
+  canvas.FillRect(mx::RectF{0.f, 0.f, 96.f, 96.f},
+                  mx::ColorF(1.f, 0.f, 0.f, 1.f));
   Expect(canvas.EndDraw(nullptr), "end draw");
 
   uint8_t b = 0, g = 0, r = 0, a = 0;
@@ -86,11 +86,11 @@ void TestDcTargetMapsDip() {
 }
 
 void TestWindowFillsClient() {
-  auralite::ui::Window window;
+  mx::ui::Window window;
   Expect(window.Create(L"dpi-fill", 240, 240), "window create");
-  auto root = std::make_unique<auralite::ui::Column>();
+  auto root = std::make_unique<mx::ui::Column>();
   root->fill_width().fill_height();
-  root->bg(auralite::ColorF(1.f, 0.f, 0.f, 1.f));
+  root->bg(mx::ColorF(1.f, 0.f, 0.f, 1.f));
   window.SetRoot(std::move(root));
   ShowWindow(window.hwnd(), SW_SHOWNOACTIVATE);
   UpdateWindow(window.hwnd());
@@ -117,8 +117,8 @@ void TestWindowFillsClient() {
 }  // namespace
 
 int main() {
-  using auralite::DipFromPx;
-  using auralite::PxFromDip;
+  using mx::DipFromPx;
+  using mx::PxFromDip;
   const float dpis[] = {96.f, 120.f, 144.f, 192.f};
   for (float dpi : dpis) {
     ExpectNear(PxFromDip(96.f, dpi), dpi, "96dip -> dpi px");

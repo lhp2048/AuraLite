@@ -3,17 +3,17 @@
 #include <memory>
 #include <string>
 
-#include "auralite/ui/column.h"
-#include "auralite/ui/factory.h"
-#include "auralite/ui/label.h"
-#include "auralite/ui/progress_bar.h"
-#include "auralite/ui/scroll_view.h"
-#include "auralite/ui/slider.h"
-#include "auralite/ui/switch_control.h"
-#include "auralite/ui/tab.h"
-#include "auralite/ui/theme.h"
-#include "auralite/ui/window.h"
-#include "auralite/ui/yaml_loader.h"
+#include "mx/ui/column.h"
+#include "mx/ui/factory.h"
+#include "mx/ui/label.h"
+#include "mx/ui/progress_bar.h"
+#include "mx/ui/scroll_view.h"
+#include "mx/ui/slider.h"
+#include "mx/ui/switch_control.h"
+#include "mx/ui/tab.h"
+#include "mx/ui/theme.h"
+#include "mx/ui/window.h"
+#include "mx/ui/yaml_loader.h"
 
 namespace {
 
@@ -41,7 +41,7 @@ void ExpectNear(const char* name, float got, float want, float eps = 0.001f) {
 
 int main() {
   setvbuf(stdout, nullptr, _IONBF, 0);
-  using namespace auralite::ui;
+  using namespace mx::ui;
   Theme::RegisterBuiltInLight();
   Theme::SetActive("light");
 
