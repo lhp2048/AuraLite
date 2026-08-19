@@ -2,14 +2,15 @@
 
 Windows 声明式 UI 库（MX 品牌）。定位：**轻量、现代、快捷**。
 
-曾用名 AuraLite。仓库：[`lhp2048/MxUI`](https://github.com/lhp2048/MxUI)（`git@github.com:lhp2048/MxUI.git`）。Family 子模块目录：`3rd-party/MxUI`。
+曾用名 **AuraLite**。仓库：[`lhp2048/MxUI`](https://github.com/lhp2048/MxUI)（`git@github.com:lhp2048/MxUI.git`）。Family 子模块：`3rd-party/MxUI`。
 
-本文描述 **3.x**（`master`）：`mx::ui` 控件树 + Direct2D 画布 + YAML / C++ fluent 双轨。
+本文描述 **4.x**（`master`）：`mx::ui` 控件树 + Direct2D 画布 + YAML / C++ fluent 双轨。相对 3.x **更名并清理旧栈**；公开控件契约与 3.x 声明式面一致。
 
 | 版本 | 内容 |
 |------|------|
-| **1.x** / **2.x** | Views（GDI+ / D2D），用法不同 |
-| **3.x**（当前） | `mx::` / `MxUI::UI`（由 AuraLite 更名，契约不变） |
+| **1.x** / **2.x** | AuraLite Views（GDI+ / D2D），用法与现栈不同 |
+| **3.x** | AuraLite 声明式栈：`auralite::ui` / `AuraLite::UI`（YAML + fluent + D2D） |
+| **4.x**（当前 `master`） | 更名为 **MxUI**：`mx::` / `MxUI::UI`、头文件 `mx/`、产物 `Mx.UI.lib`；**已移除** Chromium Views（`view_framework` / UILegacy）；MessageLoop 仍在 `Mx.Base` |
 
 上游：https://github.com/lhp2048/MxUI
 

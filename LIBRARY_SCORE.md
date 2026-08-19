@@ -1,10 +1,10 @@
 # MxUI 界面库评估
 
-**版本：** 3.x（`master`）  
+**版本：** 4.x（`master`）  
 **评估日期：** 2026-08-19  
 **视角：** 作为 **独立 Windows 桌面界面库**，能否支撑「第二个产品」只靠本库交付 UI（非 Family 壳专用补丁集）。
 
-定位对齐 README：**轻量、现代、快捷**。分数不是和 Qt / WinUI「控件数量」比，而是和**该定位下的完成度**比。
+定位对齐 README：**轻量、现代、快捷**。分数不是和 Qt / WinUI「控件数量」比，而是和**该定位下的完成度**比。能力面与 **3.x（AuraLite 声明式）** 一致；4.x 主要是品牌 / 命名空间更名与 Views 清理。
 
 ---
 
@@ -96,7 +96,7 @@
 ## 与常见库对照（预期管理）
 
 
-| 能力          | MxUI 3.x | Qt Widgets | WinUI 3 |
+| 能力          | MxUI 4.x | Qt Widgets | WinUI 3 |
 | ----------- | ------------ | ---------- | ------- |
 | 跨平台         | ✗            | ✓          | ✗       |
 | 依赖体积        | 小（静态 lib）    | 大          | 中       |
@@ -163,5 +163,5 @@ cmake --build build --config Debug --target ui_gallery widget_test mx_ui
 
 ## 一句话
 
-> MxUI 3.x：**8.4 分**的 Windows 轻量界面库——标准件齐、双轨声明式成熟，**DataGrid / ColorPicker 已纳入正式控件面**；短板仍在 enterprise 表格、富文本与项级无障碍，以及非 Win32 生态。
+> MxUI 4.x：**8.4 分**的 Windows 轻量界面库——标准件齐、双轨声明式成熟，**DataGrid / ColorPicker 已纳入正式控件面**；短板仍在 enterprise 表格、富文本与项级无障碍，以及非 Win32 生态。
 
