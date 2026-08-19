@@ -143,5 +143,5 @@ Column:
 
 设计原稿（规则来源，用法以本文为准）：
 
-- [`../../docs/superpowers/specs/2026-08-15-auralite-layout-weight-align-design.md`](../../docs/superpowers/specs/2026-08-15-auralite-layout-weight-align-design.md)
-- [`../../docs/superpowers/specs/2026-08-15-auralite-absolute-anchors-design.md`](../../docs/superpowers/specs/2026-08-15-auralite-absolute-anchors-design.md)
+- [`../../docs/superpowers/specs/2026-08-15-mxui-layout-weight-align-design.md`](../../docs/superpowers/specs/2026-08-15-mxui-layout-weight-align-design.md)
+- [`../../docs/superpowers/specs/2026-08-15-mxui-absolute-anchors-design.md`](../../docs/superpowers/specs/2026-08-15-mxui-absolute-anchors-design.md)
