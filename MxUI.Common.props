@@ -2,7 +2,7 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <!-- Shared compile/link settings: C++14 (MSVC min), /MD, Win7+ -->
   <PropertyGroup>
-    <AuraLiteRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))</AuraLiteRoot>
+    <MxUIRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))</MxUIRoot>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -12,7 +12,7 @@
       <SDLCheck>false</SDLCheck>
       <ConformanceMode>false</ConformanceMode>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(AuraLiteRoot);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(MxUIRoot);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WINVER=0x0601;_WIN32_WINNT=0x0601;NTDDI_VERSION=0x06010000;NOMINMAX;_CRT_RAND_S;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)%(RelativeDir)%(Filename).obj</ObjectFileName>
       <DebugInformationFormat Condition="'$(Configuration)'=='Debug'">ProgramDatabase</DebugInformationFormat>

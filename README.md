@@ -2,7 +2,7 @@
 
 Windows 声明式 UI 库（MX 品牌）。定位：**轻量、现代、快捷**。
 
-曾用名 AuraLite；GitHub 仓库路径暂仍为 `lhp2048/AuraLite`，Family 子模块目录暂为 `3rd-party/AuraLite`。
+曾用名 AuraLite。仓库：[`lhp2048/MxUI`](https://github.com/lhp2048/MxUI)（`git@github.com:lhp2048/MxUI.git`）。Family 子模块目录：`3rd-party/MxUI`。
 
 本文描述 **3.x**（`master`）：`mx::ui` 控件树 + Direct2D 画布 + YAML / C++ fluent 双轨。
 
@@ -11,7 +11,7 @@ Windows 声明式 UI 库（MX 品牌）。定位：**轻量、现代、快捷**�
 | **1.x** / **2.x** | Views（GDI+ / D2D），用法不同 |
 | **3.x**（当前） | `mx::` / `MxUI::UI`（由 AuraLite 更名，契约不变） |
 
-上游：https://github.com/lhp2048/AuraLite
+上游：https://github.com/lhp2048/MxUI
 
 | 文档 | 内容 |
 |------|------|
