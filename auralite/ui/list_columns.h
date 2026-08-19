@@ -12,6 +12,13 @@ class Canvas;
 
 namespace auralite::ui {
 
+enum class ColumnSortKind {
+  Auto,     // column-wide numeric when all cells parse as numbers, else natural
+  Text,     // lexicographic wstring
+  Number,   // numeric; non-numeric sorts after numbers
+  Natural,  // text with numeric chunks ("行 2" before "行 10")
+};
+
 struct ListColumn {
   std::wstring title;
   float width = 0.f;   // >0: fixed px; else use weight
@@ -19,6 +26,8 @@ struct ListColumn {
   TextAlign align = TextAlign::Left;
   bool sortable = true;
   bool resizable = true;
+  bool editable = true;  // DataGrid cell edit; ignored by plain VirtualList
+  ColumnSortKind sort_kind = ColumnSortKind::Auto;  // DataGrid sort; ignored by VirtualList
 };
 
 enum class ListSortDir { None = 0, Asc = 1, Desc = -1 };
@@ -44,9 +53,13 @@ struct ListHeaderPaintState {
 };
 
 void PaintListHeader(auralite::Canvas& canvas, const RectF& band,
-                     const std::vector<ListColumn>& cols,
-                     float font_size = 13.f,
+                     const std::vector<ListColumn>& cols, float font_size,
                      const ListHeaderPaintState& state = {});
+
+// Vertical dividers between columns (skips frozen | scroll seam).
+void PaintColumnDividers(auralite::Canvas& canvas, const RectF& band,
+                         const std::vector<ListColumn>& cols, int frozen_count,
+                         float scroll_x, float pad_x = 8.f);
 
 // Absolute column cell rects in band coordinates (applies freeze + scroll_x).
 std::vector<RectF> HeaderColumnCells(const RectF& band,
@@ -62,7 +75,7 @@ int HitHeaderColumn(float x, float y, const RectF& band,
 int HitHeaderSplitter(float x, float y, const RectF& band,
                       const std::vector<ListColumn>& cols, int frozen_count,
                       float scroll_x, float pad_x = 8.f,
-                      float hit_slop = 4.f);
+                      float hit_slop = 5.f);
 
 float FrozenWidth(const std::vector<ListColumn>& cols, float content_w,
                   int frozen_count, float pad_x = 8.f);

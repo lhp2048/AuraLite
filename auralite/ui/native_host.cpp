@@ -3,14 +3,86 @@
 #include "auralite/canvas.h"
 #include "auralite/ui/window.h"
 
+#include <windowsx.h>
+
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
 #include <vector>
 
 namespace auralite::ui {
 namespace {
 
 std::vector<NativeHost*> g_live;
+
+struct GuestHook {
+  NativeHost* host = nullptr;
+  WNDPROC prev = nullptr;
+};
+
+std::unordered_map<HWND, GuestHook> g_guest_hooks;
+
+LRESULT CALLBACK GuestWndProc(HWND hwnd, UINT msg, WPARAM wparam,
+                              LPARAM lparam) {
+  WNDPROC prev = DefWindowProcW;
+  NativeHost* host = nullptr;
+  if (auto it = g_guest_hooks.find(hwnd); it != g_guest_hooks.end()) {
+    prev = it->second.prev ? it->second.prev : DefWindowProcW;
+    host = it->second.host;
+  }
+  if (msg == WM_NCHITTEST && host) {
+    if (Window* w = host->host_window()) {
+      if (HWND parent = w->hwnd()) {
+        POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+        ScreenToClient(parent, &pt);
+        const float x =
+            auralite::DipFromPx(static_cast<float>(pt.x), w->dpi());
+        const float y =
+            auralite::DipFromPx(static_cast<float>(pt.y), w->dpi());
+        if (w->HitTestResizeBorder(x, y) != HTNOWHERE) {
+          return HTTRANSPARENT;
+        }
+      }
+    }
+  }
+  return CallWindowProcW(prev, hwnd, msg, wparam, lparam);
+}
+
+void InstallGuestHook(HWND guest, NativeHost* host) {
+  if (!guest || !host || !IsWindow(guest)) {
+    return;
+  }
+  if (g_guest_hooks.find(guest) != g_guest_hooks.end()) {
+    g_guest_hooks[guest].host = host;
+    return;
+  }
+  GuestHook hook;
+  hook.host = host;
+  hook.prev = reinterpret_cast<WNDPROC>(GetWindowLongPtrW(guest, GWLP_WNDPROC));
+  if (hook.prev == GuestWndProc) {
+    hook.prev = DefWindowProcW;
+  }
+  g_guest_hooks[guest] = hook;
+  SetWindowLongPtrW(guest, GWLP_WNDPROC,
+                    reinterpret_cast<LONG_PTR>(GuestWndProc));
+}
+
+void RemoveGuestHook(HWND guest) {
+  if (!guest) {
+    return;
+  }
+  auto it = g_guest_hooks.find(guest);
+  if (it == g_guest_hooks.end()) {
+    return;
+  }
+  if (IsWindow(guest) &&
+      reinterpret_cast<WNDPROC>(GetWindowLongPtrW(guest, GWLP_WNDPROC)) ==
+          GuestWndProc) {
+    SetWindowLongPtrW(guest, GWLP_WNDPROC,
+                      reinterpret_cast<LONG_PTR>(it->second.prev));
+  }
+  g_guest_hooks.erase(it);
+}
 
 }  // namespace
 
@@ -99,6 +171,7 @@ NativeHost& NativeHost::Attach(HWND hwnd, NativeLifetime life) {
   attached_ = true;
   owned_ = (life == NativeLifetime::Owned);
   RegisterLive(this);
+  InstallGuestHook(hwnd_, this);
   AdoptParent();
   SyncNative();
   return *this;
@@ -138,6 +211,7 @@ void NativeHost::Drop(bool destroy_owned) {
   synced_h_ = 0;
   synced_visible_ = false;
   UnregisterLive(this);
+  RemoveGuestHook(guest);
   if (!guest || !IsWindow(guest)) {
     return;
   }

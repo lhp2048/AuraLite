@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <cmath>
 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
 namespace auralite::ui {
 namespace {
 
@@ -193,6 +196,7 @@ void VirtualList::CycleSort(int col) {
   if (on_sort_) {
     on_sort_(sort_col_, sort_dir_);
   }
+  Invalidate();
 }
 
 bool VirtualList::HandleHeaderMouseDown(const MouseEvent& e) {
@@ -491,6 +495,45 @@ bool VirtualList::HitCheckBox(int index, float x, float y) const {
   return ContainsPoint(CheckBoxRect(RowRect(index)), x, y);
 }
 
+bool VirtualList::HitCellAtPoint(float x, float y, int* row, int* col) const {
+  const int r = IndexAtPoint(x, y);
+  if (r < 0 || columns_.empty()) {
+    return false;
+  }
+  const RectF row_r = RowRect(r);
+  const int frozen =
+      std::clamp(frozen_count_, 0, static_cast<int>(columns_.size()));
+  const auto cells =
+      HeaderColumnCells(row_r, columns_, frozen, scroll_x_, kPadX);
+  for (int c = 0; c < static_cast<int>(cells.size()); ++c) {
+    if (ContainsPoint(cells[static_cast<size_t>(c)], x, y)) {
+      if (row) {
+        *row = r;
+      }
+      if (col) {
+        *col = c;
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+RectF VirtualList::CellRectAt(int row, int col) const {
+  if (row < 0 || col < 0 || columns_.empty()) {
+    return {};
+  }
+  const RectF row_r = RowRect(row);
+  const int frozen =
+      std::clamp(frozen_count_, 0, static_cast<int>(columns_.size()));
+  const auto cells =
+      HeaderColumnCells(row_r, columns_, frozen, scroll_x_, kPadX);
+  if (col >= static_cast<int>(cells.size())) {
+    return {};
+  }
+  return cells[static_cast<size_t>(col)];
+}
+
 void VirtualList::CommitSelection() {
   if (on_selection_ && selected_index_ >= 0) {
     on_selection_(selected_index_);
@@ -530,6 +573,14 @@ void VirtualList::EnsureVisible(int index) {
   } else if (bottom > scroll_y_ + view_h) {
     set_scroll_offset(bottom - view_h);
   }
+}
+
+bool VirtualList::HeaderResizeCursorAt(float x, float y) const {
+  if (HeaderBand() <= 0.f || columns_.empty()) {
+    return false;
+  }
+  return HitHeaderSplitter(x, y, HeaderBandRect(), columns_, frozen_count_,
+                           scroll_x_) >= 0;
 }
 
 SizeF VirtualList::Measure(float max_w, float max_h) {
@@ -604,6 +655,8 @@ void VirtualList::PaintDefaultRow(auralite::Canvas& canvas, const RectF& row,
                       th.divider, 1.f);
       canvas.PopAxisAlignedClip();
     }
+
+    PaintColumnDividers(canvas, row, columns_, frozen, scroll_x_, kPadX);
 
     if (state.focused_row && focused()) {
       canvas.DrawRect(row, th.border_focus, 1.5f);
@@ -761,6 +814,9 @@ void VirtualList::OnMouseDown(const MouseEvent& e) {
 }
 
 void VirtualList::OnMouseMove(const MouseEvent& e) {
+  if (resizing_col_ || HeaderResizeCursorAt(e.x, e.y)) {
+    SetCursor(LoadCursorW(nullptr, IDC_SIZEWE));
+  }
   if (HandleHeaderMouseMove(e)) {
     Invalidate();
     return;

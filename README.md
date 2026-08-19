@@ -17,6 +17,7 @@ Windows 声明式 UI 库。定位：**轻量、现代、快捷**。
 | [`LAYOUT.md`](LAYOUT.md) | Column / Row / Absolute、`h_align` / `v_align`、锚点、Fill/Hug |
 | [`CODING.md`](CODING.md) | 编码风格（`auralite/` 新栈 vs legacy） |
 | [`WIN7.md`](WIN7.md) | 可选 Win7 特殊编译（默认不做） |
+| [`LIBRARY_SCORE.md`](LIBRARY_SCORE.md) | 界面库评估（维度分、DataGrid/ColorPicker、边界） |
 
 ## 这是什么
 
@@ -39,7 +40,7 @@ Windows 声明式 UI 库。定位：**轻量、现代、快捷**。
 | 控件级 UIA（角色、名字、Invoke / Value / Toggle / RangeValue、Tab Selection） | 列表/树项级 pattern、高对比、RTL |
 | Fill / Hug / Fixed + 锚点 | 百分比尺寸、`elevation` / `z-index` |
 | 单向绑定 + 控件事件写回 | YAML 绑定表达式、自动双向、`ObservableList` diff |
-| `UserControl` / 列表 + 对话框组合复杂 UI | DataGrid、ColorPicker、Accordion、富文本 |
+| `UserControl` / 列表 + 对话框组合复杂 UI | Accordion、富文本 |
 
 输入是鼠标消息 + 窗级 `AddAccelerator`；触摸屏靠系统合成单击。`NativeHost` 是空气墙：不转发输入、不随 `ScrollView` 半裁。系统 API 按 **Windows 10+**；Win7 若需要见 [`WIN7.md`](WIN7.md)（独立开关，不是默认产物）。
 
@@ -59,7 +60,7 @@ Windows 声明式 UI 库。定位：**轻量、现代、快捷**。
 | 画布 | `auralite/canvas.h` |
 | 宿主 | `auralite/ui/application.h` · `window.h` · `theme.h` · `theme_yaml.h` · `types.h` · `acc.h` · `anim.h` · `node.h` |
 | 布局 | `column.h` · `row.h` · `tile.h` · `tab.h` · `absolute.h` · `split_view.h` · `scroll_view.h` |
-| 控件 | `title_bar.h` · `label.h` · `button.h` · `image_button.h` · `image_view.h` · `text_field.h` · `text_area.h` · `checkbox.h` · `radio.h` · `switch_control.h` · `progress_bar.h` · `slider.h` · `combo.h` · `spin_box.h` · `date_picker.h` · `civil_date.h` · `menu_bar.h` · `menu_item.h` · `status_bar.h` · `list_view.h` · `item_list.h` · `virtual_list.h` · `tree_view.h` · `list_columns.h` · `user_control.h` · `native_host.h` · `toast.h` · `submenu.h` · `popup_host.h` · `context_menu.h` · `text_layout.h` |
+| 控件 | `title_bar.h` · `label.h` · `button.h` · `image_button.h` · `image_view.h` · `text_field.h` · `text_area.h` · `checkbox.h` · `radio.h` · `switch_control.h` · `progress_bar.h` · `slider.h` · `combo.h` · `spin_box.h` · `date_picker.h` · `color_picker.h` · `civil_date.h` · `menu_bar.h` · `menu_item.h` · `status_bar.h` · `list_view.h` · `item_list.h` · `virtual_list.h` · `data_grid.h` · `tree_view.h` · `list_columns.h` · `user_control.h` · `native_host.h` · `toast.h` · `submenu.h` · `popup_host.h` · `context_menu.h` · `text_layout.h` |
 | 声明 | `factory.h` · `yaml_loader.h` · `dsl.h` · `bind.h` |
 | 绑定 | `auralite/reactive/signal.h` · `observe.h` |
 | 异步 | `auralite/async/awaiters.h` |
@@ -75,6 +76,7 @@ cmake --build build --config Debug --target ui_gallery ui_layout_test auralite_u
 .\bin\x64\Debug\ui_gallery.exe --fluent
 .\bin\x64\Debug\ui_gallery.exe --check
 .\bin\x64\Debug\ui_layout_test.exe
+.\bin\x64\Debug\webview_browser.exe
 ```
 
 产物：`bin|lib/<Platform>/<Config>/`。YAML 会复制到 exe 旁。
@@ -162,9 +164,9 @@ auto root = Column()
 | `Label` | 默认单行 `trim: clip`；`wrap: true` 软换行；单行可 `trim: start\|middle\|end` 省略号 |
 | `TextField` / `TextArea` | 单行 / 多行（`wrap` 软换行） |
 | `Checkbox` / `Radio` / `Switch` | 选择 |
-| `ProgressBar` / `Slider` / `Combo` / `SpinBox` / `DatePicker` | 进度、滑块、下拉、步进、日期。DatePicker 需 `BindWindow`；弹出层点年/月/时/分/秒数字可选，箭头或滚轮微调；`time: true` 时分，再加 `seconds: true` / `second` 显示秒 |
+| `ProgressBar` / `Slider` / `Combo` / `SpinBox` / `DatePicker` / `ColorPicker` | 进度、滑块、下拉、步进、日期、取色。DatePicker 需 `BindWindow`；弹出层点年/月/时/分/秒数字可选，箭头或滚轮微调；`time: true` 时分，再加 `seconds: true` / `second` 显示秒。ColorPicker 同样需 `BindWindow`；`mode: simple\|full`，`alpha: true` 编辑透明度；YAML `color: "#RRGGBB"` / `#RRGGBBAA` 或 `r/g/b/a` |
 | `MenuBar` / `MenuItem` / `StatusBar` | 顶栏菜单（PopupHost）、默认菜单行、底栏状态。MenuBar `items` 一律生成 `MenuItem`。弹出层是普通 `Column`：`MenuItem` 当默认行，可与 `Button` / `Submenu` 等混排（Button 即自定义菜单行）。`MenuItem`：`separator` / `checkable`+`checked` / `radio_group` / `icon` |
-| `VirtualList` / `ItemList` / `ListView` / `TreeView` | 列表与树 |
+| `VirtualList` / `DataGrid` / `ItemList` / `ListView` / `TreeView` | 列表与树。`DataGrid` 继承 `VirtualList`（表头、排序、列宽、冻结、虚拟滚动），内置二维 `cells_`；**默认自动排序**（`auto_sort`；列 `sort_kind: auto|text|number`；可 `sort_compare` 自定义、`auto_sort: false` 完全手动）；双击 / F2 / Enter 编辑（需 `BindWindow`）；列 YAML `editable: false` 只读 |
 | `UserControl` | 自绘扩展 |
 | `NativeHost` | HWND 黑盒洞（YAML 只占位；`Attach` / `AttachBorrowed` 在代码里） |
 | `PopupHost` / `Submenu` | 自绘弹出层（推荐）。`window.corner_radius` / `window.border_width`（默认 8 / 1） |
@@ -263,8 +265,10 @@ button->on_click([&] { n.Set(n.Peek() + 1); });
 |------|------|
 | `ui_gallery` | 全控件面（YAML 默认 / `--fluent` / `--check`） |
 | `login_demo` | 登录窗；`--fluent` 为链式等价树 |
+| `webview_browser` | 无边框 + TitleBar + 地址栏 + WebView2（`NativeHost`）；需本机 Evergreen Runtime |
 | `ui_layout_test` | 布局单测 |
 | `theme_test` / `dpi_test` / `dialog_test` | 主题、DPI、模态对话框 |
+| `theme_picker` | ColorPicker 调色 → `Theme::Register` / `SetActive` 即时换肤 |
 | `reactive_test` / `async_test` / `reactive_demo` / `reactive_gallery` | Signal / 协程 |
 | `acc_test` / `uia_test` / `widget_test` / `toast_test` / `anim_test` / `drag_test` | 无障碍、新控件、Toast、动画、拖放 |
 

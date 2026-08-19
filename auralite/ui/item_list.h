@@ -73,6 +73,8 @@ class ItemList : public Node {
   int selected_index() const { return selected_index_; }
   void EnsureVisible(int index);
 
+  bool HeaderResizeCursorAt(float x, float y) const;
+
   float scroll_offset() const { return scroll_y_; }
   void set_scroll_offset(float y);
 

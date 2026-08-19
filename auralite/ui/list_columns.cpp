@@ -131,6 +131,41 @@ std::vector<RectF> HeaderColumnCells(const RectF& band,
   return cells;
 }
 
+void PaintColumnDividers(auralite::Canvas& canvas, const RectF& band,
+                         const std::vector<ListColumn>& cols, int frozen_count,
+                         float scroll_x, float pad_x) {
+  if (cols.size() < 2 || band.h <= 0.f) {
+    return;
+  }
+  const auto& t = Theme::Active();
+  const int frozen =
+      std::clamp(frozen_count, 0, static_cast<int>(cols.size()));
+  const float fz = FrozenWidth(cols, band.w, frozen, pad_x);
+  const auto cells = HeaderColumnCells(band, cols, frozen, scroll_x, pad_x);
+  if (cells.size() < 2) {
+    return;
+  }
+
+  auto draw_range = [&](int from, int to, const RectF& clip) {
+    canvas.PushAxisAlignedClip(clip);
+    for (int i = from; i < to; ++i) {
+      if (frozen > 0 && i == frozen - 1) {
+        continue;
+      }
+      const RectF& c = cells[static_cast<size_t>(i)];
+      const float x = c.x + c.w - 0.5f;
+      canvas.DrawLine(x, band.y, x, band.y + band.h, t.divider, 1.f);
+    }
+    canvas.PopAxisAlignedClip();
+  };
+
+  if (frozen > 0) {
+    draw_range(0, frozen - 1, RectF{band.x, band.y, fz, band.h});
+  }
+  draw_range(frozen, static_cast<int>(cells.size()) - 1,
+             RectF{band.x + fz, band.y, std::max(0.f, band.w - fz), band.h});
+}
+
 void PaintListHeader(auralite::Canvas& canvas, const RectF& band,
                      const std::vector<ListColumn>& cols, float font_size,
                      const ListHeaderPaintState& state) {
@@ -180,6 +215,8 @@ void PaintListHeader(auralite::Canvas& canvas, const RectF& band,
                     band.y + band.h, t.divider, 1.f);
     canvas.PopAxisAlignedClip();
   }
+
+  PaintColumnDividers(canvas, band, cols, frozen, state.scroll_x, kPadX);
 }
 
 int HitHeaderColumn(float x, float y, const RectF& band,

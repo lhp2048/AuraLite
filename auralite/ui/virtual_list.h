@@ -83,6 +83,12 @@ class VirtualList : public Node {
   int selected_index() const { return selected_index_; }
   void EnsureVisible(int index);
 
+  bool HeaderResizeCursorAt(float x, float y) const;
+
+  // Multi-column hit testing (DataGrid).
+  bool HitCellAtPoint(float x, float y, int* row, int* col) const;
+  RectF CellRectAt(int row, int col) const;
+
   SizeF Measure(float max_w, float max_h) override;
   void Layout(const RectF& final_rect) override;
   void Paint(auralite::Canvas& canvas) override;

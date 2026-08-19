@@ -133,12 +133,16 @@ class Window {
   std::unique_ptr<Node> ReleaseRoot();
   // Floating layer above root (Combo dropdown). |on_dismiss| runs on ClearPopup.
   // |anchor| click while open is left to the control (toggle), not dismissed here.
+  // |fixed_bounds| when set: SyncPopupLayout keeps that rect (cell editors).
   void SetPopup(std::unique_ptr<Node> popup,
                 std::function<void()> on_dismiss = {},
-                Node* anchor = nullptr);
+                Node* anchor = nullptr,
+                const RectF* fixed_bounds = nullptr);
   void ClearPopup();
   // Safe while handling popup mouse events: runs ClearPopup after dispatch returns.
   void RequestClearPopup();
+  // Focus after the current mouse message finishes (popup child editors).
+  void DeferFocusNode(Node* node);
   Node* popup() const { return popup_.get(); }
 
   // PopupHost: invoked on WM_ACTIVATE(WA_INACTIVE) with the HWND gaining
@@ -215,6 +219,8 @@ class Window {
   // Client-DIP hit test for frameless resize. HTLEFT… / HTNOWHERE.
   static int HitTestResizeEdge(float x, float y, float w, float h,
                                float thickness, float corner);
+  // Active frameless window edge (caption=false, resizable). HTNOWHERE if off.
+  int HitTestResizeBorder(float client_x, float client_y) const;
 
  private:
   friend class PopupHost;
@@ -315,6 +321,8 @@ class Window {
   std::unique_ptr<Node> popup_;
   std::function<void()> popup_dismiss_;
   Node* popup_anchor_ = nullptr;
+  std::optional<RectF> popup_fixed_bounds_;
+  Node* deferred_focus_ = nullptr;
   bool clear_popup_pending_ = false;
   std::string theme_name_;
   bool layout_dirty_ = true;

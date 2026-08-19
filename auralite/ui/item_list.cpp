@@ -4,6 +4,9 @@
 
 #include <algorithm>
 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
 namespace auralite::ui {
 
 ItemList::ItemList() {
@@ -306,6 +309,14 @@ void ItemList::EnsureVisible(int index) {
   } else if (bottom > scroll_y_ + view_h) {
     set_scroll_offset(bottom - view_h);
   }
+}
+
+bool ItemList::HeaderResizeCursorAt(float x, float y) const {
+  if (HeaderBand() <= 0.f || columns_.empty()) {
+    return false;
+  }
+  return HitHeaderSplitter(x, y, HeaderBandRect(), columns_, frozen_count_,
+                           scroll_x_) >= 0;
 }
 
 float ItemList::ContentHeight() const {
@@ -723,6 +734,9 @@ void ItemList::OnMouseDown(const MouseEvent& e) {
 }
 
 void ItemList::OnMouseMove(const MouseEvent& e) {
+  if (resizing_col_ || HeaderResizeCursorAt(e.x, e.y)) {
+    SetCursor(LoadCursorW(nullptr, IDC_SIZEWE));
+  }
   if (HandleHeaderMouseMove(e)) {
     Invalidate();
     return;

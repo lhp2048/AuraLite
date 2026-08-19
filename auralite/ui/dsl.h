@@ -4,7 +4,9 @@
 #include "auralite/ui/checkbox.h"
 #include "auralite/ui/column.h"
 #include "auralite/ui/absolute.h"
+#include "auralite/ui/color_picker.h"
 #include "auralite/ui/combo.h"
+#include "auralite/ui/data_grid.h"
 #include "auralite/ui/date_picker.h"
 #include "auralite/ui/image_button.h"
 #include "auralite/ui/image_view.h"
@@ -1079,6 +1081,34 @@ class DatePickerBuilder : public detail::BuilderBase<DatePicker> {
   }
 };
 
+class ColorPickerBuilder : public detail::BuilderBase<ColorPicker> {
+ public:
+  ColorPickerBuilder& color(const ColorF& c) {
+    get()->color(c);
+    return *this;
+  }
+  ColorPickerBuilder& mode(ColorPickerMode m) {
+    get()->mode(m);
+    return *this;
+  }
+  ColorPickerBuilder& alpha(bool enable) {
+    get()->alpha(enable);
+    return *this;
+  }
+  ColorPickerBuilder& font_size(float size) {
+    get()->font_size(size);
+    return *this;
+  }
+  ColorPickerBuilder& on_changed(ColorPicker::ChangeHandler handler) {
+    get()->on_changed(std::move(handler));
+    return *this;
+  }
+  ColorPickerBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+};
+
 class MenuItemBuilder : public detail::BuilderBase<MenuItem> {
  public:
   MenuItemBuilder& text(const std::wstring& t) {
@@ -1287,6 +1317,74 @@ class VirtualListBuilder : public detail::BuilderBase<VirtualList> {
   }
 };
 
+class DataGridBuilder : public detail::BuilderBase<DataGrid> {
+ public:
+  DataGridBuilder& editable(bool on) {
+    get()->editable(on);
+    return *this;
+  }
+  DataGridBuilder& set_row_count(int rows) {
+    get()->set_row_count(rows);
+    return *this;
+  }
+  DataGridBuilder& set_cell(int row, int col, std::wstring value) {
+    get()->set_cell(row, col, std::move(value));
+    return *this;
+  }
+  DataGridBuilder& on_cell_changed(DataGrid::CellChangedHandler handler) {
+    get()->on_cell_changed(std::move(handler));
+    return *this;
+  }
+  DataGridBuilder& on_selection_changed(VirtualList::SelectionHandler h) {
+    get()->on_selection_changed(std::move(h));
+    return *this;
+  }
+  DataGridBuilder& on_sort_changed(VirtualList::SortHandler h) {
+    get()->on_sort_changed(std::move(h));
+    return *this;
+  }
+  DataGridBuilder& auto_sort(bool on) {
+    get()->auto_sort(on);
+    return *this;
+  }
+  DataGridBuilder& sort_compare(DataGrid::SortCompareHandler h) {
+    get()->sort_compare(std::move(h));
+    return *this;
+  }
+  DataGridBuilder& columns(std::vector<ListColumn> cols) {
+    get()->columns(std::move(cols));
+    return *this;
+  }
+  DataGridBuilder& show_header(bool v) {
+    get()->show_header(v);
+    return *this;
+  }
+  DataGridBuilder& header_height(float h) {
+    get()->header_height(h);
+    return *this;
+  }
+  DataGridBuilder& frozen_count(int n) {
+    get()->frozen_count(n);
+    return *this;
+  }
+  DataGridBuilder& font_size(float size) {
+    get()->font_size(size);
+    return *this;
+  }
+  DataGridBuilder& fill_width() {
+    get()->fill_width();
+    return *this;
+  }
+  DataGridBuilder& fixed_height(float h) {
+    get()->fixed_height(h);
+    return *this;
+  }
+  DataGridBuilder& fill_height() {
+    get()->fill_height();
+    return *this;
+  }
+};
+
 class TreeViewBuilder : public detail::BuilderBase<TreeView> {
  public:
   TreeViewBuilder& font_size(float size) {
@@ -1416,10 +1514,12 @@ inline SliderBuilder Slider() { return SliderBuilder(); }
 inline ComboBuilder Combo() { return ComboBuilder(); }
 inline SpinBoxBuilder SpinBox() { return SpinBoxBuilder(); }
 inline DatePickerBuilder DatePicker() { return DatePickerBuilder(); }
+inline ColorPickerBuilder ColorPicker() { return ColorPickerBuilder(); }
 inline MenuItemBuilder MenuItem() { return MenuItemBuilder(); }
 inline MenuBarBuilder MenuBar() { return MenuBarBuilder(); }
 inline StatusBarBuilder StatusBar() { return StatusBarBuilder(); }
 inline TextAreaBuilder TextArea() { return TextAreaBuilder(); }
+inline DataGridBuilder DataGrid() { return DataGridBuilder(); }
 inline VirtualListBuilder VirtualList() { return VirtualListBuilder(); }
 inline TreeViewBuilder TreeView() { return TreeViewBuilder(); }
 inline ItemListBuilder ItemList() { return ItemListBuilder(); }

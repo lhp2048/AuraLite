@@ -188,6 +188,8 @@ add_library(auralite_ui STATIC
   auralite/ui/spin_box.cpp
   auralite/ui/civil_date.cpp
   auralite/ui/date_picker.cpp
+  auralite/ui/color_picker.cpp
+  auralite/ui/data_grid.cpp
   auralite/ui/menu_bar.cpp
   auralite/ui/menu_item.cpp
   auralite/ui/status_bar.cpp
@@ -319,6 +321,49 @@ if(AURALITE_BUILD_UI_DEMOS)
     COMMENT "Copy login_window.yaml next to login_demo"
   )
 
+  if(POLICY CMP0169)
+    cmake_policy(SET CMP0169 OLD)
+  endif()
+  include(FetchContent)
+  set(AURALITE_WEBVIEW2_VERSION "1.0.2849.39")
+  FetchContent_Declare(webview2_sdk
+    URL "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/${AURALITE_WEBVIEW2_VERSION}"
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+  )
+  FetchContent_GetProperties(webview2_sdk)
+  if(NOT webview2_sdk_POPULATED)
+    FetchContent_Populate(webview2_sdk)
+  endif()
+  if(AURALITE_PLATFORM STREQUAL "Win32")
+    set(AURALITE_WEBVIEW2_ARCH "x86")
+  elseif(AURALITE_PLATFORM STREQUAL "ARM64")
+    set(AURALITE_WEBVIEW2_ARCH "arm64")
+  else()
+    set(AURALITE_WEBVIEW2_ARCH "x64")
+  endif()
+  set(AURALITE_WEBVIEW2_LIB
+    "${webview2_sdk_SOURCE_DIR}/build/native/${AURALITE_WEBVIEW2_ARCH}/WebView2LoaderStatic.lib")
+  if(NOT EXISTS "${webview2_sdk_SOURCE_DIR}/build/native/include/WebView2.h")
+    message(FATAL_ERROR "WebView2 SDK missing after download (need WebView2.h)")
+  endif()
+  add_executable(webview_browser WIN32 examples/webview_browser/main.cpp)
+  target_include_directories(webview_browser PRIVATE
+    "${webview2_sdk_SOURCE_DIR}/build/native/include")
+  target_link_libraries(webview_browser PRIVATE
+    AuraLite::UI
+    "${AURALITE_WEBVIEW2_LIB}"
+    version
+    ole32
+    user32
+  )
+  target_compile_definitions(webview_browser PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(webview_browser PRIVATE /W3 /utf-8 /permissive- /wd4828)
+  endif()
+
   add_executable(ui_gallery WIN32 examples/ui_gallery/main.cpp)
   target_link_libraries(ui_gallery PRIVATE AuraLite::UI)
   target_compile_definitions(ui_gallery PRIVATE
@@ -406,6 +451,16 @@ if(AURALITE_BUILD_UI_DEMOS)
       "$<TARGET_FILE_DIR:reactive_gallery>/themes"
     COMMENT "Copy themes next to reactive_gallery"
   )
+
+  add_executable(theme_picker WIN32 examples/theme_picker/main.cpp)
+  target_link_libraries(theme_picker PRIVATE AuraLite::UI)
+  target_compile_definitions(theme_picker PRIVATE
+    NOMINMAX UNICODE _UNICODE
+    WINVER=0x0A00 _WIN32_WINNT=0x0A00
+  )
+  if(MSVC)
+    target_compile_options(theme_picker PRIVATE /W3 /utf-8 /permissive- /wd4828)
+  endif()
 
   add_executable(theme_test examples/theme_test/main.cpp)
   target_link_libraries(theme_test PRIVATE AuraLite::UI)

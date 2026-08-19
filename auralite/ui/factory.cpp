@@ -4,7 +4,9 @@
 #include "auralite/ui/button.h"
 #include "auralite/ui/checkbox.h"
 #include "auralite/ui/column.h"
+#include "auralite/ui/color_picker.h"
 #include "auralite/ui/combo.h"
+#include "auralite/ui/data_grid.h"
 #include "auralite/ui/date_picker.h"
 #include "auralite/ui/image_button.h"
 #include "auralite/ui/image_view.h"
@@ -305,11 +307,28 @@ std::vector<ListColumn> ParseListColumns(const YAML::Node& props) {
           col.align = TextAlign::Right;
         }
       }
+      if (c["sort_kind"]) {
+        const std::string k = c["sort_kind"].as<std::string>();
+        if (k == "text" || k == "string") {
+          col.sort_kind = ColumnSortKind::Text;
+        } else if (k == "number" || k == "numeric") {
+          col.sort_kind = ColumnSortKind::Number;
+        } else if (k == "natural") {
+          col.sort_kind = ColumnSortKind::Natural;
+        } else if (k == "auto") {
+          col.sort_kind = ColumnSortKind::Auto;
+        }
+      } else if (col.align == TextAlign::Right) {
+        col.sort_kind = ColumnSortKind::Number;
+      }
       if (c["sortable"]) {
         col.sortable = c["sortable"].as<bool>();
       }
       if (c["resizable"]) {
         col.resizable = c["resizable"].as<bool>();
+      }
+      if (c["editable"]) {
+        col.editable = c["editable"].as<bool>();
       }
     }
     cols.push_back(std::move(col));
@@ -459,6 +478,9 @@ std::string NodeTypeName(const Node* n) {
   if (dynamic_cast<const ItemList*>(n)) {
     return "ItemList";
   }
+  if (dynamic_cast<const DataGrid*>(n)) {
+    return "DataGrid";
+  }
   if (dynamic_cast<const VirtualList*>(n)) {
     return "VirtualList";
   }
@@ -479,6 +501,9 @@ std::string NodeTypeName(const Node* n) {
   }
   if (dynamic_cast<const DatePicker*>(n)) {
     return "DatePicker";
+  }
+  if (dynamic_cast<const ColorPicker*>(n)) {
+    return "ColorPicker";
   }
   if (dynamic_cast<const MenuBar*>(n)) {
     return "MenuBar";
@@ -543,6 +568,12 @@ std::string NodeDetail(const Node* n) {
   }
   if (const auto* dp = dynamic_cast<const DatePicker*>(n)) {
     return " date=\"" + WideToUtf8(FormatYmd(dp->date())) + "\"";
+  }
+  if (const auto* dg = dynamic_cast<const DataGrid*>(n)) {
+    return " rows=" + std::to_string(dg->row_count());
+  }
+  if (const auto* cp = dynamic_cast<const ColorPicker*>(n)) {
+    return " color=\"" + WideToUtf8(cp->hex(cp->alpha())) + "\"";
   }
   if (const auto* mb = dynamic_cast<const MenuBar*>(n)) {
     return " items=" + std::to_string(mb->menu_count());
@@ -1107,6 +1138,59 @@ void ViewFactory::RegisterBuiltinTypes() {
     return dp;
   });
 
+  Register("ColorPicker", [](const YAML::Node& props, const HandlerMap&) {
+    auto cp = std::make_unique<ColorPicker>();
+    if (props["mode"]) {
+      const std::string m = props["mode"].as<std::string>();
+      if (m == "full" || m == "Full") {
+        cp->mode(ColorPickerMode::Full);
+      } else {
+        cp->mode(ColorPickerMode::Simple);
+      }
+    }
+    if (props["alpha"]) {
+      cp->alpha(props["alpha"].as<bool>());
+    }
+    ColorF c = cp->color();
+    if (props["color"]) {
+      ParseColorHex(props["color"].as<std::string>(), &c);
+    }
+    if (props["r"]) {
+      c.r = props["r"].as<float>();
+      if (c.r > 1.f) {
+        c.r /= 255.f;
+      }
+    }
+    if (props["g"]) {
+      c.g = props["g"].as<float>();
+      if (c.g > 1.f) {
+        c.g /= 255.f;
+      }
+    }
+    if (props["b"]) {
+      c.b = props["b"].as<float>();
+      if (c.b > 1.f) {
+        c.b /= 255.f;
+      }
+    }
+    if (props["a"]) {
+      c.a = props["a"].as<float>();
+      if (c.a > 1.f) {
+        c.a /= 255.f;
+      }
+      if (!props["alpha"]) {
+        cp->alpha(true);
+      }
+    }
+    cp->color(c);
+    if (props["font_size"]) {
+      cp->font_size(props["font_size"].as<float>());
+    }
+    ApplyWidthHeight(cp.get(), props);
+    ApplyWeightHVAlign(cp.get(), props);
+    return cp;
+  });
+
   Register("MenuItem", [](const YAML::Node& props, const HandlerMap& handlers) {
     auto item = std::make_unique<MenuItem>();
     if (props["separator"] && props["separator"].as<bool>()) {
@@ -1216,6 +1300,57 @@ void ViewFactory::RegisterBuiltinTypes() {
     ApplyWidthHeight(area.get(), props);
     ApplyWeightHVAlign(area.get(), props);
     return area;
+  });
+
+  Register("DataGrid", [](const YAML::Node& props, const HandlerMap&) {
+    auto grid = std::make_unique<DataGrid>();
+    int rows = 10;
+    if (props["rows"]) {
+      rows = std::max(0, props["rows"].as<int>());
+    }
+    if (props["editable"]) {
+      grid->editable(props["editable"].as<bool>());
+    }
+    if (props["auto_sort"]) {
+      grid->auto_sort(props["auto_sort"].as<bool>());
+    }
+    if (props["font_size"]) {
+      grid->font_size(props["font_size"].as<float>());
+    }
+    ApplyListColumnsHeader(grid.get(), props);
+    grid->set_row_count(rows);
+    if (props["data"] && props["data"].IsSequence()) {
+      int r = 0;
+      for (const auto& row_node : props["data"]) {
+        if (row_node.IsSequence()) {
+          int c = 0;
+          for (const auto& cell : row_node) {
+            grid->set_cell(r, c, Utf8ToWide(cell.as<std::string>()));
+            ++c;
+          }
+        }
+        ++r;
+      }
+    } else {
+      const int col_count = static_cast<int>(grid->columns().size());
+      for (int i = 0; i < rows; ++i) {
+        if (col_count > 0) {
+          grid->set_cell(i, 0, L"行 " + std::to_wstring(i + 1));
+        }
+        if (col_count > 1) {
+          grid->set_cell(i, 1, std::to_wstring(i * 10));
+        }
+        if (col_count > 2) {
+          grid->set_cell(i, 2, L"备注 " + std::to_wstring(i));
+        }
+        for (int c = 3; c < col_count; ++c) {
+          grid->set_cell(i, c, L"#" + std::to_wstring(i));
+        }
+      }
+    }
+    ApplyWidthHeight(grid.get(), props);
+    ApplyWeightHVAlign(grid.get(), props);
+    return grid;
   });
 
   // Thin YAML: count of Text rows for smoke demos. Real apps use fluent callbacks.

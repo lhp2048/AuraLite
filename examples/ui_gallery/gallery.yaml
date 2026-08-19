@@ -126,6 +126,10 @@ Absolute:
                                 - DatePicker: { year: 2026, month: 8, day: 18 }
                                 - Label: { text: "DatePicker（日期时间，含秒）", font_size: 13, preferred_height: 18 }
                                 - DatePicker: { year: 2026, month: 8, day: 18, time: true, seconds: true, hour: 19, minute: 30, second: 0 }
+                                - Label: { text: "ColorPicker（简易色板）", font_size: 13, preferred_height: 18 }
+                                - ColorPicker: { color: "#286EC8", mode: simple }
+                                - Label: { text: "ColorPicker（完整 + 透明度）", font_size: 13, preferred_height: 18 }
+                                - ColorPicker: { color: "#4C8BF5CC", mode: full, alpha: true }
                                 - Label: { text: "TextArea（软换行）", font_size: 13, preferred_height: 18 }
                                 - TextArea:
                                     placeholder: "多行输入（软换行 / Enter 硬换行）"
@@ -267,6 +271,17 @@ Absolute:
                               padding: 16
                               spacing: 10
                               children:
+                                - Label: { text: "DataGrid（可编辑表格）", font_size: 13, preferred_height: 18 }
+                                - DataGrid:
+                                    rows: 20
+                                    height: 180
+                                    show_header: true
+                                    frozen_count: 1
+                                    columns:
+                                      - { title: "名称", width: 120, sort_kind: natural }
+                                      - { title: "数值", width: 100, align: right, sort_kind: number }
+                                      - { title: "备注", width: 160 }
+                                      - { title: "编号", width: 80, align: right, editable: false, sort_kind: text }
                                 - Label: { text: "VirtualList（多列表头）", font_size: 13, preferred_height: 18 }
                                 - VirtualList:
                                     count: 50000

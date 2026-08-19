@@ -907,6 +907,13 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::StatusBar* status,
           window->Invalidate();
         });
   }
+  if (auto* cp = dynamic_cast<auralite::ui::ColorPicker*>(node)) {
+    cp->BindWindow(window);
+    cp->on_changed([status, window, cp](const auralite::ColorF&) {
+      SetStatus(status, L"ColorPicker: " + cp->hex(cp->alpha()));
+      window->Invalidate();
+    });
+  }
   if (auto* mb = dynamic_cast<auralite::ui::MenuBar*>(node)) {
     mb->BindWindow(window);
     mb->on_command([status, window](const std::wstring& menu,
@@ -927,7 +934,32 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::StatusBar* status,
       window->Invalidate();
     });
   }
+  if (auto* dg = dynamic_cast<auralite::ui::DataGrid*>(node)) {
+    dg->BindWindow(window);
+    dg->on_cell_changed([status, window](int row, int col, const std::wstring& v) {
+      SetStatus(status, L"DataGrid [" + std::to_wstring(row) + L"," +
+                           std::to_wstring(col) + L"]: " + v);
+      window->Invalidate();
+    });
+    dg->on_selection_changed([status, window](int index) {
+      SetStatus(status, L"DataGrid 选中行: " + std::to_wstring(index));
+      window->Invalidate();
+    });
+    dg->on_sort_changed([status, window](int col, auralite::ui::ListSortDir dir) {
+      std::wstring d = L"无";
+      if (dir == auralite::ui::ListSortDir::Asc) {
+        d = L"升序";
+      } else if (dir == auralite::ui::ListSortDir::Desc) {
+        d = L"降序";
+      }
+      SetStatus(status, L"DataGrid 排序 col=" + std::to_wstring(col) + L" " + d);
+      window->Invalidate();
+    });
+  }
   if (auto* vlist = dynamic_cast<auralite::ui::VirtualList*>(node)) {
+    if (dynamic_cast<auralite::ui::DataGrid*>(node)) {
+      // DataGrid handled above.
+    } else {
     vlist->on_selection_changed([status, window](int index) {
       SetStatus(status,L"VirtualList: " + std::to_wstring(index));
       window->Invalidate();
@@ -947,6 +979,7 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::StatusBar* status,
                    (checked ? L": on" : L": off"));
       window->Invalidate();
     });
+    }
   }
   if (auto* tree = dynamic_cast<auralite::ui::TreeView*>(node)) {
     tree->checkable(true);
@@ -1061,6 +1094,44 @@ void WireInteractive(auralite::ui::Node* node, auralite::ui::StatusBar* status,
   for (const auto& child : node->children()) {
     WireInteractive(child.get(), status, window, modeless, state);
   }
+}
+
+std::unique_ptr<auralite::ui::Node> MakeDemoDataGrid() {
+  using namespace auralite::ui::dsl;
+  auralite::ui::ListColumn name_col;
+  name_col.title = L"名称";
+  name_col.width = 120.f;
+  name_col.sort_kind = auralite::ui::ColumnSortKind::Natural;
+  auralite::ui::ListColumn id_col;
+  id_col.title = L"编号";
+  id_col.width = 80.f;
+  id_col.align = auralite::ui::TextAlign::Right;
+  id_col.editable = false;
+  id_col.sort_kind = auralite::ui::ColumnSortKind::Text;
+  auralite::ui::ListColumn value_col;
+  value_col.title = L"数值";
+  value_col.width = 100.f;
+  value_col.weight = 1.f;
+  value_col.align = auralite::ui::TextAlign::Right;
+  value_col.sort_kind = auralite::ui::ColumnSortKind::Number;
+  auto node = DataGrid()
+                  .fixed_height(180.f)
+                  .show_header(true)
+                  .frozen_count(1)
+                  .columns({std::move(name_col),
+                            std::move(value_col),
+                            {L"备注", 160.f},
+                            std::move(id_col)})
+                  .set_row_count(20)
+                  .Build();
+  auto* grid = static_cast<auralite::ui::DataGrid*>(node.get());
+  for (int i = 0; i < 20; ++i) {
+    grid->set_cell(i, 0, L"行 " + std::to_wstring(i + 1));
+    grid->set_cell(i, 1, std::to_wstring(i * 10));
+    grid->set_cell(i, 2, L"备注 " + std::to_wstring(i));
+    grid->set_cell(i, 3, L"#" + std::to_wstring(i));
+  }
+  return node;
 }
 
 std::unique_ptr<auralite::ui::Node> MakeDemoVirtualList() {
@@ -1368,6 +1439,21 @@ std::unique_ptr<auralite::ui::Node> MakeControlsPage() {
                  .minute(30)
                  .second(0))
       .child(Label()
+                 .text(L"ColorPicker（简易色板）")
+                 .font_size(13.f)
+                 .preferred_height(18.f))
+      .child(ColorPicker()
+                 .color(auralite::ColorF::FromRgb(40, 110, 200))
+                 .mode(auralite::ui::ColorPickerMode::Simple))
+      .child(Label()
+                 .text(L"ColorPicker（完整 + 透明度）")
+                 .font_size(13.f)
+                 .preferred_height(18.f))
+      .child(ColorPicker()
+                 .color(auralite::ColorF::FromRgb(76, 139, 245, 204))
+                 .mode(auralite::ui::ColorPickerMode::Full)
+                 .alpha(true))
+      .child(Label()
                  .text(L"TextArea（软换行）")
                  .font_size(13.f)
                  .preferred_height(18.f))
@@ -1597,6 +1683,11 @@ std::unique_ptr<auralite::ui::Node> MakeListsPage() {
   return Column()
       .padding(16.f)
       .spacing(10.f)
+      .child(Label()
+                 .text(L"DataGrid（可编辑表格）")
+                 .font_size(13.f)
+                 .preferred_height(18.f))
+      .child(MakeDemoDataGrid())
       .child(Label()
                  .text(L"VirtualList（多列表头）")
                  .font_size(13.f)

@@ -2,6 +2,7 @@
 
 #include "auralite/async/task_lambda.h"
 #include "auralite/ui/button.h"
+#include "auralite/ui/item_list.h"
 #include "auralite/ui/native_host.h"
 #include "auralite/ui/popup_host.h"
 #include "auralite/ui/theme.h"
@@ -10,6 +11,7 @@
 #include "auralite/ui/toast_overlay.h"
 #include "auralite/ui/tooltip_overlay.h"
 #include "auralite/ui/uia/provider.h"
+#include "auralite/ui/virtual_list.h"
 #include "message_framework/message_loop.h"
 
 #include <dwmapi.h>
@@ -182,6 +184,26 @@ std::wstring ImmGetString(HIMC himc, DWORD index) {
     out.pop_back();
   }
   return out;
+}
+
+bool IsDescendantOf(const Node* node, const Node* ancestor) {
+  while (node) {
+    if (node == ancestor) {
+      return true;
+    }
+    node = node->parent();
+  }
+  return false;
+}
+
+bool ListHeaderResizeCursorAt(const Node* hit, float x, float y) {
+  if (const auto* list = dynamic_cast<const VirtualList*>(hit)) {
+    return list->HeaderResizeCursorAt(x, y);
+  }
+  if (const auto* items = dynamic_cast<const ItemList*>(hit)) {
+    return items->HeaderResizeCursorAt(x, y);
+  }
+  return false;
 }
 
 }  // namespace
@@ -894,26 +916,41 @@ std::unique_ptr<Node> Window::ReleaseRoot() {
 }
 
 void Window::SetPopup(std::unique_ptr<Node> popup,
-                      std::function<void()> on_dismiss, Node* anchor) {
+                      std::function<void()> on_dismiss, Node* anchor,
+                      const RectF* fixed_bounds) {
+  if (popup_) {
+    ClearPopup();
+  }
   popup_ = std::move(popup);
   if (popup_) {
     popup_->set_host_window(this);
   }
   popup_dismiss_ = std::move(on_dismiss);
   popup_anchor_ = anchor;
+  popup_fixed_bounds_ =
+      fixed_bounds ? std::optional<RectF>(*fixed_bounds) : std::nullopt;
   Invalidate();
 }
 
 void Window::ClearPopup() {
   clear_popup_pending_ = false;
+  deferred_focus_ = nullptr;
   if (popup_) {
-    if (focused_ == popup_.get()) {
-      SetFocusNode(nullptr);
+    if (focused_ &&
+        (focused_ == popup_.get() || IsDescendantOf(focused_, popup_.get()))) {
+      Node* restore = popup_anchor_;
+      if (!restore || !restore->focusable()) {
+        restore = nullptr;
+      }
+      SetFocusNode(restore);
     }
-    if (hovered_ == popup_.get()) {
+    if (hovered_ &&
+        (hovered_ == popup_.get() || IsDescendantOf(hovered_, popup_.get()))) {
       hovered_ = nullptr;
     }
-    if (mouse_capture_ == popup_.get()) {
+    if (mouse_capture_ &&
+        (mouse_capture_ == popup_.get() ||
+         IsDescendantOf(mouse_capture_, popup_.get()))) {
       mouse_capture_ = nullptr;
       if (hwnd_ && GetCapture() == hwnd_) {
         ReleaseCapture();
@@ -922,6 +959,7 @@ void Window::ClearPopup() {
   }
   popup_.reset();
   popup_anchor_ = nullptr;
+  popup_fixed_bounds_.reset();
   if (popup_dismiss_) {
     auto dismiss = std::move(popup_dismiss_);
     popup_dismiss_ = nullptr;
@@ -936,8 +974,19 @@ void Window::RequestClearPopup() {
   }
 }
 
+void Window::DeferFocusNode(Node* node) {
+  deferred_focus_ = node;
+}
+
 void Window::SyncPopupLayout() {
-  if (!popup_ || !popup_anchor_) {
+  if (!popup_) {
+    return;
+  }
+  if (popup_fixed_bounds_) {
+    popup_->Layout(*popup_fixed_bounds_);
+    return;
+  }
+  if (!popup_anchor_) {
     return;
   }
   const RectF a = popup_anchor_->bounds();
@@ -1166,6 +1215,16 @@ void Window::BeginCaptionDrag() {
   }
   SendMessageW(hwnd_, WM_SYSCOMMAND, static_cast<WPARAM>(SC_MOVE | HTCAPTION),
                0);
+}
+
+int Window::HitTestResizeBorder(float client_x, float client_y) const {
+  if (!EdgeResizeEnabled()) {
+    return HTNOWHERE;
+  }
+  const RectF rc = ClientRectF();
+  const float edge = std::max(kResizeEdgeDip, options_.border_width);
+  return HitTestResizeEdge(client_x, client_y, rc.w, rc.h, edge,
+                           kResizeCornerDip);
 }
 
 int Window::HitTestResizeEdge(float x, float y, float w, float h,
@@ -1640,8 +1699,25 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       }
       break;
 
+    case WM_NCHITTEST: {
+      const LRESULT hit = DefWindowProcW(hwnd_, msg, wparam, lparam);
+      if (EdgeResizeEnabled()) {
+        POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+        ScreenToClient(hwnd_, &pt);
+        const float x =
+            auralite::DipFromPx(static_cast<float>(pt.x), dpi_);
+        const float y =
+            auralite::DipFromPx(static_cast<float>(pt.y), dpi_);
+        const int ht = HitTestResizeBorder(x, y);
+        if (ht != HTNOWHERE) {
+          return ht;
+        }
+      }
+      return hit;
+    }
+
     case WM_SETCURSOR:
-      if (EdgeResizeEnabled() && LOWORD(lparam) == HTCLIENT) {
+      if (LOWORD(lparam) == HTCLIENT) {
         POINT pt = {};
         GetCursorPos(&pt);
         ScreenToClient(hwnd_, &pt);
@@ -1656,12 +1732,18 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
         if (!hit && root_) {
           hit = root_->HitTest(x, y);
         }
-        const RectF rc = ClientRectF();
-        const float edge = std::max(kResizeEdgeDip, options_.border_width);
-        const int ht =
-            HitTestResizeEdge(x, y, rc.w, rc.h, edge, kResizeCornerDip);
-        if (ht != HTNOWHERE && !HitBlocksResize(hit)) {
-          SetCursor(LoadCursorW(nullptr, CursorForResizeHit(ht)));
+        if (EdgeResizeEnabled()) {
+          const RectF rc = ClientRectF();
+          const float edge = std::max(kResizeEdgeDip, options_.border_width);
+          const int ht =
+              HitTestResizeEdge(x, y, rc.w, rc.h, edge, kResizeCornerDip);
+          if (ht != HTNOWHERE && !HitBlocksResize(hit)) {
+            SetCursor(LoadCursorW(nullptr, CursorForResizeHit(ht)));
+            return TRUE;
+          }
+        }
+        if (hit && ListHeaderResizeCursorAt(hit, x, y)) {
+          SetCursor(LoadCursorW(nullptr, IDC_SIZEWE));
           return TRUE;
         }
       }
@@ -2167,6 +2249,12 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
 
   if (clear_popup_pending_) {
     ClearPopup();
+  }
+
+  if (deferred_focus_) {
+    Node* node = deferred_focus_;
+    deferred_focus_ = nullptr;
+    SetFocusNode(node);
   }
 
   // PopupHost menu dismiss after click/Esc — must run before Invalidate so we
