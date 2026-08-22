@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <cwctype>
 
 namespace mx::ui {
 namespace {
@@ -51,6 +52,77 @@ float MeasureWidth(const std::wstring& text, float font_size) {
     return font_size * 0.55f * static_cast<float>(text.size());
   }
   return metrics.widthIncludingTrailingWhitespace;
+}
+
+bool IsWordChar(wchar_t c) {
+  if (c == L'_') {
+    return true;
+  }
+  if (iswalnum(static_cast<wint_t>(c))) {
+    return true;
+  }
+  // CJK / kana / hangul — treat as word characters for double-click.
+  if (c >= 0x3400 && c <= 0x9FFF) {
+    return true;
+  }
+  if (c >= 0xF900 && c <= 0xFAFF) {
+    return true;
+  }
+  if (c >= 0x3040 && c <= 0x30FF) {
+    return true;
+  }
+  if (c >= 0xAC00 && c <= 0xD7AF) {
+    return true;
+  }
+  return false;
+}
+
+void ExpandWordRange(const std::wstring& text, size_t pos, size_t* out_a,
+                     size_t* out_b) {
+  if (!out_a || !out_b) {
+    return;
+  }
+  *out_a = 0;
+  *out_b = 0;
+  if (text.empty()) {
+    return;
+  }
+  if (pos > text.size()) {
+    pos = text.size();
+  }
+  if (pos == text.size()) {
+    --pos;
+  }
+  if (iswspace(static_cast<wint_t>(text[pos]))) {
+    *out_a = pos;
+    *out_b = pos;
+    return;
+  }
+  if (!IsWordChar(text[pos])) {
+    size_t a = pos;
+    size_t b = pos + 1;
+    while (a > 0 && !IsWordChar(text[a - 1]) &&
+           !iswspace(static_cast<wint_t>(text[a - 1]))) {
+      --a;
+    }
+    while (b < text.size() && !IsWordChar(text[b]) &&
+           !iswspace(static_cast<wint_t>(text[b]))) {
+      ++b;
+    }
+    *out_a = a;
+    *out_b = b;
+    return;
+  }
+  size_t a = pos;
+  while (a > 0 && IsWordChar(text[a - 1])) {
+    --a;
+  }
+  size_t b = pos + 1;
+  while (b < text.size() && IsWordChar(text[b])) {
+    ++b;
+  }
+  *out_a = a;
+  *out_b = b;
 }
 
 }  // namespace
@@ -146,6 +218,20 @@ void TextField::set_text(const std::wstring& t) {
 void TextField::SelectAll() {
   sel_start_ = 0;
   caret_ = text_.size();
+  ResetCaretBlink();
+}
+
+void TextField::SelectWordAt(size_t pos) {
+  size_t a = 0;
+  size_t b = 0;
+  ExpandWordRange(text_, pos, &a, &b);
+  if (a == b) {
+    SetCursor(a, false);
+    return;
+  }
+  sel_start_ = a;
+  caret_ = b;
+  ResetCaretBlink();
 }
 
 void TextField::ClearSelection() {
@@ -433,8 +519,23 @@ void TextField::OnMouseDown(const MouseEvent& e) {
     return;
   }
   composition_.clear();
+
+  // Triple-click: second click arrives as DBLCLK; third is DOWN within the
+  // system double-click interval after that.
+  const DWORD now = GetTickCount();
+  if (pending_triple_click_ &&
+      (now - last_double_click_ms_) <= GetDoubleClickTime()) {
+    pending_triple_click_ = false;
+    SelectAll();
+    selecting_ = false;
+    Invalidate();
+    return;
+  }
+  pending_triple_click_ = false;
+
   selecting_ = true;
   SetCursor(HitTestCursor(e.x), false);
+  Invalidate();
 }
 
 void TextField::OnMouseMove(const MouseEvent& e) {
@@ -442,10 +543,27 @@ void TextField::OnMouseMove(const MouseEvent& e) {
     return;
   }
   SetCursor(HitTestCursor(e.x), true);
+  Invalidate();
 }
 
 void TextField::OnMouseUp(const MouseEvent&) {
   selecting_ = false;
+}
+
+void TextField::OnMouseDoubleClick(const MouseEvent& e) {
+  if (e.button != MouseButton::Left) {
+    return;
+  }
+  composition_.clear();
+  selecting_ = false;
+  if (password_) {
+    SelectAll();
+  } else {
+    SelectWordAt(HitTestCursor(e.x));
+  }
+  pending_triple_click_ = true;
+  last_double_click_ms_ = GetTickCount();
+  Invalidate();
 }
 
 void TextField::OnKey(const KeyEvent& e) {

@@ -49,6 +49,8 @@ class SpinBox : public Node {
   void OnMouseMove(const MouseEvent& e) override;
   void OnMouseLeave(const MouseEvent& e) override;
   void OnKey(const KeyEvent& e) override;
+  void OnFocus() override;
+  void OnBlur() override;
   bool WantsMouseWheel() const override { return true; }
   void OnMouseWheel(const MouseEvent& e) override;
 
@@ -59,6 +61,8 @@ class SpinBox : public Node {
   void Nudge(int dir, bool large);
   void SetClamped(double v, bool notify);
   std::wstring FormatValue() const;
+  void CommitEditBuffer(bool notify);
+  void ClearEditBuffer();
 
   double value_ = 0.0;
   double min_ = 0.0;
@@ -67,6 +71,8 @@ class SpinBox : public Node {
   int decimals_ = 0;
   bool wrap_ = false;
   int hover_dir_ = 0;
+  std::wstring edit_buffer_;
+  bool editing_ = false;
   std::optional<float> font_size_;
   ChangeHandler on_changed_;
 };

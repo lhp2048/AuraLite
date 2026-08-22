@@ -39,6 +39,7 @@ class TextField : public Node {
   void OnMouseDown(const MouseEvent& e) override;
   void OnMouseMove(const MouseEvent& e) override;
   void OnMouseUp(const MouseEvent& e) override;
+  void OnMouseDoubleClick(const MouseEvent& e) override;
   void OnKey(const KeyEvent& e) override;
   void OnChar(wchar_t ch) override;
   void OnFocus() override;
@@ -74,6 +75,7 @@ class TextField : public Node {
   bool PasteFromClipboard();
   bool CutToClipboard();
   void HandleShortcut(UINT vk);
+  void SelectWordAt(size_t pos);
   void ResetCaretBlink();
   void SyncCaretAnim(bool on);
   bool CaretVisible() const;
@@ -86,6 +88,8 @@ class TextField : public Node {
   size_t sel_start_ = 0;  // anchor
   size_t caret_ = 0;      // active end
   bool selecting_ = false;
+  bool pending_triple_click_ = false;
+  DWORD last_double_click_ms_ = 0;
   bool caret_anim_registered_ = false;
   DWORD caret_blink_start_ = 0;
   ChangeHandler on_change_;

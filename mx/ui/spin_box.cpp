@@ -79,8 +79,13 @@ SpinBox& SpinBox::on_changed(ChangeHandler handler) {
 }
 
 void SpinBox::SetClamped(double v, bool notify) {
+  if (editing_) {
+    editing_ = false;
+    edit_buffer_.clear();
+  }
   const double next = ClampOrWrap(v, min_, max_, wrap_);
   if (next == value_) {
+    Invalidate();
     return;
   }
   value_ = next;
@@ -93,12 +98,16 @@ void SpinBox::SetClamped(double v, bool notify) {
 }
 
 void SpinBox::Nudge(int dir, bool large) {
+  ClearEditBuffer();
   const double s = step_ > 0.0 ? step_ : 1.0;
   const double delta = (large ? s * 10.0 : s) * static_cast<double>(dir);
   SetClamped(value_ + delta, true);
 }
 
 std::wstring SpinBox::FormatValue() const {
+  if (editing_) {
+    return edit_buffer_.empty() ? L" " : edit_buffer_;
+  }
   wchar_t buf[64] = {};
   if (decimals_ <= 0) {
     swprintf_s(buf, L"%.0f", value_);
@@ -106,6 +115,29 @@ std::wstring SpinBox::FormatValue() const {
     swprintf_s(buf, L"%.*f", decimals_, value_);
   }
   return buf;
+}
+
+void SpinBox::ClearEditBuffer() {
+  if (!editing_ && edit_buffer_.empty()) {
+    return;
+  }
+  editing_ = false;
+  edit_buffer_.clear();
+  Invalidate();
+}
+
+void SpinBox::CommitEditBuffer(bool notify) {
+  if (!editing_) {
+    return;
+  }
+  double v = 0.0;
+  if (!edit_buffer_.empty() && swscanf_s(edit_buffer_.c_str(), L"%lf", &v) == 1) {
+    editing_ = false;
+    edit_buffer_.clear();
+    SetClamped(v, notify);
+    return;
+  }
+  ClearEditBuffer();
 }
 
 RectF SpinBox::ChevronRect() const {
@@ -221,6 +253,11 @@ void SpinBox::OnMouseDown(const MouseEvent& e) {
   const int dir = HitChevron(e.x, e.y);
   if (dir != 0) {
     Nudge(dir, false);
+  } else {
+    // Click value area: start replace-style edit.
+    editing_ = true;
+    edit_buffer_.clear();
+    Invalidate();
   }
 }
 
@@ -239,6 +276,12 @@ void SpinBox::OnMouseLeave(const MouseEvent&) {
   }
 }
 
+void SpinBox::OnFocus() {}
+
+void SpinBox::OnBlur() {
+  CommitEditBuffer(true);
+}
+
 void SpinBox::OnKey(const KeyEvent& e) {
   if (!e.down) {
     return;
@@ -252,9 +295,53 @@ void SpinBox::OnKey(const KeyEvent& e) {
   } else if (e.vk == VK_NEXT) {
     Nudge(-1, true);
   } else if (e.vk == VK_HOME) {
+    ClearEditBuffer();
     SetClamped(min_, true);
   } else if (e.vk == VK_END) {
+    ClearEditBuffer();
     SetClamped(max_, true);
+  } else if (e.vk == VK_RETURN) {
+    CommitEditBuffer(true);
+  } else if (e.vk == VK_ESCAPE) {
+    ClearEditBuffer();
+  } else if (e.vk == VK_BACK) {
+    if (!editing_) {
+      const std::wstring cur = FormatValue();
+      editing_ = true;
+      edit_buffer_ = cur;
+    }
+    if (!edit_buffer_.empty()) {
+      edit_buffer_.pop_back();
+      Invalidate();
+    }
+  } else if ((e.vk >= '0' && e.vk <= '9') ||
+             (e.vk >= VK_NUMPAD0 && e.vk <= VK_NUMPAD9) ||
+             e.vk == VK_OEM_PERIOD || e.vk == VK_DECIMAL) {
+    wchar_t ch = 0;
+    if (e.vk >= '0' && e.vk <= '9') {
+      ch = static_cast<wchar_t>(e.vk);
+    } else if (e.vk >= VK_NUMPAD0 && e.vk <= VK_NUMPAD9) {
+      ch = static_cast<wchar_t>(L'0' + (e.vk - VK_NUMPAD0));
+    } else if (decimals_ > 0) {
+      ch = L'.';
+    }
+    if (ch == 0) {
+      return;
+    }
+    if (!editing_) {
+      editing_ = true;
+      edit_buffer_.clear();
+    }
+    if (ch == L'.') {
+      if (edit_buffer_.find(L'.') != std::wstring::npos) {
+        return;
+      }
+    }
+    if (edit_buffer_.size() >= 12) {
+      return;
+    }
+    edit_buffer_.push_back(ch);
+    Invalidate();
   }
 }
 

@@ -38,6 +38,7 @@ class TextArea : public Node {
   void OnMouseDown(const MouseEvent& e) override;
   void OnMouseMove(const MouseEvent& e) override;
   void OnMouseUp(const MouseEvent& e) override;
+  void OnMouseDoubleClick(const MouseEvent& e) override;
   void OnMouseWheel(const MouseEvent& e) override;
   void OnKey(const KeyEvent& e) override;
   void OnChar(wchar_t ch) override;
@@ -70,6 +71,9 @@ class TextArea : public Node {
   bool CopyToClipboard() const;
   bool PasteFromClipboard();
   void HandleShortcut(UINT vk);
+  void SelectAll();
+  void SelectWordAt(size_t pos);
+  void SelectLineAt(size_t pos);
   void AppendWrappedParagraph(size_t para_start, const std::wstring& para,
                               float max_w);
 
@@ -85,6 +89,8 @@ class TextArea : public Node {
   size_t sel_start_ = 0;
   size_t caret_ = 0;
   bool selecting_ = false;
+  bool pending_triple_click_ = false;
+  DWORD last_double_click_ms_ = 0;
   ChangeHandler on_change_;
 };
 

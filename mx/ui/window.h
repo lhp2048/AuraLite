@@ -143,6 +143,9 @@ class Window {
   void RequestClearPopup();
   // Focus after the current mouse message finishes (popup child editors).
   void DeferFocusNode(Node* node);
+  // Run after the current mouse/key dispatch returns (safe to rebuild UI that
+  // would destroy the Node still handling on_click / AccInvoke).
+  void Defer(std::function<void()> fn);
   Node* popup() const { return popup_.get(); }
 
   // PopupHost: invoked on WM_ACTIVATE(WA_INACTIVE) with the HWND gaining
@@ -157,6 +160,8 @@ class Window {
   void InvalidateNode(const Node* node);
   // Mark layout dirty and repaint (e.g. after visible toggles).
   void RequestLayout();
+  // Drop focus/hover/capture if they point into |subtree| (before destroying it).
+  void ReleaseNodePointers(const Node* subtree);
   // Shared alive flag for async/coroutines; cleared in destructor.
   std::shared_ptr<std::atomic_bool> alive_flag() const { return alive_; }
   HWND hwnd() const { return hwnd_; }
@@ -265,6 +270,12 @@ class Window {
   void DispatchChar(WPARAM wparam);
   void HandleImeComposition(LPARAM lparam);
   void DispatchImeChar(WPARAM wparam);
+  void FlushDeferred();
+  struct InputDispatchGuard {
+    Window* w = nullptr;
+    explicit InputDispatchGuard(Window* win);
+    ~InputDispatchGuard();
+  };
   void UpdateImeAssociation();
   void UpdateImeCandidatePos();
   void SyncPopupLayout();
@@ -323,6 +334,8 @@ class Window {
   Node* popup_anchor_ = nullptr;
   std::optional<RectF> popup_fixed_bounds_;
   Node* deferred_focus_ = nullptr;
+  std::vector<std::function<void()>> deferred_fns_;
+  int input_dispatch_depth_ = 0;
   bool clear_popup_pending_ = false;
   std::string theme_name_;
   bool layout_dirty_ = true;

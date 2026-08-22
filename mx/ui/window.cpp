@@ -635,16 +635,23 @@ void Window::PlaceWindow(HWND owner, int width_dip, int height_dip) {
   int x = 0;
   int y = 0;
   HMONITOR mon = nullptr;
-  const bool center_owner =
-      options_.center_on_owner && owner && IsWindow(owner);
-
+  bool center_owner = options_.center_on_owner && owner && IsWindow(owner);
   if (center_owner) {
     RECT orc = {};
     GetWindowRect(owner, &orc);
-    x = orc.left + (orc.right - orc.left - pw) / 2;
-    y = orc.top + (orc.bottom - orc.top - ph) / 2;
-    mon = MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
-  } else {
+    const int ow = orc.right - orc.left;
+    const int oh = orc.bottom - orc.top;
+    // Degenerate/hidden owners (e.g. 0x0 message anchors) would pin the
+    // dialog to a corner after work-area clamp — fall back to work center.
+    if (ow < 32 || oh < 32) {
+      center_owner = false;
+    } else {
+      x = orc.left + (ow - pw) / 2;
+      y = orc.top + (oh - ph) / 2;
+      mon = MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
+    }
+  }
+  if (!center_owner) {
     POINT pt = {};
     GetCursorPos(&pt);
     mon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
@@ -978,6 +985,41 @@ void Window::DeferFocusNode(Node* node) {
   deferred_focus_ = node;
 }
 
+void Window::Defer(std::function<void()> fn) {
+  if (!fn) {
+    return;
+  }
+  if (input_dispatch_depth_ > 0) {
+    deferred_fns_.push_back(std::move(fn));
+    return;
+  }
+  fn();
+}
+
+void Window::FlushDeferred() {
+  while (!deferred_fns_.empty()) {
+    std::function<void()> fn = std::move(deferred_fns_.front());
+    deferred_fns_.erase(deferred_fns_.begin());
+    if (fn) {
+      fn();
+    }
+  }
+}
+
+Window::InputDispatchGuard::InputDispatchGuard(Window* win) : w(win) {
+  if (w) {
+    ++w->input_dispatch_depth_;
+  }
+}
+
+Window::InputDispatchGuard::~InputDispatchGuard() {
+  if (!w) {
+    return;
+  }
+  --w->input_dispatch_depth_;
+  w->FlushDeferred();
+}
+
 void Window::SyncPopupLayout() {
   if (!popup_) {
     return;
@@ -1048,6 +1090,26 @@ void Window::InvalidateNode(const Node* node) {
 void Window::RequestLayout() {
   layout_dirty_ = true;
   Invalidate();
+}
+
+void Window::ReleaseNodePointers(const Node* subtree) {
+  if (!subtree) {
+    return;
+  }
+  if (focused_ && (focused_ == subtree || IsDescendantOf(focused_, subtree))) {
+    SetFocusNode(nullptr);
+  }
+  if (hovered_ && (hovered_ == subtree || IsDescendantOf(hovered_, subtree))) {
+    DismissTooltip();
+    hovered_ = nullptr;
+  }
+  if (mouse_capture_ &&
+      (mouse_capture_ == subtree || IsDescendantOf(mouse_capture_, subtree))) {
+    if (hwnd_ && GetCapture() == hwnd_) {
+      ReleaseCapture();
+    }
+    mouse_capture_ = nullptr;
+  }
 }
 
 void Window::CollectFocusable(Node* node, std::vector<Node*>* out) {
@@ -1150,6 +1212,7 @@ bool Window::ProcessAccelerator(const KeyEvent& e) {
 }
 
 bool Window::HandleKey(const KeyEvent& e) {
+  InputDispatchGuard guard(this);
   if (!e.down) {
     if (focused_) {
       focused_->OnKey(e);
@@ -1663,6 +1726,15 @@ LRESULT Window::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
       }
       break;
 
+    case WM_NCACTIVATE:
+      // FramelessAppWindow keeps WS_CAPTION for snap/min/max but hides the
+      // system title via DWMWA_COLOR_NONE. DefWindowProc on deactivate still
+      // paints a default caption strip — flash when PopupHost takes focus.
+      if (uses_custom_chrome()) {
+        return TRUE;
+      }
+      break;
+
     case WM_DPICHANGED: {
       const UINT new_dpi = LOWORD(wparam);
       const RECT* rec = reinterpret_cast<const RECT*>(lparam);
@@ -2090,6 +2162,7 @@ void Window::DispatchMouse(UINT msg, WPARAM wparam, LPARAM lparam) {
   if (!root_ && !popup_) {
     return;
   }
+  InputDispatchGuard guard(this);
 
   if (msg == WM_LBUTTONDOWN || msg == WM_LBUTTONDBLCLK ||
       msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_MOUSEWHEEL) {

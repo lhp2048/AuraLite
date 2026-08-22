@@ -2,11 +2,87 @@
 
 #include "mx/ui/theme.h"
 
+#include <windows.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <cwctype>
 
 namespace mx::ui {
+namespace {
+
+bool IsWordChar(wchar_t c) {
+  if (c == L'_') {
+    return true;
+  }
+  if (iswalnum(static_cast<wint_t>(c))) {
+    return true;
+  }
+  if (c >= 0x3400 && c <= 0x9FFF) {
+    return true;
+  }
+  if (c >= 0xF900 && c <= 0xFAFF) {
+    return true;
+  }
+  if (c >= 0x3040 && c <= 0x30FF) {
+    return true;
+  }
+  if (c >= 0xAC00 && c <= 0xD7AF) {
+    return true;
+  }
+  return false;
+}
+
+void ExpandWordRange(const std::wstring& text, size_t pos, size_t* out_a,
+                     size_t* out_b) {
+  if (!out_a || !out_b) {
+    return;
+  }
+  *out_a = 0;
+  *out_b = 0;
+  if (text.empty()) {
+    return;
+  }
+  if (pos > text.size()) {
+    pos = text.size();
+  }
+  if (pos == text.size()) {
+    --pos;
+  }
+  if (iswspace(static_cast<wint_t>(text[pos]))) {
+    *out_a = pos;
+    *out_b = pos;
+    return;
+  }
+  if (!IsWordChar(text[pos])) {
+    size_t a = pos;
+    size_t b = pos + 1;
+    while (a > 0 && !IsWordChar(text[a - 1]) &&
+           !iswspace(static_cast<wint_t>(text[a - 1]))) {
+      --a;
+    }
+    while (b < text.size() && !IsWordChar(text[b]) &&
+           !iswspace(static_cast<wint_t>(text[b]))) {
+      ++b;
+    }
+    *out_a = a;
+    *out_b = b;
+    return;
+  }
+  size_t a = pos;
+  while (a > 0 && IsWordChar(text[a - 1])) {
+    --a;
+  }
+  size_t b = pos + 1;
+  while (b < text.size() && IsWordChar(text[b])) {
+    ++b;
+  }
+  *out_a = a;
+  *out_b = b;
+}
+
+}  // namespace
 
 TextArea::TextArea() {
   set_focusable(true);
@@ -323,8 +399,7 @@ bool TextArea::PasteFromClipboard() {
 void TextArea::HandleShortcut(UINT vk) {
   switch (vk) {
     case 'A':
-      sel_start_ = 0;
-      caret_ = text_.size();
+      SelectAll();
       break;
     case 'C':
       CopyToClipboard();
@@ -340,6 +415,45 @@ void TextArea::HandleShortcut(UINT vk) {
     default:
       break;
   }
+}
+
+void TextArea::SelectAll() {
+  sel_start_ = 0;
+  caret_ = text_.size();
+}
+
+void TextArea::SelectWordAt(size_t pos) {
+  size_t a = 0;
+  size_t b = 0;
+  ExpandWordRange(text_, pos, &a, &b);
+  if (a == b) {
+    SetCaret(a, false);
+    return;
+  }
+  sel_start_ = a;
+  caret_ = b;
+}
+
+void TextArea::SelectLineAt(size_t pos) {
+  if (lines_.empty() || line_starts_.empty()) {
+    SelectAll();
+    return;
+  }
+  int line = 0;
+  int col = 0;
+  IndexToLineCol(pos, &line, &col);
+  const size_t a = line_starts_[static_cast<size_t>(line)];
+  size_t b = text_.size();
+  if (static_cast<size_t>(line) + 1 < line_starts_.size()) {
+    b = line_starts_[static_cast<size_t>(line) + 1];
+    // Prefer excluding the trailing newline from selection when present.
+    if (b > a && text_[b - 1] == L'\n') {
+      --b;
+    }
+  }
+  sel_start_ = a;
+  caret_ = b;
+  EnsureCaretVisible();
 }
 
 SizeF TextArea::Measure(float max_w, float max_h) {
@@ -432,8 +546,21 @@ void TextArea::OnMouseDown(const MouseEvent& e) {
     return;
   }
   composition_.clear();
+
+  const DWORD now = GetTickCount();
+  if (pending_triple_click_ &&
+      (now - last_double_click_ms_) <= GetDoubleClickTime()) {
+    pending_triple_click_ = false;
+    SelectLineAt(HitTestCaret(e.x, e.y));
+    selecting_ = false;
+    Invalidate();
+    return;
+  }
+  pending_triple_click_ = false;
+
   selecting_ = true;
   SetCaret(HitTestCaret(e.x, e.y), false);
+  Invalidate();
 }
 
 void TextArea::OnMouseMove(const MouseEvent& e) {
@@ -441,12 +568,25 @@ void TextArea::OnMouseMove(const MouseEvent& e) {
     return;
   }
   SetCaret(HitTestCaret(e.x, e.y), true);
+  Invalidate();
 }
 
 void TextArea::OnMouseUp(const MouseEvent& e) {
   if (e.button == MouseButton::Left) {
     selecting_ = false;
   }
+}
+
+void TextArea::OnMouseDoubleClick(const MouseEvent& e) {
+  if (e.button != MouseButton::Left) {
+    return;
+  }
+  composition_.clear();
+  selecting_ = false;
+  SelectWordAt(HitTestCaret(e.x, e.y));
+  pending_triple_click_ = true;
+  last_double_click_ms_ = GetTickCount();
+  Invalidate();
 }
 
 void TextArea::OnMouseWheel(const MouseEvent& e) {

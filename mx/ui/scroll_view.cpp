@@ -21,12 +21,20 @@ ScrollView& ScrollView::preferred_size(float w, float h) {
 }
 
 ScrollView& ScrollView::set_content(std::unique_ptr<Node> content) {
+  if (Window* w = host_window()) {
+    if (Node* old = this->content()) {
+      w->ReleaseNodePointers(old);
+    }
+  }
   children_.clear();
   scroll_tween_.Cancel();
   scroll_offset_ = 0.f;
   scroll_target_ = 0.f;
   if (content) {
     AddChild(std::move(content));
+  }
+  if (Window* w = host_window()) {
+    w->RequestLayout();
   }
   return *this;
 }

@@ -32,6 +32,8 @@ class Checkbox : public Node {
 
   void OnMouseDown(const MouseEvent& e) override;
   void OnMouseUp(const MouseEvent& e) override;
+  void OnMouseEnter(const MouseEvent& e) override;
+  void OnMouseLeave(const MouseEvent& e) override;
   void OnKey(const KeyEvent& e) override;
 
  private:
@@ -46,6 +48,7 @@ class Checkbox : public Node {
   bool checked_ = false;
   ChangedHandler on_changed_;
   bool pressed_ = false;
+  bool hovered_ = false;
 };
 
 }  // namespace mx::ui

@@ -59,7 +59,13 @@ void Checkbox::Paint(mx::Canvas& canvas) {
   }
   const ThemeTokens& th = Theme::Active();
   const RectF box = BoxRect();
-  canvas.DrawRect(box, th.border, 1.5f);
+
+  if (pressed_ || hovered_) {
+    canvas.FillRect(box, pressed_ ? th.accent_soft : th.surface_alt);
+  }
+  const ColorF& frame =
+      (hovered_ || pressed_) ? th.accent : th.border;
+  canvas.DrawRect(box, frame, hovered_ || pressed_ ? 2.f : 1.5f);
 
   if (checked_) {
     const float x0 = box.x + 3.f;
@@ -68,8 +74,9 @@ void Checkbox::Paint(mx::Canvas& canvas) {
     const float y1 = box.y + 12.f;
     const float x2 = box.x + 13.f;
     const float y2 = box.y + 4.f;
-    canvas.DrawLine(x0, y0, x1, y1, th.glyph, 2.f);
-    canvas.DrawLine(x1, y1, x2, y2, th.glyph, 2.f);
+    const ColorF& mark = (hovered_ || pressed_) ? th.accent : th.glyph;
+    canvas.DrawLine(x0, y0, x1, y1, mark, 2.f);
+    canvas.DrawLine(x1, y1, x2, y2, mark, 2.f);
   }
 
   if (!text_.empty()) {
@@ -110,6 +117,15 @@ void Checkbox::OnMouseUp(const MouseEvent& e) {
   if (was_pressed && ContainsPoint(bounds_, e.x, e.y)) {
     Toggle();
   }
+}
+
+void Checkbox::OnMouseEnter(const MouseEvent&) {
+  hovered_ = true;
+}
+
+void Checkbox::OnMouseLeave(const MouseEvent&) {
+  hovered_ = false;
+  pressed_ = false;
 }
 
 void Checkbox::OnKey(const KeyEvent& e) {
